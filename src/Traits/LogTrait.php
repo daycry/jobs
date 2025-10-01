@@ -32,9 +32,16 @@ trait LogTrait
         return $this;
     }
 
-    public function saveLog(?string $output = null, ?string $error = null): void
+    public function duration(): string
     {
-        $localName = $this->getName();
+        $interval = $this->end->diff($this->start);
+
+        return $interval->format('%H:%I:%S');
+    }
+
+    public function saveLog(?string $output = null, bool $success = true): void
+    {
+        /*$localName = $this->getName();
 
         if ($this->config->logPerformance) {
             if (! $this->end) {
@@ -73,10 +80,10 @@ trait LogTrait
             ];
 
             $this->handler->save($data);
-        }
+        }*/
     }
 
-    public function getLogs(): array
+    /*public function getLogs(): array
     {
         if ($this->config->logPerformance === false) {
             return [];
@@ -87,13 +94,6 @@ trait LogTrait
         return $this->handler->getLogs($localName);
     }
 
-    public function duration(): string
-    {
-        $interval = $this->end->diff($this->start);
-
-        return $interval->format('%H:%I:%S');
-    }
-
     private function setHandler(): void
     {
         if (! $this->config->logSavingMethod || ! array_key_exists($this->config->logSavingMethod, $this->config->logSavingMethodClassMap)) {
@@ -102,5 +102,5 @@ trait LogTrait
 
         $class         = $this->config->logSavingMethodClassMap[$this->config->logSavingMethod];
         $this->handler = new $class();
-    }
+    }*/
 }

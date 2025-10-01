@@ -81,6 +81,20 @@ class JobRunner
                         }
                     }
                 } finally {
+
+                    $job->clearRunningFlag();
+                    $job->endLog();
+                    $job->saveLog($result->getData(), $result->isSuccess());
+                    if($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
+                        $job->notify();
+                    } else {
+                        if(! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
+                            $job->notify();
+                        }
+                    }
+                    
+
+                    //$job->notify();
                     //$this->finalizeTask($job, $start, $output, $error);
                 }
 
