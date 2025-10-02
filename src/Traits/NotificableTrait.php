@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
+use Daycry\Jobs\Result;
+
 trait NotificableTrait
 {
     protected bool $notifyOnFailure = false;
@@ -41,22 +43,31 @@ trait NotificableTrait
         return $this;
     }
 
-    public function notify(): bool
+    public function notify(Result $result): bool
     {
         $email  = service('email');
         $parser = service('parser');
 
+        $content = $result->getData();
+        $normalizedOutput = null;
+        if (is_array($content) || is_object($content)) {
+            $normalizedOutput = json_encode($content);
+        } elseif ($content !== null) {
+            $normalizedOutput = $content;
+        }
+
         $email->setMailType('html');
-        $email->setFrom($this->config->from, $this->config->fromName);
-        $email->setTo($this->config->to);
-        $email->setSubject($parser->setData(['job' => $this->job->getName()])->renderString(lang('CronJob.emailSubject')));
+        $email->setFrom(config('Jobs')->from, config('Jobs')->fromName);
+        $email->setTo(config('Jobs')->to);
+        $email->setSubject($parser->setData(['job' => $this->getName()])->renderString('Job {job} just finished running.'));
         $email->setMessage($parser->setData([
-            'name'     => $this->job->getName(),
-            'runStart' => $this->job->getStartAt(),
-            'duration' => $this->job->duration(),
-            'output'   => $this->job->getOutput(),
-            'error'    => $error,
-        ])->render('Daycry\CronJob\Views\email_notification'));
-        $email->send();
+            'name'     => $this->getName(),
+            'runStart' => $this->getStartAt(),
+            'duration' => $this->duration(),
+            'output'   => ($result->isSuccess() ? $normalizedOutput : null),
+            'error'    => ($result->isSuccess() !== true) ? $normalizedOutput : null,
+        ])->render(config('Jobs')->emailNotificationView));
+
+        return $email->send();
     }
 }

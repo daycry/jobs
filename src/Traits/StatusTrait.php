@@ -14,6 +14,7 @@ use Daycry\Jobs\Job;
  */
 trait StatusTrait
 {
+    protected bool $enabled = true;
     public function saveRunningFlag(): bool
     {
         $cache = service('cache');
@@ -37,5 +38,17 @@ trait StatusTrait
         $cache = service('cache');
 
         return $cache->delete('job_running');
+    }
+
+    public function disable(): self
+    {
+        $this->enabled = false;
+
+        return $this;
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->enabled;
     }
 }

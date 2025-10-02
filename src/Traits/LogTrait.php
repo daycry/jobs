@@ -7,6 +7,8 @@ namespace Daycry\Logs\Traits;
 use CodeIgniter\I18n\Time;
 use Daycry\CronJob\Exceptions\CronJobException;
 use CodeIgniter\Log\Handlers\BaseHandler;
+use Daycry\Jobs\Exceptions\JobException;
+use Daycry\Jobs\Result;
 
 /**
  * Trait LogTrait
@@ -25,6 +27,16 @@ trait LogTrait
         return $this;
     }
 
+    public function getStartAt(): ?Time
+    {
+        return $this->start;
+    }
+
+    public function getEndAt(): ?Time
+    {
+        return $this->end;
+    }
+
     public function endLog(?string $end = null): self
     {
         $this->end = ($end) ? new Time($end) : Time::now();
@@ -39,68 +51,60 @@ trait LogTrait
         return $interval->format('%H:%I:%S');
     }
 
-    public function saveLog(?string $output = null, bool $success = true): void
+    public function saveLog(Result $result): void
     {
-        /*$localName = $this->getName();
-
-        if ($this->config->logPerformance) {
+        if (config('Jobs')->logPerformance) {
             if (! $this->end) {
                 $this->endLog(null);
             }
 
+            $content = $result->getData();
             $this->setHandler();
 
             // Truncate output & error if configured
-            if ($this->config->maxOutputLength !== null && $this->config->maxOutputLength >= 0) {
-                if ($output !== null) {
-                    $len = \strlen($output);
-                    if ($len > $this->config->maxOutputLength) {
-                        $output = \substr($output, 0, $this->config->maxOutputLength) . "\n[truncated {$len} -> {$this->config->maxOutputLength} chars]";
-                    }
-                }
-                if ($error !== null) {
-                    $lenErr = \strlen($error);
-                    if ($lenErr > $this->config->maxOutputLength) {
-                        $error = \substr($error, 0, $this->config->maxOutputLength) . "\n[truncated {$lenErr} -> {$this->config->maxOutputLength} chars]";
+            if (config('Jobs')->maxOutputLength !== null && config('Jobs')->maxOutputLength >= 0) {
+                if ($content !== null) {
+                    $len = \strlen($content);
+                    if ($len > config('Jobs')->maxOutputLength) {
+                        $content = \substr($content, 0, config('Jobs')->maxOutputLength) . "\n[truncated {$len} -> " . config('Jobs')->maxOutputLength . " chars]";
                     }
                 }
             }
 
+            $normalizedOutput = null;
+            if (is_array($content) || is_object($content)) {
+                $normalizedOutput = json_encode($content);
+            } elseif ($content !== null) {
+                $normalizedOutput = $content;
+            }
+
             $data = [
-                'name'        => $localName,
-                'type'        => $this->getType(),
-                'action'      => (\is_object($this->getAction())) ? \json_encode($this->getAction()) : $this->getAction(),
+                'name'        => $this->getName(),
+                'job'        => $this->getJob(),
+                'payload'      => (\is_object($this->getPayload())) ? \json_encode($this->getPayload()) : $this->getPayload(),
                 'environment' => $this->environments ? \json_encode($this->environments) : null,
                 'start_at'    => $this->start->format('Y-m-d H:i:s'),
                 'end_at'      => $this->end->format('Y-m-d H:i:s'),
                 'duration'    => $this->duration(),
-                'output'      => $output ? \json_encode($output) : null,
-                'error'       => $error ? \json_encode($error) : null,
+                'output'      => ($result->isSuccess() === true) ? $normalizedOutput : null,
+                'error'       => ($result->isSuccess() !== true) ? $normalizedOutput : null,
                 'test_time'   => ($this->testTime) ? $this->testTime->format('Y-m-d H:i:s') : null,
             ];
 
-            $this->handler->save($data);
-        }*/
-    }
-
-    /*public function getLogs(): array
-    {
-        if ($this->config->logPerformance === false) {
-            return [];
+            $this->handler->handle('info',json_encode($data));
         }
-        $this->setHandler();
-        $localName = $this->getName();
-
-        return $this->handler->getLogs($localName);
     }
 
     private function setHandler(): void
     {
-        if (! $this->config->logSavingMethod || ! array_key_exists($this->config->logSavingMethod, $this->config->logSavingMethodClassMap)) {
-            throw CronJobException::forInvalidLogType();
+        if (! config('Jobs')->log || ! array_key_exists(config('Jobs')->log, config('Jobs')->loggers)) {
+            throw JobException::forInvalidLogType();
         }
 
-        $class         = $this->config->logSavingMethodClassMap[$this->config->logSavingMethod];
+        $class         = config('Jobs')->loggers[config('Jobs')->log];
         $this->handler = new $class();
-    }*/
+        if(method_exists($this->handler, 'setPath')) {
+            $this->handler->setPath($this->getName());
+        }
+    }
 }

@@ -55,10 +55,11 @@ class JobRunner
             do {
                 $retry ++;
                 $attemptStart = microtime(true);
-                $duration = null; // initialize
 
                 try {
-                    $result   = $this->processJob($job);
+                    if($job->isEnabled() === true) {
+                        $result   = $this->processJob($job);
+                    }
                 } catch (ExceptionInterface $e) {
                     $result = new Result();
                     $result->setSuccess(false);
@@ -84,18 +85,15 @@ class JobRunner
 
                     $job->clearRunningFlag();
                     $job->endLog();
-                    $job->saveLog($result->getData(), $result->isSuccess());
+                    $job->saveLog($result);
+
                     if($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
-                        $job->notify();
+                        $job->notify($result);
                     } else {
                         if(! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
-                            $job->notify();
+                            $job->notify($result);
                         }
                     }
-                    
-
-                    //$job->notify();
-                    //$this->finalizeTask($job, $start, $output, $error);
                 }
 
             } while ($error && $retry <= $maxRetries);
@@ -121,9 +119,9 @@ class JobRunner
      *
      * @param Job $job
      *
-     * @return mixed
+     * @return ?Result
      */
-    protected function processJob(Job $job): mixed
+    protected function processJob(Job $job): ?Result
     {
         $output   = null;
 
@@ -138,16 +136,51 @@ class JobRunner
         }
         $action = new $action();
         $job = $action->beforeRun($job);
+
         ob_start();
         $output = $action->handle($job->getPayload());
-        if(!$output->getData()){
-            $output->setData(ob_get_contents());
-        }
-        ob_end_clean();
+        $buffer = ob_get_clean(); // Captura y limpia el buffer en una sola llamada
+
+        $buffer = $output->getData() ?? $buffer ?? null;
+        $output->setData($buffer);
 
         $this->cliWrite('Executed: ' . $job->getName(), 'cyan');
 
         return $output;
+    }
+
+    /**
+     * Compute delay (seconds) before next retry based on config and attempt number.
+     * Attempt is 1-based (i.e. first run = 1, retries >= 2).
+     */
+    protected function computeBackoffDelay(int $attempt): int
+    {
+        if ($attempt <= 1 || $this->config->retryBackoffStrategy === 'none') {
+            return 0;
+        }
+
+        $base       = max(1, $this->config->retryBackoffBase);
+        $max        = $this->config->retryBackoffMax;
+        $strategy   = $this->config->retryBackoffStrategy;
+        $multiplier = $this->config->retryBackoffMultiplier > 0 ? $this->config->retryBackoffMultiplier : 2.0;
+
+        // Calcular delay según estrategia
+        $delay = match ($strategy) {
+            'fixed'       => $base,
+            'exponential' => (int) round($base * ($multiplier ** ($attempt - 2))),
+            default       => $base,
+        };
+
+        // Limitar al máximo permitido
+        $delay = min($delay, $max);
+
+        // Aplicar jitter (±15%)
+        if ($this->config->retryBackoffJitter) {
+            $jitterRange = max(1, (int) round($delay * 0.15));
+            $delay = max(1, $delay + random_int(-$jitterRange, $jitterRange));
+        }
+
+        return $delay;
     }
 
     private function markRunningJob(Job $job): void
@@ -192,39 +225,5 @@ class JobRunner
         } catch (Throwable $e) {
             log_message('warning', 'CronJob event listener error on ' . $event . ': ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Compute delay (seconds) before next retry based on config and attempt number.
-     * Attempt is 1-based (i.e. first run = 1, retries >= 2).
-     */
-    protected function computeBackoffDelay(int $attempt): int
-    {
-        if ($attempt <= 1 || $this->config->retryBackoffStrategy === 'none') {
-            return 0;
-        }
-
-        $base       = max(1, $this->config->retryBackoffBase);
-        $max        = $this->config->retryBackoffMax;
-        $strategy   = $this->config->retryBackoffStrategy;
-        $multiplier = $this->config->retryBackoffMultiplier > 0 ? $this->config->retryBackoffMultiplier : 2.0;
-
-        // Calcular delay según estrategia
-        $delay = match ($strategy) {
-            'fixed'       => $base,
-            'exponential' => (int) round($base * ($multiplier ** ($attempt - 2))),
-            default       => $base,
-        };
-
-        // Limitar al máximo permitido
-        $delay = min($delay, $max);
-
-        // Aplicar jitter (±15%)
-        if ($this->config->retryBackoffJitter) {
-            $jitterRange = max(1, (int) round($delay * 0.15));
-            $delay = max(1, $delay + random_int(-$jitterRange, $jitterRange));
-        }
-
-        return $delay;
     }
 }

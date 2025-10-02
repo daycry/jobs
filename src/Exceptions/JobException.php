@@ -15,4 +15,9 @@ class JobException extends RuntimeException
     {
         return new self("The job '{$job}' is already running.");
     }
+
+    public static function forInvalidLogType(): self
+    {
+        return new self('The log type is not valid.');
+    }
 }

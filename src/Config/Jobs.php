@@ -19,21 +19,23 @@ class Jobs extends BaseConfig
         'url' => '',
     ];
 
-    public string $log = 'file'; // 'file' or 'database'
+    public bool $logPerformance = true;
+    public int $maxLogsPerJob = 3;
+
+    /**
+     * Maximum number of characters from job output to store (null = unlimited)
+     */
+    public ?int $maxOutputLength = null;
+
+    public string $log = 'database'; // 'file' or 'database'
     public array $loggers = [
         'database' => DatabaseLoggerHandler::class,
         'file' => FileLoggerHandler::class,
     ];
 
-    /**
-     * Directory
-     */
-    public string $filePath = WRITEPATH . 'cronJob/';
-
-    /**
-     * File Name in folder jobs structure
-     */
-    public string $fileName = 'jobs';
+    public string $filePath = WRITEPATH . 'jobs/';
+    public ?string $databaseGroup = null;
+    public string $tableName = 'jobs';
 
     /**
      * --------------------------------------------------------------------------
@@ -71,6 +73,12 @@ class Jobs extends BaseConfig
 
     public function init(Scheduler $scheduler): void
     {
-        $scheduler->addJob('command', 'jobs:test')->everyMinute()->singleInstance();
+        $scheduler->addJob('command', 'jobs:test')->everyMinute()->singleInstance()->notifyOnCompletion();
     }
+
+    public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
+    public string $from       = 'your@example.com';
+    public string $fromName   = 'CronJob';
+    public string $to         = 'your@example.com';
+    public string $toName     = 'User';
 }
