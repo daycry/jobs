@@ -19,6 +19,12 @@ class Result
     protected bool $success = false;
     protected mixed $data = null;
 
+    public function __construct(bool $success = false, mixed $data = null)
+    {
+        $this->success = $success;
+        $this->data = $data;
+    }
+    
     public function isSuccess(): bool
     {
         return $this->success;

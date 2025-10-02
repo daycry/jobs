@@ -61,11 +61,11 @@ trait ActivityTrait
      */
     public function lastRun()
     {
-        if ($this->config->logPerformance === false) {
+        if (config('Jobs')->logPerformance === false) {
             return '--';
         }
 
-        $name = ($this->name) ?: $this->buildName();
+        $name = ($this->name) ?: $this->getName();
 
         $this->setHandler();
 

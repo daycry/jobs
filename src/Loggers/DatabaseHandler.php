@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Loggers;
 
+use CodeIgniter\I18n\Time;
 use CodeIgniter\Log\Handlers\BaseHandler;
 use Daycry\Jobs\Config\Jobs as JobsConfig;
 use Daycry\Jobs\Models\JobsLogModel;
@@ -35,6 +36,18 @@ class DatabaseHandler extends BaseHandler
         $logModel->insert(json_decode($message));
 
         return true;
+    }
+
+    public function lastRun(string $name): string|Time
+    {
+        $logModel = model(JobsLogModel::class);
+        $log      = $logModel->where('name', $name)->orderBy('id', 'DESC')->first();
+
+        if (empty($log)) {
+            return '--';
+        }
+
+        return Time::parse($log->start_at);
     }
 
     public function setPath(string $name): self

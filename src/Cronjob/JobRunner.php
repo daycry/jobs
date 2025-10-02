@@ -98,6 +98,8 @@ class JobRunner
                 }
 
             } while ($error && $retry <= $maxRetries);
+
+            sleep(config('Jobs')->defaultTimeout ?? 0);
         }
     }
 
@@ -130,6 +132,14 @@ class JobRunner
         $job->startLog();
 
         $this->markRunningJob($job);
+
+        if($job->getQueue() !== null) {
+            $job->push();
+            $this->cliWrite('Enqueued: ' . $job->getName() . ' to queue ' . $job->getQueue(), 'blue');
+
+            return new Result(true, 'Job enqueued to ' . $job->getQueue());
+        }
+
         $action = $this->config->jobs[$job->getJob()] ?? null;
 
         if (! $action || ! is_subclass_of($action, Job::class)) {

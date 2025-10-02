@@ -13,6 +13,11 @@ use Daycry\Jobs\Jobs\ShellJob;
 use Daycry\Jobs\Jobs\UrlJob;
 use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
 use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
+use Daycry\Jobs\Queues\BeanstalkQueue;
+use Daycry\Jobs\Queues\DatabaseQueue;
+use Daycry\Jobs\Queues\RedisQueue;
+use Daycry\Jobs\Queues\ServiceBusQueue;
+use Daycry\Jobs\Queues\SyncQueue;
 class Jobs extends BaseConfig
 {
     public array $jobs = [
@@ -48,7 +53,7 @@ class Jobs extends BaseConfig
      * A default execution timeout applied to jobs that do not explicitly
      * define one. Null disables global timeout.
      */
-    public ?int $defaultTimeout = null; // e.g. 300
+    public ?int $defaultTimeout = null; // in seconds e.g. 2
 
     /**
      * Backoff strategy for retries: 'none', 'fixed', 'exponential'
@@ -75,17 +80,35 @@ class Jobs extends BaseConfig
      */
     public bool $retryBackoffJitter = true;
 
+    public array|string $queues        = 'default,dummy';
+
+    public string $worker              = 'database';
+
+    public array $database = [
+        'group' => null,
+        'table' => 'queues',
+    ];
+
+    public array $workers              = [
+        'sync'       => SyncQueue::class,
+        'beanstalk'  => BeanstalkQueue::class,
+        'redis'      => RedisQueue::class,
+        'serviceBus' => ServiceBusQueue::class,
+        'database'   => DatabaseQueue::class,
+    ];
+
     public function init(Scheduler $scheduler): void
     {
+        $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
         //$scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
         //$scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
         /*$scheduler->shell('ls')->named('shell_test')->everyMinute()->singleInstance();
         $scheduler->closure(function() {
             // Your closure code here
             return 'Closure executed successfully!';
-        })->named('closure_test')->everyMinute()->singleInstance();*/
-        //$scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
-        //$scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);
+        })->named('closure_test')->everyMinute()->singleInstance();
+        $scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
+        $scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);*/
     }
 
     public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';

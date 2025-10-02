@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Loggers;
 
+use CodeIgniter\I18n\Time;
 use CodeIgniter\Log\Handlers\BaseHandler;
 use Daycry\Jobs\Config\Jobs as JobsConfig;
 
@@ -59,5 +60,22 @@ class FileHandler extends BaseHandler
         $this->name = $name;
 
         return $this;
+    }
+
+    public function lastRun(string $name): string|Time
+    {
+        $fileName = $this->path . '/' . $name . '.json';
+
+        if (! is_dir($this->path) && ! file_exists($fileName)) {
+            return '--';
+        }
+
+        $logs = \json_decode(\file_get_contents($fileName));
+
+        if (empty($logs)) {
+            return '--';
+        }
+
+        return Time::parse($logs[0]->start_at);
     }
 }

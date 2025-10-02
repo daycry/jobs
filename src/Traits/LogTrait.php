@@ -100,7 +100,7 @@ trait LogTrait
             $normalizedOutput = $data;
         }
 
-        return $normalizedOutput;
+        return (string) $normalizedOutput;
     }
     private function setHandler(): void
     {

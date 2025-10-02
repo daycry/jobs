@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\CLI;
@@ -8,9 +10,9 @@ use Daycry\CronJob\Config\Services;
 use Daycry\Jobs\Cronjob\JobRunner;
 
 /**
- * Runs current tasks.
+ * Runs current jobs.
  */
-class CronjobCommand extends BaseJobsCommand
+class CronJobRunCommand extends BaseJobsCommand
 {
     protected $name = 'jobs:cronjob:run';
 
@@ -26,6 +28,11 @@ class CronjobCommand extends BaseJobsCommand
 
     public function run(array $params)
     {
+        if($this->isActive() === false) {
+            $this->tryToEnable();
+            return false;
+        }
+
         $this->getConfig();
 
         CLI::newLine(1);

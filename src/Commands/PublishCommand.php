@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\CLI;
@@ -9,7 +11,7 @@ use Exception;
 /**
  * Enables Task Running
  */
-class PublishCommand extends CronJobCommand
+class PublishCommand extends BaseJobsCommand
 {
     /**
      * The Command's name

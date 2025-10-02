@@ -7,7 +7,7 @@ use CodeIgniter\Database\Migration;
 use CodeIgniter\Database\RawSql;
 use Daycry\Jobs\Config\Jobs;
 
-class CreateJobsTable extends Migration
+class JobsTables extends Migration
 {
     protected Jobs $config;
 
