@@ -11,6 +11,7 @@ use Config\Services;
 use Daycry\Jobs\Config\Jobs;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Execution\JobExecutor;
 use CodeIgniter\I18n\Time;
 use DateTime;
 use Daycry\Jobs\Result;
@@ -27,6 +28,7 @@ class JobRunner
     protected Scheduler $scheduler;
     protected ?Time $testTime = null;
     protected array $only = [];
+    protected $config; // Jobs config instance
 
     public function __construct(?Jobs $config = null)
     {
@@ -126,38 +128,25 @@ class JobRunner
      */
     protected function processJob(Job $job): ?Result
     {
-        $output   = null;
-
         $this->cliWrite('Processing: ' . $job->getName(), 'green');
-        $job->startLog();
-
         $this->markRunningJob($job);
 
-        if($job->getQueue() !== null) {
+        // Si está destinado a cola, solo encolamos y devolvemos Result informativo
+        if ($job->getQueue() !== null) {
+            $job->startLog();
             $job->push();
+            $result = new Result(true, 'Job enqueued to ' . $job->getQueue());
+            $job->endLog();
+            $job->saveLog($result);
             $this->cliWrite('Enqueued: ' . $job->getName() . ' to queue ' . $job->getQueue(), 'blue');
-
-            return new Result(true, 'Job enqueued to ' . $job->getQueue());
+            return $result;
         }
 
-        $action = $this->config->jobs[$job->getJob()] ?? null;
-
-        if (! $action || ! is_subclass_of($action, Job::class)) {
-            throw JobException::forInvalidJob($job->getJob());
-        }
-        $action = new $action();
-        $job = $action->beforeRun($job);
-
-        ob_start();
-        $output = $action->handle($job->getPayload());
-        $buffer = ob_get_clean(); // Captura y limpia el buffer en una sola llamada
-
-        $buffer = $output->getData() ?? $buffer ?? null;
-        $output->setData($buffer);
-
+        // Ejecución directa mediante JobExecutor
+        $executor = new JobExecutor();
+        $result   = $executor->execute($job);
         $this->cliWrite('Executed: ' . $job->getName(), 'cyan');
-
-        return $output;
+        return $result;
     }
 
     /**

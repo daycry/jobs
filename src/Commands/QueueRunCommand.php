@@ -22,6 +22,8 @@ use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\Utils;
+use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Result;
 
 class QueueRunCommand extends BaseJobsCommand
 {
@@ -70,7 +72,6 @@ class QueueRunCommand extends BaseJobsCommand
 
     protected function processQueue(string $queue): void
     {
-        $queues   = Utils::parseConfigFile(config('Jobs')->queues);
         $response = [];
 
         Services::resetSingle('request');
@@ -78,45 +79,45 @@ class QueueRunCommand extends BaseJobsCommand
 
         try {
             $worker = $this->getWorker();
+            $queueEntity = $worker->watch($queue);
 
-            $job = $worker->watch($queue);
-
-            if (isset($job)) {
+            if ($queueEntity !== null) {
                 $this->locked = true;
 
-                $dataJob = $worker->getDataJob();
-                $j       = new Job($dataJob);
-
-                $this->earlyChecks($j);
-
-                $action = $this->config->jobs[$job->getJob()] ?? null;
-
-                if (! $action || ! is_subclass_of($action, Job::class)) {
-                    throw JobException::forInvalidJob($job->getJob());
+                $decoded = json_decode($queueEntity->payload); // payload completo que incluye datos del Job original
+                if (! is_object($decoded)) {
+                    throw JobException::validationError('Invalid queued payload format.');
                 }
-                $action = new $action();
 
-                ob_start();
-                $output = $action->handle($job->getPayload());
-                $buffer = ob_get_clean(); // Captura y limpia el buffer en una sola llamada
+                $job = Job::fromQueueRecord($decoded);
 
-                $buffer = $output->getData() ?? $buffer ?? null;
-                $output->setData($buffer);
+                $this->earlyChecks($job);
 
-                //$response = $this->prepareResponse($result);
+                $executor = new JobExecutor();
+                $result   = $executor->execute($job);
 
-                $this->lateChecks($j);
+                $this->lateChecks($job);
+
+                $response = [
+                    'status'     => $result->isSuccess(),
+                    'statusCode' => $result->isSuccess() ? 200 : 500,
+                    'data'       => $result->getData(),
+                    'error'      => $result->isSuccess() ? null : $result->getData(),
+                ];
+
+                // Finalizar/eliminar o recrear según éxito
+                if ($result->isSuccess()) {
+                    $worker->removeJob($job, false);
+                } else {
+                    $worker->removeJob($job, true); // reintenta (recrea)
+                }
             }
         } catch (ExceptionInterface $e) {
-            $response = $this->handleException($e, $worker ?? null, $j ?? null);
-        }
-
-        if ($response && isset($job)) {
-            $this->finalizeJob($response, $worker, $j);
+            $response = $this->handleException($e, $worker ?? null, $job ?? null);
         }
 
         $this->locked = false;
-        unset($j, $job);
+        unset($job, $queueEntity);
     }
 
     protected function getWorker()
@@ -162,22 +163,6 @@ class QueueRunCommand extends BaseJobsCommand
 
     protected function finalizeJob(array $response, $worker, Job $job): void
     {
-        try {
-            if ($response['status'] === true || $job->getAttempt() >= $job->getMaxRetries()) {
-                $worker->removeJob($job, false);
-            }
-
-            /*if ($cb = $job->getCallback()) {
-                $cb->options->body = $response;
-                $c                 = new Job();
-                $c->url($cb->url, $cb->options);
-
-                $this->earlyCallbackChecks($c);
-                $c->run();
-                $this->lateCallbackChecks($c);
-            }*/
-        } catch (ExceptionInterface $e) {
-            $this->showError($e);
-        }
+        // Ya no se usa: la lógica de finalize se hace inline tras ejecutar el JobExecutor.
     }
 }

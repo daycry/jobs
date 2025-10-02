@@ -40,7 +40,7 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         if ($this->getDelay() > 0) {
             $data->schedule = $data->schedule;
         } else {
-            $data->schedule = new DateTime('now', new DateTimeZone(service('settings')->get('App.appTimezone')));
+            $data->schedule = new DateTime('now', new DateTimeZone(config('App')->appTimezone));
         }
 
         $data->identifier = $identifier;

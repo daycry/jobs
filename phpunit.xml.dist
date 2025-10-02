@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+    bootstrap="vendor/codeigniter4/framework/system/Test/bootstrap.php"
+    colors="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    executionOrder="depends,random"
+    cacheDirectory="build/.phpunit.cache"
+>
+    <coverage includeUncoveredFiles="true" ignoreDeprecatedCodeUnits="true">
+        <report>
+            <clover outputFile="build/logs/clover.xml"/>
+            <html outputDirectory="build/coverage/html" highLowerBound="80"/>
+            <text outputFile="build/coverage/coverage.txt"/>
+        </report>
+    </coverage>
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+        <exclude>
+            <directory>vendor</directory>
+            <directory>build</directory>
+            <directory>tests</directory>
+        </exclude>
+    </source>
+    <testsuites>
+        <testsuite name="Jobs Suite">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <logging>
+        <testdoxHtml outputFile="build/logs/testdox.html"/>
+        <testdoxText outputFile="build/logs/testdox.txt"/>
+        <junit outputFile="build/logs/logfile.xml"/>
+    </logging>
+    <php>
+        <env name="CI_ENVIRONMENT" value="testing"/>
+        <server name="app.baseURL" value="http://example.com/"/>
+        <env name="app.appTimezone" value="UTC" force="true"/>
+        <const name="HOMEPATH" value="./"/>
+        <const name="CONFIGPATH" value="./vendor/codeigniter4/framework/app/Config/"/>
+        <const name="PUBLICPATH" value="./vendor/codeigniter4/framework/public/"/>
+    </php>
+</phpunit>

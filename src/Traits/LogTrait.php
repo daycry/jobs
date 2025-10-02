@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Daycry\Logs\Traits;
+namespace Daycry\Jobs\Traits;
 
 use CodeIgniter\I18n\Time;
 use Daycry\CronJob\Exceptions\CronJobException;

@@ -25,7 +25,8 @@
         "codeigniter4/devkit": "^1",
         "ergebnis/composer-normalize": "^2.28",
         "phpstan/phpstan-strict-rules": "^2",
-        "phpunit/phpcov": "^10"
+        "phpunit/phpcov": "^10",
+        "daycry/phpunit-extension-vcr": "^1.0"
     },
     "suggest": {
         "ext-pcntl": "Graceful signal handling for long-running cron workers on Unix",

@@ -33,9 +33,13 @@ trait EnqueuableTrait
     public function enqueue(?string $queue = null): bool
     {
         $queues = Utils::parseConfigFile(config('Jobs')->queues);
-        $queue ??= $this->queue;
+        // If a queue name is explicitly provided, assign it
+        if ($queue !== null) {
+            $this->queue = $queue;
+        }
 
-        if ($queue === null && count($queues) > 0) {
+        // If still null, take the first available queue (if any)
+        if ($this->queue === null && count($queues) > 0) {
             $this->queue = $queues[0];
         }
 

@@ -13,7 +13,9 @@ use Daycry\Jobs\Traits\FrequenciesTrait;
 use Daycry\Jobs\Traits\NameableTrait;
 use Daycry\Jobs\Traits\NotificableTrait;
 use Daycry\Jobs\Traits\StatusTrait;
-use Daycry\Logs\Traits\LogTrait;
+use Daycry\Jobs\Traits\LogTrait;
+use DateTime;
+use DateTimeZone;
 
 class Job
 {
@@ -74,5 +76,42 @@ class Job
         }
 
         return $data;
+    }
+
+    /**
+     * Reconstruye un Job a partir del payload almacenado en la cola.
+     * El objeto $record debe contener, como mínimo, la clave 'job' y 'payload'.
+     */
+    public static function fromQueueRecord(object $record): self
+    {
+        $instance = new self(job: $record->job ?? '', payload: $record->payload ?? null);
+
+        // Restaurar propiedades conocidas si existen
+        if (isset($record->name)) {
+            $instance->named($record->name);
+        }
+        if (isset($record->queue)) {
+            $instance->setQueue($record->queue);
+        }
+        if (isset($record->priority)) {
+            try { $instance->priority((int) $record->priority); } catch (\Throwable) { /* ignore invalid */ }
+        }
+        if (isset($record->schedule) && $record->schedule) {
+            try {
+                $dt = new \DateTime($record->schedule->date ?? $record->schedule, new \DateTimeZone($record->schedule->timezone ?? date_default_timezone_get()));
+                $instance->scheduled($dt);
+            } catch (\Throwable) {
+                // ignorar si no se puede parsear
+            }
+        }
+        // Attempts (si estuviera presente en versiones futuras)
+        if (isset($record->attempts) && is_numeric($record->attempts)) {
+            // Forzar el contador interno sumando tantas veces como sea necesario
+            for ($i = 0; $i < (int) $record->attempts; $i++) {
+                $instance->addAttempt();
+            }
+        }
+
+        return $instance;
     }
 }
