@@ -12,11 +12,11 @@ use Daycry\Jobs\Cronjob\JobRunner;
  */
 class CronjobCommand extends BaseJobsCommand
 {
-    protected $name = 'cronjob:run';
+    protected $name = 'jobs:cronjob:run';
 
-    protected $description = 'Runs tasks based on the schedule, should be configured as a crontask to run every minute.';
+    protected $description = 'Runs jobs based on the schedule, should be configured as a crontask to run every minute.';
 
-    protected $usage = 'cronjob:run [options]';
+    protected $usage = 'jobs:cronjob:run [options]';
 
     protected $options = [
         '-testTime' => 'Set Date to run script',
