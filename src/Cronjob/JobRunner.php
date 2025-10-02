@@ -82,16 +82,17 @@ class JobRunner
                         }
                     }
                 } finally {
+                    if($job->isEnabled() === true) {
+                        $job->clearRunningFlag();
+                        $job->endLog();
+                        $job->saveLog($result);
 
-                    $job->clearRunningFlag();
-                    $job->endLog();
-                    $job->saveLog($result);
-
-                    if($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
-                        $job->notify($result);
-                    } else {
-                        if(! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
+                        if($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
                             $job->notify($result);
+                        } else {
+                            if(! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
+                                $job->notify($result);
+                            }
                         }
                     }
                 }

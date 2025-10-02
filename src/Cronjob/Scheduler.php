@@ -51,6 +51,31 @@ class Scheduler
         return null;
     }
 
+    public function command(mixed $action): Job
+    {
+        return $this->addJob('command', $action);
+    }
+
+    public function shell(string $command): Job
+    {
+        return $this->addJob('shell', $command);
+    }
+
+    public function closure(callable $closure): Job
+    {
+        return $this->addJob('closure', $closure);
+    }
+
+    public function event(...$payload): Job
+    {
+        return $this->addJob('event', $payload);
+    }
+
+    public function url(...$payload): Job
+    {
+        return $this->addJob('url', $payload);
+    }
+    
     /**
      * Internal method to create and register a job.
      *

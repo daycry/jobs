@@ -71,23 +71,16 @@ trait LogTrait
                 }
             }
 
-            $normalizedOutput = null;
-            if (is_array($content) || is_object($content)) {
-                $normalizedOutput = json_encode($content);
-            } elseif ($content !== null) {
-                $normalizedOutput = $content;
-            }
-
             $data = [
                 'name'        => $this->getName(),
                 'job'        => $this->getJob(),
-                'payload'      => (\is_object($this->getPayload())) ? \json_encode($this->getPayload()) : $this->getPayload(),
-                'environment' => $this->environments ? \json_encode($this->environments) : null,
+                'payload'      => $this->normalizeData($this->getPayload()),
+                'environment' => $this->normalizeData($this->environments),
                 'start_at'    => $this->start->format('Y-m-d H:i:s'),
                 'end_at'      => $this->end->format('Y-m-d H:i:s'),
                 'duration'    => $this->duration(),
-                'output'      => ($result->isSuccess() === true) ? $normalizedOutput : null,
-                'error'       => ($result->isSuccess() !== true) ? $normalizedOutput : null,
+                'output'      => ($result->isSuccess() === true) ? $this->normalizeData($content) : null,
+                'error'       => ($result->isSuccess() !== true) ? $this->normalizeData($content) : null,
                 'test_time'   => ($this->testTime) ? $this->testTime->format('Y-m-d H:i:s') : null,
             ];
 
@@ -95,6 +88,20 @@ trait LogTrait
         }
     }
 
+    private function normalizeData(mixed $data): ?string
+    {
+        if(empty($data)) {
+            return null;
+        }
+        
+        if (is_array($data) || is_object($data)) {
+            $normalizedOutput = json_encode($data);
+        } elseif ($data !== null) {
+            $normalizedOutput = $data;
+        }
+
+        return $normalizedOutput;
+    }
     private function setHandler(): void
     {
         if (! config('Jobs')->log || ! array_key_exists(config('Jobs')->log, config('Jobs')->loggers)) {

@@ -8,7 +8,7 @@ trait NameableTrait
 {
     protected ?string $name = null;
 
-    protected function named(string $name): self
+    public function named(string $name): self
     {
         $this->name = $name;
 

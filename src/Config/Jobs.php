@@ -6,17 +6,21 @@ namespace Daycry\Jobs\Config;
 
 use CodeIgniter\Config\BaseConfig;
 use Daycry\Jobs\Cronjob\Scheduler;
-use Daycry\Jobs\Jobs\Command;
+use Daycry\Jobs\Jobs\ClosureJob;
+use Daycry\Jobs\Jobs\CommandJob;
+use Daycry\Jobs\Jobs\EventJob;
+use Daycry\Jobs\Jobs\ShellJob;
+use Daycry\Jobs\Jobs\UrlJob;
 use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
 use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
 class Jobs extends BaseConfig
 {
     public array $jobs = [
-        'command' => Command::class,
-        'shell' => '',
-        'closure' => '',
-        'event' => '',
-        'url' => '',
+        'command' => CommandJob::class,
+        'shell' => ShellJob::class,
+        'closure' => ClosureJob::class,
+        'event' => EventJob::class,
+        'url' => UrlJob::class,
     ];
 
     public bool $logPerformance = true;
@@ -73,7 +77,15 @@ class Jobs extends BaseConfig
 
     public function init(Scheduler $scheduler): void
     {
-        $scheduler->addJob('command', 'jobs:test')->everyMinute()->singleInstance()->notifyOnCompletion();
+        //$scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
+        //$scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
+        /*$scheduler->shell('ls')->named('shell_test')->everyMinute()->singleInstance();
+        $scheduler->closure(function() {
+            // Your closure code here
+            return 'Closure executed successfully!';
+        })->named('closure_test')->everyMinute()->singleInstance();*/
+        //$scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
+        //$scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);
     }
 
     public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';

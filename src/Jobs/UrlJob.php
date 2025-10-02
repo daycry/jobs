@@ -9,12 +9,13 @@ use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Result;
 
-class Command extends Job implements JobInterface
+class UrlJob extends Job implements JobInterface
 {
     public function handle(mixed $payload): Result
     {
+        $response = service('curlrequest')->request($payload['method'], $payload['url'], $payload['options'] ?? [])->getBody();
         $result = new Result();
-        $result->setData(command($payload));
+        $result->setData($response);
         $result->setSuccess(true);
 
         return $result;
