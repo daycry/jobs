@@ -1,9 +1,22 @@
 <?php
+
 declare(strict_types=1);
 
-use Tests\Support\TestCase;
-use Daycry\Jobs\Job;
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
 
+use Daycry\Jobs\Job;
+use Tests\Support\TestCase;
+
+/**
+ * @internal
+ */
 final class EnqueueTest extends TestCase
 {
     public function testEnqueueAssignsQueue(): void

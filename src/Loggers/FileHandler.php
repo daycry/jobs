@@ -2,33 +2,50 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Loggers;
 
 use CodeIgniter\I18n\Time;
 use CodeIgniter\Log\Handlers\BaseHandler;
 use Daycry\Jobs\Config\Jobs as JobsConfig;
+use Daycry\Jobs\Interfaces\LoggerHandlerInterface;
 
-class FileHandler extends BaseHandler
+/**
+ * File-based job execution history handler.
+ * Stores a JSON array per job (<name>.json) with newest entries first.
+ * Enforces maxLogsPerJob by trimming oldest entries.
+ */
+class FileHandler extends BaseHandler implements LoggerHandlerInterface
 {
     private ?string $path = null;
-
     private string $name;
 
     public function __construct(array $config = [])
     {
         $configuration = config('Jobs');
-        $this->path = $configuration->filePath;
-
-        if($this->path  !== null && !is_dir($this->path)) {
+        $base          = rtrim($configuration->filePath, '/\\');
+        $this->path    = $base;
+        if ($this->path !== null && ! is_dir($this->path)) {
             mkdir($this->path, 0755, true);
         }
     }
 
+    /**
+     * Persist a structured log entry JSON string for the current job name.
+     */
     public function handle($level, $message): bool
     {
         /** @var JobsConfig config */
         $config   = config('Jobs');
-        $fileName = $config->filePath . '/' . $this->name . '.json';
+    $fileName = rtrim($config->filePath, '/\\') . '/' . $this->name . '.json';
 
         if (file_exists($fileName)) {
             $logs = \json_decode(\file_get_contents($fileName));
@@ -55,7 +72,7 @@ class FileHandler extends BaseHandler
         return true;
     }
 
-    public function setPath(string $name): self
+    public function setPath(string $name): static
     {
         $this->name = $name;
 
@@ -65,17 +82,36 @@ class FileHandler extends BaseHandler
     public function lastRun(string $name): string|Time
     {
         $fileName = $this->path . '/' . $name . '.json';
-
-        if (! is_dir($this->path) && ! file_exists($fileName)) {
+        if (! file_exists($fileName)) {
             return '--';
         }
-
-        $logs = \json_decode(\file_get_contents($fileName));
-
-        if (empty($logs)) {
+        $raw  = @file_get_contents($fileName);
+        $logs = $raw ? json_decode($raw) : [];
+        if (! is_array($logs) || empty($logs) || ! isset($logs[0]->start_at)) {
             return '--';
         }
-
         return Time::parse($logs[0]->start_at);
+    }
+
+    /**
+     * Returns an array of recent executions for a job.
+     * Each element is a stdClass decoded from stored JSON (already contains
+     * name, job, payload, environment, start_at, end_at, duration, output, error, test_time).
+     * The file stores newest first, so we slice directly.
+     *
+     * @return array<int, object>
+     */
+    public function history(string $name, int $limit = 10): array
+    {
+        $fileName = $this->path . '/' . $name . '.json';
+        if (! file_exists($fileName)) {
+            return [];
+        }
+        $logs = json_decode(file_get_contents($fileName));
+        if (! is_array($logs)) {
+            return [];
+        }
+
+        return array_slice($logs, 0, $limit);
     }
 }

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry Jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -15,6 +15,9 @@ namespace Daycry\Jobs\Entities;
 
 use CodeIgniter\Entity\Entity;
 
+/**
+ * Queue entity representing a queued job record with schedule & status metadata.
+ */
 class Queue extends Entity
 {
     /**

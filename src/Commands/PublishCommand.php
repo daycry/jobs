@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\CLI;
@@ -9,7 +18,7 @@ use Config\Autoload;
 use Exception;
 
 /**
- * Enables Task Running
+ * Publishes package configuration files into the application namespace so they can be customized.
  */
 class PublishCommand extends BaseJobsCommand
 {
@@ -51,7 +60,7 @@ class PublishCommand extends BaseJobsCommand
     /**
      * Enables task running
      */
-    public function run(array $params)
+    public function run(array $params): void
     {
         $this->determineSourcePath();
 
@@ -60,10 +69,10 @@ class PublishCommand extends BaseJobsCommand
             $this->publishConfig();
         }
 
-        //$this->call('cronjob:assets');
+        // $this->call('cronjob:assets');
     }
 
-    protected function publishConfig()
+    protected function publishConfig(): void
     {
         $path = "{$this->sourcePath}/Config/Jobs.php";
 
@@ -77,7 +86,7 @@ class PublishCommand extends BaseJobsCommand
     /**
      * Determines the current source path from which all other files are located.
      */
-    protected function determineSourcePath()
+    protected function determineSourcePath(): void
     {
         $this->sourcePath = realpath(__DIR__ . '/../');
 
@@ -92,7 +101,7 @@ class PublishCommand extends BaseJobsCommand
      * Write a file, catching any exceptions and showing a
      * nicely formatted error.
      */
-    protected function writeFile(string $path, string $content)
+    protected function writeFile(string $path, string $content): void
     {
         $config  = new Autoload();
         $appPath = $config->psr4[APP_NAMESPACE];

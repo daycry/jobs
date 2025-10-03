@@ -2,32 +2,38 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Cronjob;
 
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Exceptions\ExceptionInterface;
-use CodeIgniter\Exceptions\RuntimeException;
-use Config\Services;
-use Daycry\Jobs\Config\Jobs;
-use Daycry\Jobs\Exceptions\JobException;
-use Daycry\Jobs\Job;
-use Daycry\Jobs\Execution\JobExecutor;
+use CodeIgniter\Events\Events;
 use CodeIgniter\I18n\Time;
 use DateTime;
-use Daycry\Jobs\Result;
+use Daycry\Jobs\Config\Jobs;
+use Daycry\Jobs\Exceptions\JobException;
+use Daycry\Jobs\Execution\ExecutionContext;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
+use Daycry\Jobs\Job;
+use Daycry\Jobs\Loggers\JobLogger;
 use Throwable;
-use CodeIgniter\Events\Events;
 
 /**
- * Class Scheduler
- *
- * Handles the registration and management of scheduled jobs.
+ * Drives execution of due cron Jobs using the unified lifecycle coordinator.
+ * Handles filtering (only list), schedule checks, queue hand-off, logging and basic event emission.
  */
 class JobRunner
 {
     protected Scheduler $scheduler;
     protected ?Time $testTime = null;
-    protected array $only = [];
+    protected array $only     = [];
     protected $config; // Jobs config instance
 
     public function __construct(?Jobs $config = null)
@@ -36,75 +42,87 @@ class JobRunner
         $this->scheduler = service('scheduler');
     }
 
+    /**
+     * Execute all eligible jobs in dependency order.
+     */
     public function run(): void
     {
-        $order      = $this->scheduler->getExecutionOrder();
+        $order = $this->scheduler->getExecutionOrder();
+
+        $coordinator = new JobLifecycleCoordinator();
 
         foreach ($order as $job) {
-            $retry      = 0;
-            $error        = null;
-            $maxRetries = $job->getMaxRetries() ?? 0;
-            $attempt      = 0;
-
             if ($this->shouldSkipTask($job)) {
-                $this->fire('cronjob.skipped', [
-                    'job'    => $job,
-                    'reason' => 'filter_or_schedule',
-                ]);
+                $this->fire('cronjob.skipped', ['job' => $job, 'reason' => 'filter_or_schedule']);
+
                 continue;
             }
 
-            do {
-                $retry ++;
-                $attemptStart = microtime(true);
+            $this->cliWrite('Processing: ' . $job->getName(), 'green');
 
-                try {
-                    if($job->isEnabled() === true) {
-                        $result   = $this->processJob($job);
-                    }
-                } catch (ExceptionInterface $e) {
-                    $result = new Result();
-                    $result->setSuccess(false);
-                    $result->setData($e->getMessage());
+            // Preparar contexto de ejecución unificado
+            $ctx = new ExecutionContext(
+                source: 'cron',
+                maxRetries: $job->getMaxRetries() ?? 0,
+                notifyOnSuccess: $job->shouldNotifyOnSuccess(),
+                notifyOnFailure: $job->shouldNotifyOnFailure(),
+                singleInstance: $job->isSingleInstance(),
+                queueName: $job->getQueue(),
+                queueWorker: null,
+                retryConfig: [
+                    'strategy'   => $this->config->retryBackoffStrategy,
+                    'base'       => $this->config->retryBackoffBase,
+                    'multiplier' => $this->config->retryBackoffMultiplier,
+                    'jitter'     => $this->config->retryBackoffJitter,
+                    'max'        => $this->config->retryBackoffMax,
+                ],
+                eventsEnabled: $this->config->enableEvents ?? true,
+                meta: [],
+            );
 
-                    $this->cliWrite('Failed: ' . $job->getName() . ' - ' . $e->getMessage(), 'red');
-                    $duration = microtime(true) - $attemptStart;
+            // Caso especial: si el job está configurado con queue, solo encolar
+            if ($job->getQueue() !== null) {
+                $job->push();
+                $this->cliWrite('Enqueued: ' . $job->getName() . ' to queue ' . $job->getQueue(), 'blue');
+                continue;
+            }
 
-                    if ($attempt > $retry) {
-                        $this->fire('cronjob.failed', [
-                            'job'      => $job,
-                            'exception'=> $e,
-                            'attempts' => $attempt,
-                        ]);
-                    } else {
-                        $delay = $this->computeBackoffDelay($attempt);
-                        if ($delay > 0) {
-                            $this->cliWrite("Retrying in {$delay} seconds...", 'yellow');
-                            sleep($delay);
-                        }
-                    }
-                } finally {
-                    if($job->isEnabled() === true) {
-                        $job->clearRunningFlag();
-                        $job->endLog();
-                        $job->saveLog($result);
+            // Ejecutar ciclo completo
+            $outcome = $coordinator->run($job, $ctx);
 
-                        if($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
-                            $job->notify($result);
-                        } else {
-                            if(! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
-                                $job->notify($result);
-                            }
-                        }
-                    }
-                }
+            $exec = $outcome->finalResult; // ExecutionResult
 
-            } while ($error && $retry <= $maxRetries);
+            // Logging (nuevo JobLogger)
+            $logger = new JobLogger();
+            $logger->start(date('Y-m-d H:i:s', (int) $exec->startedAt));
+            $logger->end(date('Y-m-d H:i:s', (int) $exec->endedAt));
+            $logger->log($job, $exec, $this->testTime);
 
-            sleep(config('Jobs')->defaultTimeout ?? 0);
+            // Notificaciones: el Coordinator ya envía (por ahora aún usa shim). Aquí opcionalmente podemos disparar eventos.
+            if ($exec->success) {
+                $this->fire('cronjob.succeeded', [
+                    'job'      => $job,
+                    'attempts' => $outcome->attempts,
+                    'duration' => $exec->durationSeconds(),
+                ]);
+            } else {
+                $this->fire('cronjob.failed', [
+                    'job'      => $job,
+                    'error'    => $exec->error,
+                    'attempts' => $outcome->attempts,
+                ]);
+                $this->cliWrite('Failed: ' . $job->getName() . ' - ' . ($exec->error ?? 'Unknown error'), 'red');
+            }
+
+            $this->cliWrite('Finished: ' . $job->getName() . ' (' . ($exec->success ? 'SUCCESS' : 'FAIL') . ')', $exec->success ? 'cyan' : 'red');
+
+            sleep($this->config->defaultTimeout ?? 0);
         }
     }
 
+    /**
+     * Inject a frozen test time (string accepted by DateTime) for deterministic schedule evaluation.
+     */
     public function withTestTime(string $time): self
     {
         $this->testTime = Time::createFromInstance(new DateTime($time));
@@ -112,6 +130,9 @@ class JobRunner
         return $this;
     }
 
+    /**
+     * Restrict execution to given job names (whitelist).
+     */
     public function only(array $jobs = []): self
     {
         $this->only = $jobs;
@@ -126,28 +147,7 @@ class JobRunner
      *
      * @return ?Result
      */
-    protected function processJob(Job $job): ?Result
-    {
-        $this->cliWrite('Processing: ' . $job->getName(), 'green');
-        $this->markRunningJob($job);
-
-        // Si está destinado a cola, solo encolamos y devolvemos Result informativo
-        if ($job->getQueue() !== null) {
-            $job->startLog();
-            $job->push();
-            $result = new Result(true, 'Job enqueued to ' . $job->getQueue());
-            $job->endLog();
-            $job->saveLog($result);
-            $this->cliWrite('Enqueued: ' . $job->getName() . ' to queue ' . $job->getQueue(), 'blue');
-            return $result;
-        }
-
-        // Ejecución directa mediante JobExecutor
-        $executor = new JobExecutor();
-        $result   = $executor->execute($job);
-        $this->cliWrite('Executed: ' . $job->getName(), 'cyan');
-        return $result;
-    }
+    // Removed obsolete single-job execution method; Coordinator manages lifecycle.
 
     /**
      * Compute delay (seconds) before next retry based on config and attempt number.
@@ -177,12 +177,15 @@ class JobRunner
         // Aplicar jitter (±15%)
         if ($this->config->retryBackoffJitter) {
             $jitterRange = max(1, (int) round($delay * 0.15));
-            $delay = max(1, $delay + random_int(-$jitterRange, $jitterRange));
+            $delay       = max(1, $delay + random_int(-$jitterRange, $jitterRange));
         }
 
         return $delay;
     }
 
+    /**
+     * Mark a job as running (single-instance guard).
+     */
     private function markRunningJob(Job $job): void
     {
         if ($job->isRunning() && $job->isSingleInstance()) {
@@ -194,6 +197,9 @@ class JobRunner
         }
     }
 
+    /**
+     * Conditional CLI output (suppressed in tests and non-CLI contexts).
+     */
     private function cliWrite(string $text, ?string $foreground = null): void
     {
         if (defined('ENVIRONMENT') && ENVIRONMENT === 'testing') {
@@ -205,6 +211,9 @@ class JobRunner
         CLI::write('[' . date('Y-m-d H:i:s') . '] ' . $text, $foreground);
     }
 
+    /**
+     * Determine if a job should be skipped due to filters or schedule.
+     */
     private function shouldSkipTask($job): bool
     {
         return (! empty($this->only) && ! in_array($job->getName(), $this->only, true))
@@ -213,6 +222,7 @@ class JobRunner
 
     /**
      * Fire internal event if enabled. Exceptions from listeners are swallowed (logged at warning level).
+     *
      * @param array<string,mixed> $payload
      */
     private function fire(string $event, array $payload = []): void
@@ -220,6 +230,7 @@ class JobRunner
         if (! ($this->config->enableEvents ?? true)) {
             return;
         }
+
         try {
             Events::trigger($event, $payload);
         } catch (Throwable $e) {

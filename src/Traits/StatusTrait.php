@@ -2,19 +2,28 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Traits;
 
-use DateTime;
 use Daycry\Jobs\Job;
 
 /**
- * Trait StatusTrait
+ * Provides enable/disable flag and a coarse single-instance running guard via cache.
  *
  * @mixin Job
  */
 trait StatusTrait
 {
     protected bool $enabled = true;
+
     public function saveRunningFlag(): bool
     {
         $cache = service('cache');
@@ -26,11 +35,7 @@ trait StatusTrait
     {
         $cache = service('cache');
 
-        if ($cache->get('job_running') === $this->getName()) {
-            return true;
-        }
-
-        return false;
+        return (bool) ($cache->get('job_running') === $this->getName());
     }
 
     public function clearRunningFlag(): bool

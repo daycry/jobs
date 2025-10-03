@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry Jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -15,6 +15,10 @@ namespace Daycry\Jobs\Exceptions;
 
 use CodeIgniter\Exceptions\RuntimeException;
 
+/**
+ * Queue-related configuration and runtime exceptions.
+ * Named constructors wrap localization lookups where applicable.
+ */
 class QueueException extends RuntimeException
 {
     public static function forInvalidWorker(string $worker)

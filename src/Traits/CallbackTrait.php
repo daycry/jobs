@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -15,6 +15,9 @@ namespace Daycry\Jobs\Traits;
 
 use stdClass;
 
+/**
+ * Adds an optional HTTP callback descriptor (URL + options) to a Job for post-processing.
+ */
 trait CallbackTrait
 {
     protected ?object $callback = null;

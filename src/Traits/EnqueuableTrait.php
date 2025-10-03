@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -21,14 +21,17 @@ use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Libraries\Utils;
 
+/**
+ * Queue-centric capabilities: queue selection, scheduling, attempts tracking and priority validation.
+ * push(): validates job data and delegates to configured worker enqueue.
+ */
 trait EnqueuableTrait
 {
     protected int $attempts  = 0;
     protected ?string $queue = null;
     private QueueInterface $worker;
     protected ?DateTime $schedule = null;
-
-    protected int $priority = 0;
+    protected int $priority       = 0;
 
     public function enqueue(?string $queue = null): bool
     {
@@ -60,14 +63,12 @@ trait EnqueuableTrait
 
         return $this;
     }
+
     public function push()
     {
-        $object        = $this->toObject();
-
+        $object = $this->toObject();
         Utils::checkDataQueue($object, 'queueData');
-
         Utils::checkDataQueue($object, $this->getJob());
-
         $this->checkWorker();
 
         return $this->worker->enqueue($object);
@@ -111,6 +112,8 @@ trait EnqueuableTrait
     {
         return $this->attempts;
     }
+
+    // No idempotency helpers (reverted)
 
     protected function checkWorker(): void
     {

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry Jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -19,20 +19,17 @@ class Validation extends ConfigValidation
 {
     public array $queueData = [
         'queue'            => 'required|string',
-        'job'             => 'required|string',
-        'payload'           => 'required',
+        'job'              => 'required|string',
+        'payload'          => 'required',
         'schedule'         => 'if_exist|permit_empty',
         'attempts'         => 'if_exist|is_natural',
         'callback'         => 'if_exist|permit_empty',
         'callback.url'     => 'if_exist|required_with[callback]|valid_url_strict[https]',
         'callback.options' => 'if_exist|required_with[callback]',
     ];
-
     public array $command = [
         'payload' => 'required|string',
     ];
-
-
 
     /*public array $url = [
         'verify'   => 'if_exist|permit_empty',

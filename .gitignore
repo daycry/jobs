@@ -1,5 +1,6 @@
 vendor
 build
+build_tmp_logs
 composer.lock
 .php-cs-fixer.cache
 .phpunit.result.cache

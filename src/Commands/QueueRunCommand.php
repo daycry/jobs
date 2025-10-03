@@ -13,18 +13,25 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
-use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Exceptions\ExceptionInterface;
 use CodeIgniter\HTTP\Response;
 use Config\Services;
+use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Exceptions\QueueException;
+use Daycry\Jobs\Execution\ExecutionContext;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
-use Daycry\Jobs\Libraries\Utils;
-use Daycry\Jobs\Execution\JobExecutor;
-use Daycry\Jobs\Result;
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Queues\JobEnvelope;
+use Daycry\Jobs\Queues\RequeueHelper;
 
+/**
+ * Long-running (or one-shot) queue worker command.
+ * Pulls messages from the configured queue backend, executes them via lifecycle coordinator,
+ * and applies basic retry (requeue) fallback when failures occur.
+ */
 class QueueRunCommand extends BaseJobsCommand
 {
     protected $name        = 'jobs:queue:run';
@@ -72,45 +79,75 @@ class QueueRunCommand extends BaseJobsCommand
 
     protected function processQueue(string $queue): void
     {
-        $response = [];
+        $response       = [];
+        static $metrics = null;
+        if ($metrics === null) {
+            $metrics = new InMemoryMetricsCollector();
+        }
 
         Services::resetSingle('request');
         Services::resetSingle('response');
 
         try {
-            $worker = $this->getWorker();
+            $worker      = $this->getWorker();
             $queueEntity = $worker->watch($queue);
 
             if ($queueEntity !== null) {
+                $metrics->increment('jobs_fetched', 1, ['queue' => $queue]);
                 $this->locked = true;
-
-                $decoded = json_decode($queueEntity->payload); // payload completo que incluye datos del Job original
-                if (! is_object($decoded)) {
-                    throw JobException::validationError('Invalid queued payload format.');
+                if (! ($queueEntity instanceof JobEnvelope)) {
+                    throw JobException::validationError('Legacy queue entity unsupported (expecting JobEnvelope).');
                 }
-
+                $decoded = $queueEntity->payload;
+                if (! is_object($decoded)) {
+                    throw JobException::validationError('Invalid envelope payload format.');
+                }
                 $job = Job::fromQueueRecord($decoded);
 
                 $this->earlyChecks($job);
 
-                $executor = new JobExecutor();
-                $result   = $executor->execute($job);
+                $this->lateChecks($job); // todavía antes de ejecutar? mantener orden original
 
-                $this->lateChecks($job);
+                $ctx = new ExecutionContext(
+                    source: 'queue',
+                    maxRetries: $job->getMaxRetries() ?? 0,
+                    notifyOnSuccess: $job->shouldNotifyOnSuccess(),
+                    notifyOnFailure: $job->shouldNotifyOnFailure(),
+                    singleInstance: $job->isSingleInstance(),
+                    queueName: $queue,
+                    queueWorker: $worker,
+                    retryConfig: [
+                        'strategy'   => config('Jobs')->retryBackoffStrategy,
+                        'base'       => config('Jobs')->retryBackoffBase,
+                        'multiplier' => config('Jobs')->retryBackoffMultiplier,
+                        'jitter'     => config('Jobs')->retryBackoffJitter,
+                        'max'        => config('Jobs')->retryBackoffMax,
+                    ],
+                    eventsEnabled: config('Jobs')->enableEvents ?? true,
+                    meta: [],
+                );
+
+                $coordinator = new JobLifecycleCoordinator();
+                $startExec   = microtime(true);
+                $outcome     = $coordinator->run($job, $ctx);
+                $latency     = microtime(true) - $startExec;
+                $exec        = $outcome->finalResult;
 
                 $response = [
-                    'status'     => $result->isSuccess(),
-                    'statusCode' => $result->isSuccess() ? 200 : 500,
-                    'data'       => $result->getData(),
-                    'error'      => $result->isSuccess() ? null : $result->getData(),
+                    'status'     => $exec->success,
+                    'statusCode' => $exec->success ? 200 : 500,
+                    'data'       => $exec->output,
+                    'error'      => $exec->success ? null : $exec->error,
                 ];
 
-                // Finalizar/eliminar o recrear según éxito
-                if ($result->isSuccess()) {
-                    $worker->removeJob($job, false);
-                } else {
-                    $worker->removeJob($job, true); // reintenta (recrea)
+                // Finalización: usar completion strategy ya ejecutada dentro del coordinator.
+                // Remoción/requeue ya la maneja la estrategia QueueCompletionStrategy (si lo configuramos). Si aún no, aplicamos fallback:
+                (new RequeueHelper($metrics))->finalize($job, $queueEntity, static fn ($j, $r) => $worker->removeJob($j, $r), $exec->success);
+                if ($queueEntity instanceof JobEnvelope && $queueEntity->createdAt instanceof DateTimeInterface) {
+                    $age = microtime(true) - $queueEntity->createdAt->getTimestamp();
+                    $metrics->observe('jobs_age_seconds', $age, ['queue' => $queue]);
                 }
+                $metrics->observe('jobs_exec_seconds', $latency, ['queue' => $queue]);
             }
         } catch (ExceptionInterface $e) {
             $response = $this->handleException($e, $worker ?? null, $job ?? null);
@@ -132,7 +169,7 @@ class QueueRunCommand extends BaseJobsCommand
         return new $workers[$worker]();
     }
 
-    protected function prepareResponse($result): array
+    /*protected function prepareResponse($result): array
     {
         $response['status'] = true;
 
@@ -144,7 +181,7 @@ class QueueRunCommand extends BaseJobsCommand
         $response['data']       = $result->getBody();
 
         return $response;
-    }
+    }*/
 
     protected function handleException($e, $worker, $job): array
     {

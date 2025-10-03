@@ -22,5 +22,9 @@ abstract class DatabaseTestCase extends TestCase
 {
     use DatabaseTestTrait;
 
-    protected $namespace;
+    /**
+     * Namespace used by DatabaseTestTrait to discover migrations/seeders.
+     * Adjust if your migrations live elsewhere.
+     */
+    protected $namespace = 'Daycry\\Jobs';
 }

@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Config;
 
 use CodeIgniter\Config\BaseConfig;
@@ -18,33 +27,42 @@ use Daycry\Jobs\Queues\DatabaseQueue;
 use Daycry\Jobs\Queues\RedisQueue;
 use Daycry\Jobs\Queues\ServiceBusQueue;
 use Daycry\Jobs\Queues\SyncQueue;
+
+/**
+ * Central configuration for Jobs package (scheduling, queues, logging, retries, notifications).
+ * Key groups:
+ *  - jobs: handler mapping keys -> concrete job classes
+ *  - logging: logPerformance, maxLogsPerJob, maxOutputLength, log driver, loggers map
+ *  - retries: backoff strategy & parameters (strategy/base/multiplier/jitter/max)
+ *  - queues: available queues, default worker, backend-specific settings (database, redis, beanstalk, serviceBus)
+ *  - email: notification view & addresses
+ *  - init(): optional bootstrap example registering jobs during scheduler setup
+ */
 class Jobs extends BaseConfig
 {
     public array $jobs = [
         'command' => CommandJob::class,
-        'shell' => ShellJob::class,
+        'shell'   => ShellJob::class,
         'closure' => ClosureJob::class,
-        'event' => EventJob::class,
-        'url' => UrlJob::class,
+        'event'   => EventJob::class,
+        'url'     => UrlJob::class,
     ];
-
     public bool $logPerformance = true;
-    public int $maxLogsPerJob = 3;
+    public int $maxLogsPerJob   = 3;
 
     /**
      * Maximum number of characters from job output to store (null = unlimited)
      */
     public ?int $maxOutputLength = null;
 
-    public string $log = 'database'; // 'file' or 'database'
+    public string $log    = 'file'; // 'file' or 'database'
     public array $loggers = [
         'database' => DatabaseLoggerHandler::class,
-        'file' => FileLoggerHandler::class,
+        'file'     => FileLoggerHandler::class,
     ];
-
-    public string $filePath = WRITEPATH . 'jobs/';
+    public string $filePath       = WRITEPATH . 'jobs/';
     public ?string $databaseGroup = null;
-    public string $tableName = 'jobs';
+    public string $tableName      = 'jobs';
 
     /**
      * --------------------------------------------------------------------------
@@ -80,28 +98,44 @@ class Jobs extends BaseConfig
      */
     public bool $retryBackoffJitter = true;
 
-    public array|string $queues        = 'default,dummy';
-
-    public string $worker              = 'database';
-
-    public array $database = [
+    public array|string $queues = 'default,dummy';
+    public string $worker       = 'redis';
+    public array $database      = [
         'group' => null,
         'table' => 'queues',
     ];
 
-    public array $workers              = [
+    /**
+     * Azure Service Bus basic config (usada por ServiceBusQueue)
+     */
+    public array $serviceBus = [
+        'url'    => '', // e.g. https://<namespace>.servicebus.windows.net/<queue>
+        'issuer' => '', // SAS key name
+        'secret' => '', // SAS key value
+    ];
+
+    public array $beanstalk = [
+        'host' => '127.0.0.1',
+        'port' => 11300,
+    ];
+    public array $workers = [
         'sync'       => SyncQueue::class,
         'beanstalk'  => BeanstalkQueue::class,
         'redis'      => RedisQueue::class,
         'serviceBus' => ServiceBusQueue::class,
         'database'   => DatabaseQueue::class,
     ];
+    public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
+    public string $from                  = 'your@example.com';
+    public string $fromName              = 'CronJob';
+    public string $to                    = 'your@example.com';
+    public string $toName                = 'User';
 
     public function init(Scheduler $scheduler): void
     {
         $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
-        //$scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
-        //$scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
+        // $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
+        // $scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
         /*$scheduler->shell('ls')->named('shell_test')->everyMinute()->singleInstance();
         $scheduler->closure(function() {
             // Your closure code here
@@ -110,10 +144,4 @@ class Jobs extends BaseConfig
         $scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
         $scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);*/
     }
-
-    public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
-    public string $from       = 'your@example.com';
-    public string $fromName   = 'CronJob';
-    public string $to         = 'your@example.com';
-    public string $toName     = 'User';
 }

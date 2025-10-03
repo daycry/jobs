@@ -2,15 +2,25 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Cronjob;
 
 use CodeIgniter\Exceptions\RuntimeException;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Job;
+
 /**
- * Class Scheduler
- *
- * Handles the registration and management of scheduled jobs.
+ * Registers and manages scheduled Job definitions prior to execution.
+ * Supports different job creation helpers (command, shell, closure, event, url)
+ * and provides a topological ordering based on declared dependencies.
  */
 class Scheduler
 {
@@ -51,51 +61,70 @@ class Scheduler
         return null;
     }
 
+    /**
+     * Register a command job (CI command string).
+     */
     public function command(mixed $action): Job
     {
         return $this->addJob('command', $action);
     }
 
+    /**
+     * Register a shell job.
+     */
     public function shell(string $command): Job
     {
         return $this->addJob('shell', $command);
     }
 
+    /**
+     * Register a closure job.
+     */
     public function closure(callable $closure): Job
     {
         return $this->addJob('closure', $closure);
     }
 
+    /**
+     * Register an event job (payload array: name + optional data).
+     */
     public function event(...$payload): Job
     {
         return $this->addJob('event', $payload);
     }
 
+    /**
+     * Register a URL job (payload with method, url, options).
+     */
     public function url(...$payload): Job
     {
         return $this->addJob('url', $payload);
     }
-    
+
     /**
      * Internal method to create and register a job.
-     *
-     * @param mixed $action
      */
     public function addJob(string $job, mixed $action): Job
     {
         $config = config('Jobs');
 
-        if(!in_array($job, array_keys($config->jobs), true) 
-            || !is_subclass_of($config->jobs[$job], Job::class)) {
+        if (! in_array($job, array_keys($config->jobs), true)
+            || ! is_subclass_of($config->jobs[$job], Job::class)) {
             throw JobException::forInvalidJob($job);
         }
 
-        $job = new Job( job: $job, payload: $action );
+        $job          = new Job(job: $job, payload: $action);
         $this->jobs[] = $job;
 
         return $job;
     }
 
+    /**
+     * Returns jobs in dependency-safe execution order (topological sort).
+     * Throws RuntimeException on circular dependencies or missing nodes.
+     *
+     * @return list<Job>
+     */
     public function getExecutionOrder(): array
     {
         $jobsByName = [];
@@ -104,7 +133,7 @@ class Scheduler
 
         // Inicializar estructuras
         foreach ($this->jobs as $job) {
-            $name = $job->getName();
+            $name              = $job->getName();
             $jobsByName[$name] = $job;
             $graph[$name]      = [];
             $inDegree[$name]   = 0;
@@ -122,13 +151,13 @@ class Scheduler
         }
 
         // Inicializar cola con los nodos sin dependencias
-        $queue = array_keys(array_filter($inDegree, fn($deg) => $deg === 0));
+        $queue = array_keys(array_filter($inDegree, static fn ($deg) => $deg === 0));
         $order = [];
 
         // Procesar grafo
         while ($queue) {
-            $current   = array_shift($queue);
-            $order[]   = $jobsByName[$current];
+            $current = array_shift($queue);
+            $order[] = $jobsByName[$current];
 
             foreach ($graph[$current] as $neighbor) {
                 if (--$inDegree[$neighbor] === 0) {

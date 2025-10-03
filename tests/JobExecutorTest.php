@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Job;
+use Tests\Support\TestCase;
+
+// Dynamic test handlers configured at runtime
+class _ExecutorTestSuccessHandler extends Job
+{
+    public function beforeRun(Job $job): Job { return $job; }
+    public function handle($payload) { echo "buffered"; return "returned"; }
+    public function afterRun(Job $job): Job { return $job; }
+}
+class _ExecutorTestArrayHandler extends Job
+{
+    public function beforeRun(Job $job): Job { return $job; }
+    public function handle($payload) { return ['a' => 1]; }
+    public function afterRun(Job $job): Job { return $job; }
+}
+class _ExecutorTestExceptionHandler extends Job
+{
+    public function beforeRun(Job $job): Job { return $job; }
+    public function handle($payload) { throw new RuntimeException('boom'); }
+    public function afterRun(Job $job): Job { return $job; }
+}
+
+final class JobExecutorTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $cfg = config('Jobs');
+        $cfg->jobs['_exec_success']   = _ExecutorTestSuccessHandler::class;
+        $cfg->jobs['_exec_array']     = _ExecutorTestArrayHandler::class;
+        $cfg->jobs['_exec_exception'] = _ExecutorTestExceptionHandler::class;
+        // Asegurar que no intenta usar logging en DB en estos tests unitarios
+        $cfg->logPerformance = false;
+        $cfg->log            = 'file';
+    }
+
+    public function testSuccessMergesBufferAndReturn(): void
+    {
+        $job = new Job(job: '_exec_success', payload: 'x');
+        $exec = (new JobExecutor())->execute($job);
+        $this->assertTrue($exec->success);
+        // Expect returned + \n? handled by merge logic -> returned\n?buffered or returnedbuffered depending on newline logic
+        $this->assertStringContainsString('returned', $exec->output ?? '');
+        $this->assertStringContainsString('buffered', $exec->output ?? '');
+        $this->assertNull($exec->error);
+    }
+
+    public function testArrayReturnNormalizedJson(): void
+    {
+        $job = new Job(job: '_exec_array', payload: null);
+        $exec = (new JobExecutor())->execute($job);
+        $this->assertTrue($exec->success);
+        $this->assertSame('{"a":1}', $exec->output);
+    }
+
+    public function testExceptionPath(): void
+    {
+        $job = new Job(job: '_exec_exception', payload: null);
+        $exec = (new JobExecutor())->execute($job);
+        $this->assertFalse($exec->success);
+        $this->assertNull($exec->output);
+        $this->assertSame('boom', $exec->error);
+    }
+}

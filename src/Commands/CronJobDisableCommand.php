@@ -1,9 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Commands;
 
 /**
- * Disables Task Running
+ * CLI command to disable the cron job runner (sets global inactive flag).
  */
 class CronJobDisableCommand extends BaseJobsCommand
 {
@@ -31,7 +42,7 @@ class CronJobDisableCommand extends BaseJobsCommand
     /**
      * Disables task running
      */
-    public function run(array $params)
+    public function run(array $params): void
     {
         if ($this->isActive() === true) {
             $this->disable();

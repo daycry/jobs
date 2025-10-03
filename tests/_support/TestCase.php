@@ -31,9 +31,11 @@ abstract class TestCase extends CIUnitTestCase
             $jobs = config('Jobs');
             if ($jobs) {
                 $jobs->logPerformance = false;
-                $jobs->log = 'file';
-                $jobs->filePath = WRITEPATH . 'logs';
-                if (!is_dir($jobs->filePath)) { @mkdir($jobs->filePath, 0777, true); }
+                $jobs->log            = 'file';
+                $jobs->filePath       = WRITEPATH . 'logs';
+                if (! is_dir($jobs->filePath)) {
+                    @mkdir($jobs->filePath, 0777, true);
+                }
             }
         }
     }

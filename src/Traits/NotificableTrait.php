@@ -2,10 +2,22 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Traits;
 
-use Daycry\Jobs\Result;
+use Daycry\Jobs\Execution\ExecutionResult;
 
+/**
+ * Enables opt-in email notifications on job success/failure using configured view & parser.
+ */
 trait NotificableTrait
 {
     protected bool $notifyOnFailure = false;
@@ -43,17 +55,17 @@ trait NotificableTrait
         return $this;
     }
 
-    public function notify(Result $result): bool
+    public function notify(ExecutionResult $result): bool
     {
         $email  = service('email');
         $parser = service('parser');
 
-        $content = $result->getData();
+        $content          = $result->success ? $result->output : $result->error;
         $normalizedOutput = null;
         if (is_array($content) || is_object($content)) {
             $normalizedOutput = json_encode($content);
         } elseif ($content !== null) {
-            $normalizedOutput = $content;
+            $normalizedOutput = (string) $content;
         }
 
         $email->setMailType('html');
@@ -62,10 +74,10 @@ trait NotificableTrait
         $email->setSubject($parser->setData(['job' => $this->getName()])->renderString('Job {job} just finished running.'));
         $email->setMessage($parser->setData([
             'name'     => $this->getName(),
-            'runStart' => $this->getStartAt(),
-            'duration' => $this->duration(),
-            'output'   => ($result->isSuccess() ? $normalizedOutput : null),
-            'error'    => ($result->isSuccess() !== true) ? $normalizedOutput : null,
+            'runStart' => null,
+            'duration' => null,
+            'output'   => ($result->success ? $normalizedOutput : null),
+            'error'    => ($result->success !== true) ? $normalizedOutput : null,
         ])->render(config('Jobs')->emailNotificationView));
 
         return $email->send();

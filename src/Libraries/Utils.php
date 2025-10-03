@@ -16,8 +16,15 @@ namespace Daycry\Jobs\Libraries;
 use Daycry\Jobs\Config\Validation;
 use Daycry\Jobs\Exceptions\JobException;
 
+/**
+ * Generic helper utilities for job/queue validation & config parsing.
+ */
 class Utils
 {
+    /**
+     * Validate queue job data against a named rule set using framework validator.
+     * Throws JobException on failure.
+     */
     public static function checkDataQueue(array|object $data, string $rule): void
     {
         if (! is_array($data)) {
@@ -31,6 +38,11 @@ class Utils
         }
     }
 
+    /**
+     * Parse comma-delimited string or pass-through array into trimmed array of strings.
+     *
+     * @param mixed $attr
+     */
     public static function parseConfigFile($attr): array
     {
         if ($attr && ! is_array($attr)) {

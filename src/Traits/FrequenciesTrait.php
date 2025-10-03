@@ -2,16 +2,23 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Traits;
 
 /**
- * Trait FrequenciesTrait
- *
- * Provides the methods to assign frequencies to individual tasks.
+ * Provides fluent helpers to build cron expressions for common scheduling patterns.
  */
 
 use Cron\CronExpression;
-use Daycry\CronJob\Exceptions\CronJobException;
+use RuntimeException;
 
 trait FrequenciesTrait
 {
@@ -38,7 +45,7 @@ trait FrequenciesTrait
     public function cron(string $expression): self
     {
         if (! CronExpression::isValidExpression($expression)) {
-            throw CronJobException::forInvalidExpression($expression);
+            throw new RuntimeException('Invalid cron expression: ' . $expression);
         }
 
         $this->expression = (new CronExpression($expression))->getExpression();
@@ -66,6 +73,7 @@ trait FrequenciesTrait
     public function hourly(?int $minute = null): self
     {
         $minute = ($minute) ?: '0';
+
         return $this->applyParts([0 => (string) $minute, 1 => '*']);
     }
 
@@ -78,6 +86,7 @@ trait FrequenciesTrait
     {
         $minute = ($minute) ?: '0';
         $hour   = ($hour === 1) ? '*' : '*/' . $hour;
+
         return $this->applyParts([0 => (string) $minute, 1 => $hour]);
     }
 
@@ -101,6 +110,7 @@ trait FrequenciesTrait
         if (! is_array($hours)) { // defensive (param already typed array)
             $hours = [$hours];
         }
+
         return $this->applyParts([1 => implode(',', $hours)]);
     }
 
@@ -114,6 +124,7 @@ trait FrequenciesTrait
     public function everyMinute(?int $minute = null)
     {
         $minute = null === $minute ? '*' : '*/' . $minute;
+
         return $this->applyParts([0 => $minute]);
     }
 
@@ -167,6 +178,7 @@ trait FrequenciesTrait
         if (! is_array($minutes)) { // defensive
             $minutes = [$minutes];
         }
+
         return $this->applyParts([0 => implode(',', $minutes)]);
     }
 
@@ -182,6 +194,7 @@ trait FrequenciesTrait
         if (! is_array($days)) {
             $days = [$days];
         }
+
         return $this->applyParts([4 => implode(',', $days)]);
     }
 
@@ -277,6 +290,7 @@ trait FrequenciesTrait
         if (! is_array($days)) {
             $days = [$days];
         }
+
         return $this->applyParts([2 => implode(',', $days)]);
     }
 
@@ -353,7 +367,7 @@ trait FrequenciesTrait
         $cron = new CronExpression($this->expression);
 
         if (! empty($time)) {
-            [$min, $hour]   = $this->parseTime($time); // [min, hour]
+            [$min, $hour] = $this->parseTime($time); // [min, hour]
             $overrides[0] = $min;   // force parsed minute
             $overrides[1] = $hour;  // force parsed hour
         }
@@ -366,6 +380,7 @@ trait FrequenciesTrait
         }
 
         $this->expression = $cron->getExpression();
+
         return $this;
     }
 

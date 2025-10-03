@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry Jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -19,6 +19,9 @@ use CodeIgniter\Validation\ValidationInterface;
 use Config\Database;
 use Daycry\Jobs\Entities\Queue;
 
+/**
+ * Model for interacting with queued job records (insertion, fetching next pending job).
+ */
 class QueueModel extends Model
 {
     protected $primaryKey     = 'id';
@@ -54,6 +57,9 @@ class QueueModel extends Model
         $this->table = config('Jobs')->database['table'];
     }
 
+    /**
+     * Fetch next pending job ready for execution ordered by priority then schedule.
+     */
     public function getJob(): ?Queue
     {
         return $this->where('status', 'pending')->where('schedule <=', date('Y-m-d H:i:s'))->orderBy('priority ASC, schedule ASC')->first();

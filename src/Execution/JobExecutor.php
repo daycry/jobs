@@ -2,93 +2,116 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Daycry\Jobs\Execution;
 
-use Daycry\Jobs\Job;
-use Daycry\Jobs\Result;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
+use Daycry\Jobs\Job;
+use Daycry\Jobs\Loggers\JobLogger;
 use Throwable;
 
 /**
- * Centraliza la ejecución de un Job (scheduled o proveniente de una cola)
- * aplicando el pipeline beforeRun -> handle -> afterRun, captura de salida,
- * logging y notificaciones.
+ * Executes a single Job handler lifecycle: beforeRun -> handle -> afterRun.
+ * Produces an immutable ExecutionResult capturing success/output/error and timing.
+ * Handlers should return raw scalar/array/object data; absence of exception implies success.
  */
 class JobExecutor
 {
-    /**
-     * Ejecuta un Job y siempre retorna un Result consistente.
-     */
-    public function execute(Job $job): Result
+    public function execute(Job $job): ExecutionResult
     {
-        $result = new Result(false, null);
+        $start  = microtime(true);
+        $logger = null;
+        if (config('Jobs')->logPerformance) {
+            $logger = new JobLogger();
+            $logger->start(date('Y-m-d H:i:s'));
+        }
+        $bufferActive = false;
 
-    $bufferActive = false;
-    try {
-            if ($job->getStartAt() === null) {
-                $job->startLog();
-            }
-
+        try {
             $mapping = config('Jobs')->jobs;
             $class   = $mapping[$job->getJob()] ?? null;
-
             if (! $class || ! is_subclass_of($class, Job::class)) {
                 throw JobException::forInvalidJob($job->getJob());
             }
-
             /** @var JobInterface $handler */
             $handler = new $class();
-
-            // Hook anterior a la ejecución concreta
-            $job = $handler->beforeRun($job);
-
+            $job     = $handler->beforeRun($job);
             ob_start();
             $bufferActive = true;
-            $result = $handler->handle($job->getPayload()); // Debe devolver Result
-            $buffer = ob_get_clean();
+            $returned     = $handler->handle($job->getPayload()); // Handler arbitrary return (scalar|array|object|null)
+            $buffer       = ob_get_clean();
             $bufferActive = false;
 
-            // Normalizar buffer: tratar cadena vacía o false como null (sin salida)
             if ($buffer === '' || $buffer === false) {
                 $buffer = null;
             }
 
-            // Combinar buffer y data devuelta solo si realmente hay salida
-            if ($result->getData() === null && $buffer !== null) {
-                $result->setData($buffer);
-            } elseif ($buffer !== null && $result->getData() !== null && is_string($result->getData())) {
-                // Evitar duplicar nueva línea si buffer ya empieza con salto
-                $separator = str_starts_with($buffer, "\n") ? '' : "\n";
-                $result->setData($result->getData() . $separator . $buffer);
+            // Interpret return as success unless an exception was thrown.
+            $success = true;
+            $data    = $returned;
+
+            // Merge captured buffer with returned data when meaningful
+            if ($buffer !== null) {
+                if ($data === null) {
+                    $data = $buffer;
+                } elseif (is_string($data) && $buffer !== '') {
+                    $separator = str_starts_with($buffer, "\n") ? '' : "\n";
+                    $data .= $separator . $buffer;
+                }
             }
 
-            // Hook posterior
-            $job = $handler->afterRun($job);
-
-            // Aseguramos success si no se marcó explícitamente
-            if (! $result->isSuccess()) {
-                $result->setSuccess(true);
+            $job             = $handler->afterRun($job);
+            $end             = microtime(true);
+            $executionResult = new ExecutionResult(
+                success: $success,
+                output: $success ? $this->normalizeOutput($data) : null,
+                error: $success ? null : (is_scalar($data) ? (string) $data : json_encode($data)),
+                startedAt: $start,
+                endedAt: $end,
+                handlerClass: $class,
+            );
+            if ($logger) {
+                $logger->end(date('Y-m-d H:i:s'));
+                $logger->log($job, $executionResult, null);
             }
+
+            return $executionResult;
         } catch (Throwable $e) {
             if ($bufferActive && ob_get_level() > 0) {
-                // Limpieza de buffer en caso de excepción
-                try { ob_end_clean(); } catch (\Throwable) { /* ignore */ }
+                try {
+                    ob_end_clean();
+                } catch (Throwable) {
+                }
             }
-            $result = new Result(false, $e->getMessage());
-        } finally {
-            // Finaliza tiempos y log
-            $job->endLog();
-            $job->saveLog($result);
+            $t               = microtime(true);
+            $executionResult = new ExecutionResult(false, null, $e->getMessage(), $start, $t, null);
+            if ($logger) {
+                $logger->end(date('Y-m-d H:i:s'));
+                $logger->log($job, $executionResult, null);
+            }
 
-            // Notificaciones
-            if ($result->isSuccess() && $job->shouldNotifyOnSuccess()) {
-                $job->notify($result);
-            } elseif (! $result->isSuccess() && $job->shouldNotifyOnFailure()) {
-                $job->notify($result);
-            }
+            return $executionResult;
+        }
+    }
+
+    private function normalizeOutput(mixed $data): ?string
+    {
+        if ($data === null) {
+            return null;
+        }
+        if (is_scalar($data)) {
+            return (string) $data;
         }
 
-        return $result;
+        return json_encode($data);
     }
 }

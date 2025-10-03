@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * This file is part of Daycry Jobs.
+ * This file is part of Daycry Queues.
  *
  * (c) Daycry <daycry9@proton.me>
  *
@@ -19,14 +19,19 @@ use Daycry\Jobs\Entities\Queue as QueueEntity;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
+use Daycry\Jobs\Libraries\DateTimeHelper;
 use Daycry\Jobs\Models\QueueModel;
 
+/**
+ * Database-backed queue (persistent) implementing scheduling & status tracking.
+ * watch(): devuelve QueueEntity o null.
+ */
 class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
     private int $priority = 0;
     private mixed $job    = null;
 
-    public function enqueue(object $data): mixed
+    public function enqueue(object $data): string
     {
         helper('text');
 
@@ -37,27 +42,25 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
         $this->calculateDelay($data);
 
-        if ($this->getDelay() > 0) {
-            $data->schedule = $data->schedule;
-        } else {
+        if ($this->getDelay() <= 0) {
             $data->schedule = new DateTime('now', new DateTimeZone(config('App')->appTimezone));
         }
 
         $data->identifier = $identifier;
 
-        $job->queue       = $data->queue;
-        $job->payload     = \json_encode($data);
-        $job->priority    = $data->priority;
-        $job->schedule    = $data->schedule->format('Y-m-d H:i:s');
-        $job->identifier  = $identifier;
-        $job->status      = 'pending';
+        $job->queue      = $data->queue;
+        $job->payload    = \json_encode($data);
+        $job->priority   = $data->priority;
+        $job->schedule   = $data->schedule->format('Y-m-d H:i:s');
+        $job->identifier = $identifier;
+        $job->status     = 'pending';
 
         $queueModel->insert($job);
 
         return $identifier;
     }
 
-    public function watch(string $queue): ?QueueEntity
+    public function watch(string $queue): ?JobEnvelope
     {
         $queueModel = new QueueModel();
 
@@ -67,9 +70,29 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
             $this->job->status     = 'in_progress';
             $this->job->updated_at = date('Y-m-d H:i:s');
             $queueModel->update($this->job->id, $this->job);
+            // Construir envelope normalizado
+            $decoded     = \json_decode($this->job->payload ?? '{}');
+            $scheduledAt = null;
+            if (isset($this->job->schedule)) {
+                $scheduledAt = DateTimeHelper::parseImmutable($this->job->schedule);
+            }
+            $createdAt = $scheduledAt ?? DateTimeHelper::now();
+
+            return JobEnvelope::fromDecoded(
+                id: (string) $this->job->identifier,
+                queue: (string) $this->job->queue,
+                decoded: $decoded,
+                attempts: (int) ($decoded->attempts ?? 0),
+                priority: isset($this->job->priority) ? (int) $this->job->priority : null,
+                scheduledAt: $scheduledAt,
+                availableAt: null,
+                createdAt: $createdAt,
+                meta: ['entity_id' => $this->job->id, 'status' => $this->job->status],
+                raw: $this->job,
+            );
         }
 
-        return $this->job;
+        return null;
     }
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
@@ -81,7 +104,8 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
             $queueModel->update($this->job->id, $this->job);
 
             $job->addAttempt();
-            $job->enqueue($job->getQueue());
+            // push() will validate & delegate to worker enqueue returning new identifier
+            $job->push();
         } else {
             $this->job->status = 'completed';
             $queueModel->update($this->job->id, $this->job);
@@ -90,11 +114,6 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         $this->job = null;
 
         return true;
-    }
-
-    public function getDataJob()
-    {
-        return \json_decode($this->job->payload);
     }
 
     public function setPriority(int $priority)
