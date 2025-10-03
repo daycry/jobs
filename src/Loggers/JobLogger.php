@@ -112,8 +112,10 @@ class JobLogger
             $error  = $truncate($error);
         }
 
-        $rawPayload = $job->getPayload();
-        $maskedPayload = $this->maskSensitive($rawPayload, $config->sensitiveKeys ?? ['password','token','secret','authorization']);
+    $rawPayload     = $job->getPayload();
+    // Resolve sensitive keys from config (backwards compatible fallback)
+    $sensitiveKeys  = $config->sensitiveKeys ?? ['password','token','secret','authorization','api_key'];
+    $maskedPayload  = $this->maskSensitive($rawPayload, $sensitiveKeys);
         $payloadJson   = $this->normalize($maskedPayload);
 
         $outputLength = $output !== null ? strlen($output) : 0;
@@ -125,7 +127,7 @@ class JobLogger
             'job'           => $job->getJob(),
             'attempt'       => $job->getAttempt(),
             'queue'         => $job->getQueue(),
-            'source'        => null, // to be set by caller context (cron/queue) if integrated later
+            'source'        => method_exists($job, 'getSource') ? $job->getSource() : null,
             'retryStrategy' => $config->retryBackoffStrategy ?? null,
             'payload'       => $payloadJson,
             'payloadHash'   => $payloadHash,
@@ -133,9 +135,9 @@ class JobLogger
             'start_at'      => $this->start?->format('Y-m-d H:i:s'),
             'end_at'        => $this->end?->format('Y-m-d H:i:s'),
             'duration'      => $this->duration(),
-            'output'        => $this->normalize($this->maskSensitive($output, $config->sensitiveKeys ?? [])),
+            'output'        => $this->normalize($this->maskSensitive($output, $sensitiveKeys)),
             'outputLength'  => $outputLength,
-            'error'         => $this->normalize($this->maskSensitive($error, $config->sensitiveKeys ?? [])),
+            'error'         => $this->normalize($this->maskSensitive($error, $sensitiveKeys)),
             'test_time'     => $testTime?->format('Y-m-d H:i:s'),
         ];
 

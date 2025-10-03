@@ -65,6 +65,19 @@ class Jobs extends BaseConfig
     public string $tableName      = 'jobs';
 
     /**
+     * Keys that should be masked in any logged payload/output/error structures.
+     * These are compared case-insensitively and recursively inside arrays/objects.
+     * You may extend this list in your application config (e.g. add 'api_key','access_token').
+     */
+    public array $sensitiveKeys = [
+        'password',
+        'token',
+        'secret',
+        'authorization',
+        'api_key',
+    ];
+
+    /**
      * --------------------------------------------------------------------------
      * Default Timeout (seconds)
      * --------------------------------------------------------------------------

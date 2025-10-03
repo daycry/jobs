@@ -66,6 +66,10 @@ trait EnqueuableTrait
 
     public function push()
     {
+        // Assign default source if not already defined (direct queue usage)
+        if (method_exists($this, 'getSource') && method_exists($this, 'source') && $this->getSource() === null) {
+            $this->source('queue');
+        }
         $object = $this->toObject();
         Utils::checkDataQueue($object, 'queueData');
         Utils::checkDataQueue($object, $this->getJob());

@@ -55,6 +55,11 @@ class Job
     protected string $job;
     protected mixed $payload;
     protected bool $singleInstance = false;
+    /**
+     * Origin of the job: 'cron' when created via Scheduler, 'queue' when pushed directly,
+     * or custom (e.g. 'api') if set by integrator. Propagated into logs for observability.
+     */
+    protected ?string $source = null;
 
     public function __construct(...$params)
     {
@@ -99,6 +104,20 @@ class Job
         }
 
         return $data;
+    }
+
+    /**
+     * Define origin source for logging/analytics.
+     */
+    public function source(string $source): self
+    {
+        $this->source = $source;
+        return $this;
+    }
+
+    public function getSource(): ?string
+    {
+        return $this->source;
     }
 
     /**
