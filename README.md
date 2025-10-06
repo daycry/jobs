@@ -1,6 +1,6 @@
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate?business=SYC5XDT23UZ5G&no_recurring=0&item_name=Thank+you%21&currency_code=EUR)
 
-# Daycry Jobs
+# Codeigniter Jobs
 
 [![Build status](https://github.com/daycry/jobs/actions/workflows/php.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/php.yml)
 [![Coverage status](https://coveralls.io/repos/github/daycry/jobs/badge.svg?branch=master)](https://coveralls.io/github/daycry/jobs?branch=master)
