@@ -1,0 +1,30 @@
+site_name: CodeIgniter Job Scheduler
+site_description: Advanced job scheduler & queue package for CodeIgniter 4
+repo_url: https://github.com/daycry/jobs
+repo_name: daycry/jobs
+nav:
+  - Home: docs/index.md
+  - Installation: docs/installation.md
+  - Scheduling: docs/scheduling.md
+  - Dependencies: docs/dependencies.md
+  - Advanced: docs/advanced.md
+  - Metrics & Monitoring: docs/metrics-monitoring.md
+  - Architecture: docs/ARCHITECTURE.md
+  - Configuration: docs/CONFIGURATION.md
+  - Attempts: docs/ATTEMPTS.md
+  - Retries: docs/RETRIES.md
+  - Queues: docs/QUEUES.md
+  - Logging: docs/LOGGING.md
+  - CLI Commands: docs/COMMANDS.md
+  - Metrics (Detailed): docs/METRICS.md
+  - Changelog: CHANGELOG.md
+  - License: LICENSE
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - admonition
+  - codehilite
+  - footnotes
+  - def_list
+  - attr_list

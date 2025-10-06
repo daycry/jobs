@@ -461,6 +461,3 @@ Package includes PHPUnit test suite for queues, logging, retries, masking, sched
 
 ## License
 MIT © Daycry
-
-----
-For deeper sections refer to the `docs/` directory.
