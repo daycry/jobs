@@ -27,13 +27,25 @@ use Daycry\Jobs\Libraries\Utils;
  */
 trait EnqueuableTrait
 {
-    protected int $attempts  = 0;
+    /**
+     * Number of completed execution cycles for this job.
+     * Starts at 0 (never executed). Incremented exactly once per run (success or failure)
+     * by RequeueHelper::finalize(). A requeued job therefore keeps its historical attempts
+     * count so retry policies can make consistent decisions.
+     */
+    protected int $attempts = 0;
+
     protected ?string $queue = null;
     private QueueInterface $worker;
     protected ?DateTime $schedule = null;
     protected int $priority       = 0;
 
-    public function enqueue(?string $queue = null): bool
+    /**
+     * Marks the job to be placed on a queue (assigns/validates queue name).
+     * Fluent: returns $this instead of bool so you can chain ->enqueue()->named('...')->priority(...)
+     * NOTE: This does NOT actually push the job to the backend. Call push() for that.
+     */
+    public function enqueue(?string $queue = null): self
     {
         $queues = Utils::parseConfigFile(config('Jobs')->queues);
         // If a queue name is explicitly provided, assign it
@@ -50,7 +62,7 @@ trait EnqueuableTrait
             throw QueueException::forInvalidQueue($this->queue);
         }
 
-        return true;
+        return $this;
     }
 
     public function priority(int $priority): self

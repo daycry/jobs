@@ -36,21 +36,60 @@ class DatabaseHandler extends BaseHandler
     {
         $logModel = model(JobsLogModel::class);
         /** @var JobsConfig config */
-        $config = config('Jobs');
+        $config  = config('Jobs');
+        $decoded = json_decode($message, true);
+        if (! is_array($decoded)) {
+            return true; // ignore malformed
+        }
+        // Fallback de nombre si no se definió vía setPath
+        if (empty($this->name) && ! empty($decoded['name'])) {
+            $this->name = (string) $decoded['name'];
+        }
 
-        if ($config->maxLogsPerJob) {
-            $logs = $logModel->where('name', $this->name)->findAll();
-            // Make sure we have room for one more
-            if ((is_countable($logs) ? count($logs) : 0) >= $config->maxLogsPerJob) {
-                $forDelete = count($logs) - $config->maxLogsPerJob;
-
-                for ($i = 0; $forDelete >= $i; $i++) {
-                    $logModel->delete($logs[$i]->id);
+        // Pruning eficiente: contar y borrar excedente sin cargar todo
+        if ($config->maxLogsPerJob && ! empty($this->name)) {
+            $count = $logModel->where('name', $this->name)->countAllResults();
+            if ($count >= $config->maxLogsPerJob) {
+                // Borrar los más antiguos dejando (maxLogsPerJob - 1) espacio para el nuevo
+                $excess = ($count - $config->maxLogsPerJob) + 1;
+                if ($excess > 0) {
+                    // Obtener IDs antiguos a eliminar
+                    $oldIds = $logModel->select('id')
+                        ->where('name', $this->name)
+                        ->orderBy('id', 'ASC')
+                        ->limit($excess)
+                        ->findColumn('id');
+                    if ($oldIds) {
+                        foreach ($oldIds as $oid) {
+                            $logModel->delete($oid);
+                        }
+                    }
                 }
             }
         }
-
-        $logModel->insert(json_decode($message));
+        $status = isset($decoded['error']) && $decoded['error'] !== null ? 'ERROR' : 'OK';
+        $row    = [
+            'name'          => $decoded['name'] ?? null,
+            'job'           => $decoded['job'] ?? null,
+            'executionId'   => $decoded['executionId'] ?? null,
+            'attempt'       => $decoded['attempt'] ?? null,
+            'queue'         => $decoded['queue'] ?? null,
+            'source'        => $decoded['source'] ?? null,
+            'retryStrategy' => $decoded['retryStrategy'] ?? null,
+            'payload'       => $decoded['payload'] ?? null,
+            'payloadHash'   => $decoded['payloadHash'] ?? null,
+            'environment'   => $decoded['environment'] ?? null,
+            'output'        => $decoded['output'] ?? null,
+            'outputLength'  => $decoded['outputLength'] ?? null,
+            'error'         => $decoded['error'] ?? null,
+            'status'        => $status,
+            'start_at'      => $decoded['start_at'] ?? null,
+            'end_at'        => $decoded['end_at'] ?? null,
+            'duration'      => $decoded['duration'] ?? null,
+            'test_time'     => $decoded['test_time'] ?? null,
+            'data'          => json_encode($decoded, JSON_UNESCAPED_UNICODE),
+        ];
+        $logModel->insert($row);
 
         return true;
     }
@@ -87,6 +126,7 @@ class DatabaseHandler extends BaseHandler
             return [];
         }
 
+        // Rows already have columns; data JSON retained for full fidelity
         return $logs;
     }
 }

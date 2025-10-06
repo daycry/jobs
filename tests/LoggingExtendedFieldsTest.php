@@ -2,21 +2,35 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
+use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
-use Daycry\Jobs\Execution\ExecutionResult;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ */
 final class LoggingExtendedFieldsTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
         // Ensure logPerformance enabled
-        $cfg = config('Jobs');
+        $cfg                 = config('Jobs');
         $cfg->logPerformance = true;
         $cfg->maxLogsPerJob  = 5;
-        $cfg->filePath       = WRITEPATH . 'jobs/';
+        // Use file logger to avoid hitting database handler (no migrations in unit tests)
+        $cfg->log      = 'file';
+        $cfg->filePath = WRITEPATH . 'jobs/';
         if (! is_dir($cfg->filePath)) {
             mkdir($cfg->filePath, 0777, true);
         }
@@ -25,7 +39,7 @@ final class LoggingExtendedFieldsTest extends TestCase
         if (file_exists($file)) {
             unlink($file);
         }
-        $cfg->sensitiveKeys = ['password','token'];
+        $cfg->sensitiveKeys = ['password', 'token'];
     }
 
     public function testExtendedFieldsAndMasking(): void
@@ -37,7 +51,7 @@ final class LoggingExtendedFieldsTest extends TestCase
         $logger = new JobLogger();
         $logger->start();
         usleep(10000); // slight delay
-        $result = new ExecutionResult(true, 'OUTPUT DATA', null, microtime(true)-0.02, microtime(true));
+        $result = new ExecutionResult(true, 'OUTPUT DATA', null, microtime(true) - 0.02, microtime(true));
         $logger->end();
         $logger->log($job, $result);
 
@@ -49,14 +63,14 @@ final class LoggingExtendedFieldsTest extends TestCase
         $entry = $decoded[0];
 
         // Check new fields
-    $this->assertTrue(property_exists($entry, 'executionId'));
+        $this->assertTrue(property_exists($entry, 'executionId'));
         $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/', $entry->executionId);
         $this->assertSame('ext_log', $entry->name);
-    $this->assertTrue(property_exists($entry, 'attempt'));
+        $this->assertTrue(property_exists($entry, 'attempt'));
         $this->assertSame(0, $entry->attempt);
-    $this->assertTrue(property_exists($entry, 'outputLength'));
+        $this->assertTrue(property_exists($entry, 'outputLength'));
         $this->assertGreaterThan(0, $entry->outputLength);
-    $this->assertTrue(property_exists($entry, 'payloadHash'));
+        $this->assertTrue(property_exists($entry, 'payloadHash'));
         $this->assertNotEmpty($entry->payloadHash);
 
         // Masking assertions

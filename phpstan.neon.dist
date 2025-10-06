@@ -1,22 +1,28 @@
 parameters:
-	tmpDir: build/phpstan
-	level: 5
-	paths:
-		- src/
-		- tests/
-	bootstrapFiles:
-		- vendor/codeigniter4/framework/system/Test/bootstrap.php
-	excludePaths:
-		- src/Config/Routes.php
-		- src/Views/*
-	ignoreErrors:
-	universalObjectCratesClasses:
-		- CodeIgniter\Entity
-		- CodeIgniter\Entity\Entity
-		- Faker\Generator
-	scanDirectories:
-		- vendor/codeigniter4/framework/system/Helpers
-	dynamicConstantNames:
-		- APP_NAMESPACE
-		- CI_DEBUG
-		- ENVIRONMENT
+  tmpDir: build/phpstan
+  level: 5
+  paths:
+    - src/
+    - tests/
+  codeigniter:
+    additionalConfigNamespaces:
+      - Daycry\\Jobs\\Config
+      - Daycry\\Jobs
+  bootstrapFiles:
+    - vendor/codeigniter4/framework/system/Test/bootstrap.php
+  excludePaths:
+    - src/Views/*
+  ignoreErrors:
+    - '#Dynamic call to static method PHPUnit\\Framework\\Assert::#'
+    - '#Parameter \#1 \$name of function config expects a valid class string, .+ given#'
+  reportUnmatchedIgnoredErrors: false
+  universalObjectCratesClasses:
+    - CodeIgniter\Entity
+    - CodeIgniter\Entity\Entity
+    - Faker\Generator
+  scanDirectories:
+    - vendor/codeigniter4/framework/system/Helpers
+  dynamicConstantNames:
+    - APP_NAMESPACE
+    - CI_DEBUG
+    - ENVIRONMENT

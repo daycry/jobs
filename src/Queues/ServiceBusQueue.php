@@ -12,6 +12,7 @@ declare(strict_types=1);
  */
 
 namespace Daycry\Jobs\Queues;
+
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
@@ -96,6 +97,7 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
                 id: $this->headersBuilder->getMessageId(),
                 queue: $queue,
                 payload: $body,
+                name: isset($body->name) ? (string) $body->name : null,
                 attempts: isset($body->attempts) ? (int) $body->attempts : 0,
                 priority: null,
                 scheduledAt: DateTimeHelper::parseImmutable($body->schedule ?? null),
@@ -112,7 +114,6 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
         if ($recreate) {
-            $job->addAttempt();
             $job->enqueue($job->getQueue());
         }
         $this->job = null;

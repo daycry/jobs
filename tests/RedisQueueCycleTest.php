@@ -12,7 +12,9 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RedisQueue;
+use Daycry\Jobs\Queues\RequeueHelper;
 use Tests\Support\TestCase;
 
 /**
@@ -54,9 +56,13 @@ final class RedisQueueCycleTest extends TestCase
         $this->assertNotNull($fetched, 'Should consume first job');
         $this->assertSame($id1, $fetched->id);
 
-        // requeue via removeJob($recreate=true)
-        $worker->removeJob($job, true);
-        $this->assertSame(1, $job->getAttempt(), 'Attempt incremented');
+        // Simulate a failed execution cycle using RequeueHelper (authoritative attempts increment)
+        $helper   = new RequeueHelper();
+        $envelope = JobEnvelope::fromJob($job, []);
+        $helper->finalize($job, $envelope, static function ($j, $recreate) use ($worker): void {
+            $worker->removeJob($j, $recreate);
+        }, false);
+        $this->assertSame(1, $job->getAttempt(), 'Attempt incremented after failed cycle');
 
         // fetch requeued job
         $fetched2 = $worker->watch($queueName);

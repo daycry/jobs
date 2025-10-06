@@ -2,19 +2,32 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
+use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
-use Daycry\Jobs\Execution\ExecutionResult;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ */
 final class LoggingCustomSensitiveKeysTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        $cfg = config('Jobs');
+        $cfg                 = config('Jobs');
         $cfg->logPerformance = true;
         $cfg->maxLogsPerJob  = 5;
+        $cfg->log            = 'file'; // force file logger to avoid DB dependency
         $cfg->filePath       = WRITEPATH . 'jobs/';
         if (! is_dir($cfg->filePath)) {
             mkdir($cfg->filePath, 0777, true);
@@ -30,18 +43,18 @@ final class LoggingCustomSensitiveKeysTest extends TestCase
     public function testCustomSensitiveKeysAreMasked(): void
     {
         $payload = [
-            'password'    => 'p@ss', // default masked
-            'api_key'     => 'API-123', // default masked
-            'custom_token'=> 'XYZ999', // custom masked
-            'public'      => 'ok',
-            'nested'      => ['custom_token' => 'INNER', 'public' => 'still'],
+            'password'     => 'p@ss', // default masked
+            'api_key'      => 'API-123', // default masked
+            'custom_token' => 'XYZ999', // custom masked
+            'public'       => 'ok',
+            'nested'       => ['custom_token' => 'INNER', 'public' => 'still'],
         ];
         $job = new Job(job: 'command', payload: $payload);
         $job->named('custom_sensitive');
 
         $logger = new JobLogger();
         $logger->start();
-        $result = new ExecutionResult(true, 'DONE', null, microtime(true)-0.02, microtime(true));
+        $result = new ExecutionResult(true, 'DONE', null, microtime(true) - 0.02, microtime(true));
         $logger->end();
         $logger->log($job, $result);
 

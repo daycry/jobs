@@ -113,9 +113,9 @@ class Scheduler
             throw JobException::forInvalidJob($job);
         }
 
-    $job          = new Job(job: $job, payload: $action);
-    // Mark origin as cron for logging/analytics
-    $job->source('cron');
+        $job = new Job(job: $job, payload: $action);
+        // Mark origin as cron for logging/analytics
+        $job->source('cron');
         $this->jobs[] = $job;
 
         return $job;

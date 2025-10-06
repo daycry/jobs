@@ -112,10 +112,12 @@ class JobLogger
             $error  = $truncate($error);
         }
 
-    $rawPayload     = $job->getPayload();
-    // Resolve sensitive keys from config (backwards compatible fallback)
-    $sensitiveKeys  = $config->sensitiveKeys ?? ['password','token','secret','authorization','api_key'];
-    $maskedPayload  = $this->maskSensitive($rawPayload, $sensitiveKeys);
+        $rawPayload = $job->getPayload();
+        // Merge default keys with user-configured (prevent accidental override dropping defaults)
+        $defaultKeys   = ['password', 'token', 'secret', 'authorization', 'api_key'];
+        $configured    = is_array($config->sensitiveKeys ?? null) ? $config->sensitiveKeys : [];
+        $sensitiveKeys = array_values(array_unique(array_merge($defaultKeys, $configured)));
+        $maskedPayload = $this->maskSensitive($rawPayload, $sensitiveKeys);
         $payloadJson   = $this->normalize($maskedPayload);
 
         $outputLength = $output !== null ? strlen($output) : 0;
@@ -186,48 +188,55 @@ class JobLogger
      */
     private function generateUuidV4(): string
     {
-        $data = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40); // version 4
-        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80); // variant
+        $data    = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0F) | 0x40); // version 4
+        $data[8] = chr((ord($data[8]) & 0x3F) | 0x80); // variant
+
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**
      * Recursively mask sensitive keys in arrays/objects.
-     * @param mixed $value
-     * @param string[] $keys
+     *
+     * @param list<string> $keys
      */
     private function maskSensitive(mixed $value, array $keys): mixed
     {
         if (! $value || empty($keys)) {
             return $value;
         }
-        $lowerKeys = array_map(static fn($k) => strtolower($k), $keys);
-        $mask = function ($v) use ($lowerKeys, &$mask) {
+        $lowerKeys = array_map(static fn ($k) => strtolower($k), $keys);
+        $mask      = static function ($v) use ($lowerKeys, &$mask) {
             if (is_array($v)) {
                 $out = [];
+
                 foreach ($v as $k => $val) {
-                    if (in_array(strtolower((string)$k), $lowerKeys, true)) {
+                    if (in_array(strtolower((string) $k), $lowerKeys, true)) {
                         $out[$k] = '***';
                     } else {
                         $out[$k] = $mask($val);
                     }
                 }
+
                 return $out;
             }
             if (is_object($v)) {
                 $o = clone $v;
+
                 foreach (get_object_vars($o) as $k => $val) {
-                    if (in_array(strtolower((string)$k), $lowerKeys, true)) {
-                        $o->$k = '***';
+                    if (in_array(strtolower((string) $k), $lowerKeys, true)) {
+                        $o->{$k} = '***';
                     } else {
-                        $o->$k = $mask($val);
+                        $o->{$k} = $mask($val);
                     }
                 }
+
                 return $o;
             }
+
             return $v;
         };
+
         return $mask($value);
     }
 }

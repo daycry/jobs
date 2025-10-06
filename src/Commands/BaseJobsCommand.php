@@ -119,6 +119,10 @@ abstract class BaseJobsCommand extends BaseCommand
 
     /**
      * Standardized formatted CLI output helper.
+     *
+     * @param mixed      $message
+     * @param mixed|null $foreground
+     * @param mixed|null $background
      */
     private function writeMessage($message, $foreground = null, $background = null): void
     {

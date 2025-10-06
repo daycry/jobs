@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Execution;
 
+use Closure;
 use Daycry\Jobs\Job;
 use RuntimeException;
 use Throwable;
@@ -106,6 +107,11 @@ class JobLifecycleCoordinator
             $finalResult = new ExecutionResult(false, null, 'Unknown execution state', microtime(true), microtime(true));
         }
 
+        // Dispatch callback job if defined
+        if (method_exists($job, 'hasCallbackJob') && $job->hasCallbackJob()) {
+            $this->dispatchCallbackJob($job, $finalResult);
+        }
+
         return new LifecycleOutcome(
             finalResult: $finalResult,
             attempts: $attempt,
@@ -125,6 +131,115 @@ class JobLifecycleCoordinator
             $t = microtime(true);
 
             return new ExecutionResult(false, null, $e->getMessage(), $t, $t, null);
+        }
+    }
+
+    /**
+     * Builds and executes or enqueues the callback job based on descriptor.
+     */
+    private function dispatchCallbackJob(Job $parent, ExecutionResult $result): void
+    {
+        $descriptor = $parent->getCallbackDescriptor();
+        if (! $descriptor) {
+            return;
+        }
+        // Filter already normalized to: always|success|failure
+        $filter = $descriptor->filter ?? 'always';
+        if ($filter === 'success' && ! $result->success) {
+            return;
+        }
+        if ($filter === 'failure' && $result->success) {
+            return;
+        }
+
+        // Build child job via user builder
+        try {
+            $builder = $descriptor->builder;
+            $child   = $builder($parent);
+        } catch (Throwable $e) {
+            return; // Fail silently to not break parent flow
+        }
+        if (! $child instanceof Job) {
+            return; // Invalid builder return
+        }
+
+        // Inherit meta into payload if requested
+        $inherit = $descriptor->inherit ?? [];
+        $meta    = [
+            'parentStatus' => $result->success,
+        ];
+        if (in_array('output', $inherit, true)) {
+            $meta['parentOutput'] = $result->output;
+        }
+        if (in_array('error', $inherit, true)) {
+            $meta['parentError'] = $result->error;
+        }
+        if (in_array('attempts', $inherit, true)) {
+            $meta['parentAttempts'] = $parent->getAttempt();
+        }
+        if (in_array('name', $inherit, true)) {
+            $meta['parentName'] = $parent->getName();
+        }
+        if (in_array('source', $inherit, true)) {
+            $meta['parentSource'] = $parent->getSource();
+        }
+
+        // Attempt to merge meta into child payload (if array/object)
+        $payload = $child->getPayload();
+        if ($payload instanceof Closure) {
+            // Cannot inject meta into a closure payload; skip meta merge.
+        } elseif (is_array($payload)) {
+            $payload['meta'] = isset($payload['meta']) && is_array($payload['meta'])
+                ? $payload['meta'] + $meta
+                : $meta;
+        } elseif (is_object($payload) && ! ($payload instanceof Closure)) {
+            foreach ($meta as $k => $v) {
+                try {
+                    $payload->{$k} = $v;
+                } catch (Throwable) { // ignore
+                }
+            }
+        } else {
+            // Wrap scalar/callable/closure into array structure
+            $payload = [
+                'data' => $payload,
+                'meta' => $meta,
+            ];
+        }
+
+        // Replace modified payload directly (child preserves queue & configuration)
+        try {
+            $child->setPayload($payload);
+        } catch (Throwable) {
+            // ignore
+        }
+
+        // Mark origin
+        if (method_exists($child, 'source')) {
+            $child->source('callback');
+        }
+        if (method_exists($child, 'markAsCallbackChild')) {
+            $child->markAsCallbackChild((bool) ($descriptor->allowChain ?? false));
+        }
+
+        $allowChain = (bool) ($descriptor->allowChain ?? false);
+
+        if ($child->getQueue() !== null) {
+            // Enqueue: we cannot process child's callback chain now (will happen when worker executes it)
+            try {
+                $child->push();
+            } catch (Throwable) { // silent
+            }
+        } else {
+            // Inline execution (we can cascade if allowed)
+            try {
+                $childResult = $this->executor->execute($child);
+                if ($allowChain && method_exists($child, 'hasCallbackJob') && $child->hasCallbackJob()) {
+                    // recursive dispatch for child
+                    $this->dispatchCallbackJob($child, $childResult);
+                }
+            } catch (Throwable) { // ignore
+            }
         }
     }
 }

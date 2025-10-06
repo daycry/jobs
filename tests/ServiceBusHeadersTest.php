@@ -2,9 +2,21 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 use Daycry\Jobs\Libraries\ServiceBusHeaders;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ */
 final class ServiceBusHeadersTest extends TestCase
 {
     public function testGenerateMessageIdAndLabelAndSchedule(): void
@@ -18,11 +30,11 @@ final class ServiceBusHeadersTest extends TestCase
         $headers = $h->getHeaders();
         $this->assertArrayHasKey('BrokerProperties', $headers);
         $this->assertStringContainsString('demo', $headers['BrokerProperties']);
-    // ScheduledEnqueueTimeUtc se guarda como timestamp (UTC) -> validar aproximación
-    $decoded = json_decode($headers['BrokerProperties'], true);
-    $this->assertArrayHasKey('ScheduledEnqueueTimeUtc', $decoded);
-    $this->assertIsInt($decoded['ScheduledEnqueueTimeUtc']);
-    $this->assertGreaterThan(strtotime('2029-12-31'), $decoded['ScheduledEnqueueTimeUtc']);
+        // ScheduledEnqueueTimeUtc se guarda como timestamp (UTC) -> validar aproximación
+        $decoded = json_decode($headers['BrokerProperties'], true);
+        $this->assertArrayHasKey('ScheduledEnqueueTimeUtc', $decoded);
+        $this->assertIsInt($decoded['ScheduledEnqueueTimeUtc']);
+        $this->assertGreaterThan(strtotime('2029-12-31'), $decoded['ScheduledEnqueueTimeUtc']);
     }
 
     public function testGenerateSasToken(): void

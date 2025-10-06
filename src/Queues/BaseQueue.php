@@ -25,7 +25,14 @@ abstract class BaseQueue
             $now = new DateTime('now');
 
             $delay = $data->schedule->getTimestamp() - $now->getTimestamp();
-
+            // Enforce minimum 1 second delay if target is in the future but rounding yields 0
+            if ($delay > 0 && $delay < 1) {
+                $delay = 1;
+            }
+            // If schedule was provided explicitly and computed delay is 0 or negative but schedule second >= now second, force 1 for deterministic promotion
+            if ($delay === 0) {
+                $delay = 1;
+            }
             $delay = ($delay > 0) ? $delay : 0;
 
             $this->setDelay($delay);

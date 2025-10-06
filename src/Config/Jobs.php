@@ -55,7 +55,7 @@ class Jobs extends BaseConfig
      */
     public ?int $maxOutputLength = null;
 
-    public string $log    = 'file'; // 'file' or 'database'
+    public string $log    = 'database'; // 'file' or 'database'
     public array $loggers = [
         'database' => DatabaseLoggerHandler::class,
         'file'     => FileLoggerHandler::class,
@@ -146,7 +146,7 @@ class Jobs extends BaseConfig
 
     public function init(Scheduler $scheduler): void
     {
-        $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
+        // $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
         // $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
         // $scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
         /*$scheduler->shell('ls')->named('shell_test')->everyMinute()->singleInstance();

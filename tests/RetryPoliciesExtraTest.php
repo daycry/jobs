@@ -2,10 +2,22 @@
 
 declare(strict_types=1);
 
-use Daycry\Jobs\Execution\RetryPolicyFixed;
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 use Daycry\Jobs\Execution\RetryPolicyExponential;
+use Daycry\Jobs\Execution\RetryPolicyFixed;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @internal
+ */
 final class RetryPoliciesExtraTest extends TestCase
 {
     public function testFixedPolicyBaseDelay(): void
@@ -31,7 +43,7 @@ final class RetryPoliciesExtraTest extends TestCase
 
     public function testExponentialPolicyJitter(): void
     {
-        $p = new RetryPolicyExponential(base: 2, multiplier: 2.0, max: 40, jitter: true);
+        $p   = new RetryPolicyExponential(base: 2, multiplier: 2.0, max: 40, jitter: true);
         $val = $p->computeDelay(5); // attempt=5 exponent=3 => base*(2^3)=16 (within max)
         $this->assertGreaterThanOrEqual(1, $val);
         $this->assertLessThanOrEqual(40, $val);

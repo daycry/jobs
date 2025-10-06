@@ -17,19 +17,20 @@ use DateTimeInterface;
 use Daycry\Jobs\Job;
 
 /**
- * Normalized queue message representation independent of backend implementation.
+ * Normalized queue message envelope independiente del backend (Redis, Database, Beanstalk, ServiceBus, etc.).
+ * Diseñado para unificar el ciclo de consumo y métricas.
  *
- * This first iteration is introduced for DatabaseQueue only; other workers will migrate progressively.
- *
- * Fields:
- *  - id: Backend job identifier (string form)
- *  - queue: Queue/tube name
- *  - payload: Original serialized job payload decoded (stdClass|array)
- *  - attempts: Current attempt count (backend or synthetic)
- *  - priority: Normalized priority if available
- *  - scheduledAt / availableAt: Timestamps when job was scheduled / becomes available
- *  - meta: Arbitrary extra metadata (headers, raw status, etc.)
- *  - raw: The backend native record/object for edge operations
+ * Campos:
+ *  - id: Identificador nativo del backend
+ *  - queue: Nombre de la cola/tubo
+ *  - payload: Carga decodificada original (stdClass|array)
+ *  - name: Nombre lógico del job (si se suministró al crear)
+ *  - attempts: Intentos actuales (real o sintético)
+ *  - priority: Prioridad normalizada si la fuente la soporta
+ *  - scheduledAt / availableAt: Cuándo fue planificado / cuándo estará disponible
+ *  - createdAt: Marca temporal de creación (útil para latencias)
+ *  - meta: Metadatos arbitrarios extra (estado, headers, delays)
+ *  - raw: Registro/objeto nativo para operaciones de bajo nivel
  */
 final class JobEnvelope
 {
@@ -37,6 +38,7 @@ final class JobEnvelope
         public readonly string $id,
         public readonly string $queue,
         public readonly array|object|null $payload,
+        public readonly ?string $name = null,
         public readonly int $attempts = 0,
         public readonly ?int $priority = null,
         public readonly ?DateTimeInterface $scheduledAt = null,
@@ -54,6 +56,7 @@ final class JobEnvelope
         string $id,
         string $queue,
         array|object|null $decoded,
+        mixed $name = null,
         int $attempts = 0,
         ?int $priority = null,
         ?DateTimeInterface $scheduledAt = null,
@@ -62,7 +65,15 @@ final class JobEnvelope
         array $meta = [],
         mixed $raw = null,
     ): self {
-        return new self($id, $queue, $decoded, $attempts, $priority, $scheduledAt, $availableAt, $createdAt, $meta, $raw);
+        // Backwards compatibility: legacy signature (id, queue, decoded, attempts, priority, ...)
+        if (! is_string($name)) {
+            if (is_int($name) && $attempts === 0) {
+                $attempts = $name; // shift
+            }
+            $name = null; // no provided name in legacy form
+        }
+
+        return new self($id, $queue, $decoded, $name, $attempts, $priority, $scheduledAt, $availableAt, $createdAt, $meta, $raw);
     }
 
     /**
@@ -76,6 +87,7 @@ final class JobEnvelope
             id: $payload->identifier ?? $job->getName() . '-' . bin2hex(random_bytes(4)),
             queue: $payload->queue ?? 'default',
             payload: $payload,
+            name: $payload->name ?? $job->getName(),
             attempts: $job->getAttempt(),
             priority: $payload->priority ?? null,
             scheduledAt: $payload->schedule ?? null,

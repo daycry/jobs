@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Queues\BeanstalkQueue;
+use Daycry\Jobs\Queues\JobEnvelope;
+use Daycry\Jobs\Queues\RequeueHelper;
 use Pheanstalk\Pheanstalk;
 use Tests\Support\TestCase;
 
@@ -51,7 +53,12 @@ final class BeanstalkQueueCycleTest extends TestCase
         $this->assertNotNull($reserved, 'Should reserve job');
         $this->assertTrue(isset($reserved->id));
 
-        $worker->removeJob($job, true); // requeue
+        // Simulate failed execution cycle
+        $helper   = new RequeueHelper();
+        $envelope = JobEnvelope::fromJob($job, []);
+        $helper->finalize($job, $envelope, static function ($j, $recreate) use ($worker): void {
+            $worker->removeJob($j, $recreate);
+        }, false);
         $this->assertSame(1, $job->getAttempt());
 
         $reserved2 = $worker->watch('bean_default');

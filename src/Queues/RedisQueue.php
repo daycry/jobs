@@ -87,6 +87,7 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         }
 
         log_message('debug', 'Job enqueued in Redis queue ' . $queue . ' with ID ' . $id);
+
         return $id;
     }
 
@@ -111,6 +112,7 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
                 id: (string) ($this->job->id ?? ''),
                 queue: $queue,
                 decoded: $decodedPayload,
+                name: isset($decodedPayload->name) ? (string) $decodedPayload->name : null,
                 attempts: (int) ($decodedPayload->attempts ?? 0),
                 priority: null,
                 scheduledAt: null,
@@ -127,7 +129,6 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
         if ($recreate) {
-            $job->addAttempt();
             $job->push();
         }
         $this->job = null;

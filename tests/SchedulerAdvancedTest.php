@@ -2,9 +2,18 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
+use CodeIgniter\Exceptions\RuntimeException;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Daycry\Jobs\Exceptions\JobException;
-use CodeIgniter\Exceptions\RuntimeException;
 use Tests\Support\TestCase;
 
 /** @internal */
@@ -27,9 +36,10 @@ final class SchedulerAdvancedTest extends TestCase
         $this->expectException(JobException::class);
         $s = new Scheduler();
         // Force invalid mapping by temporarily removing a known key
-        $cfg = config('Jobs');
+        $cfg      = config('Jobs');
         $original = $cfg->jobs['command'];
         unset($cfg->jobs['command']);
+
         try {
             $s->command('cmd:bad');
         } finally {

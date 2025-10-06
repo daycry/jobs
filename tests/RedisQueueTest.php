@@ -45,11 +45,11 @@ final class RedisQueueTest extends TestCase
         }
 
         $queue = new RedisQueue();
-    $job   = new Job(job: 'command', payload: 'jobs:test');
-    $job->named('redis_enqueue')->setQueue('default');
+        $job   = new Job(job: 'command', payload: 'jobs:test');
+        $job->named('redis_enqueue')->setQueue('default');
         // For RedisQueue we pass object produced by toObject via push path normally; emulate minimal data
-    $object        = $job->toObject();
-    $object->queue = 'default';
+        $object        = $job->toObject();
+        $object->queue = 'default';
         $id            = $queue->enqueue($object);
         $this->assertIsString($id);
         $this->assertNotSame('', $id);

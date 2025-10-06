@@ -20,19 +20,19 @@ trait EnvironmentTrait
 {
     protected array $environments = [];
 
-    protected function environments(...$environments): self
+    public function environments(...$environments): self
     {
         $this->environments = $environments;
 
         return $this;
     }
 
-    protected function getEnvironments(): array
+    public function getEnvironments(): array
     {
         return $this->environments;
     }
 
-    protected function inEnvironment(string $environment): bool
+    public function inEnvironment(string $environment): bool
     {
         return in_array($environment, $this->environments, true);
     }

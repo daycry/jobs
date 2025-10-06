@@ -40,12 +40,27 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
 
     /**
      * Persist a structured log entry JSON string for the current job name.
+     *
+     * @param mixed $level
+     * @param mixed $message
      */
     public function handle($level, $message): bool
     {
         /** @var JobsConfig config */
-        $config   = config('Jobs');
-    $fileName = rtrim($config->filePath, '/\\') . '/' . $this->name . '.json';
+        $config = config('Jobs');
+        // Intentar deducir nombre si no fue establecido aún vía setPath()
+        if (empty($this->name)) {
+            $decoded = json_decode($message, true);
+            if (is_array($decoded) && ! empty($decoded['name'])) {
+                $this->name = (string) $decoded['name'];
+            }
+        }
+        if (empty($this->name)) {
+            $this->name = 'unnamed'; // fallback definitivo
+        }
+        // Sanitizar nombre para uso de archivo (sin espacios raros / separadores peligrosos)
+        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $this->name) ?? 'unnamed';
+        $fileName = rtrim($config->filePath, '/\\') . '/' . $safeName . '.json';
 
         if (file_exists($fileName)) {
             $logs = \json_decode(\file_get_contents($fileName));
@@ -74,6 +89,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
 
     public function setPath(string $name): static
     {
+        // Guardar el nombre crudo; la sanitización se hace al persistir
         $this->name = $name;
 
         return $this;
@@ -90,6 +106,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         if (! is_array($logs) || empty($logs) || ! isset($logs[0]->start_at)) {
             return '--';
         }
+
         return Time::parse($logs[0]->start_at);
     }
 

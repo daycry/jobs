@@ -2,7 +2,15 @@
 
 declare(strict_types=1);
 
-use CodeIgniter\CLI\Commands;
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 use Daycry\Jobs\Commands\QueueRunCommand;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Queues\JobEnvelope;
@@ -26,17 +34,40 @@ final class QueueRunCommandTest extends TestCase
             meta: [],
             raw: (object) [],
         );
-        $stubWorker = new class($envelope) {
+        $stubWorker = new class ($envelope) {
             private ?JobEnvelope $env;
-            public function __construct($e){ $this->env = $e; }
-            public function watch($queue){ $e = $this->env; $this->env = null; return $e; }
-            public function removeJob(Job $job, bool $recreate){ return true; }
+
+            public function __construct($e)
+            {
+                $this->env = $e;
+            }
+
+            public function watch($queue)
+            {
+                $e         = $this->env;
+                $this->env = null;
+
+                return $e;
+            }
+
+            public function removeJob(Job $job, bool $recreate)
+            {
+                return true;
+            }
         };
 
-        $cmd = new class($stubWorker) extends QueueRunCommand {
+        $cmd = new class ($stubWorker) extends QueueRunCommand {
             private $worker;
-            public function __construct($w){ $this->worker = $w; }
-            protected function getWorker(){ return $this->worker; }
+
+            public function __construct($w)
+            {
+                $this->worker = $w;
+            }
+
+            protected function getWorker()
+            {
+                return $this->worker;
+            }
         };
 
         ob_start();

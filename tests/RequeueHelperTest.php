@@ -2,10 +2,19 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
-use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,14 +34,14 @@ final class RequeueHelperTest extends TestCase
         $metrics  = new InMemoryMetricsCollector();
         $removed  = [];
         $helper   = new RequeueHelper($metrics);
-        $helper->finalize($job, $envelope, function ($j, $r) use (&$removed) {
+        $helper->finalize($job, $envelope, static function ($j, $r) use (&$removed): void {
             $removed[] = [$j, $r];
         }, true);
 
         $snapshot = $metrics->getSnapshot();
         $this->assertArrayHasKey('jobs_succeeded|queue=default', $snapshot['counters']);
         $this->assertSame(1, $snapshot['counters']['jobs_succeeded|queue=default']);
-        $this->assertSame([[ $job, false ]], $removed);
+        $this->assertSame([[$job, false]], $removed);
     }
 
     public function testFinalizeFailureRequeues(): void
@@ -42,7 +51,7 @@ final class RequeueHelperTest extends TestCase
         $metrics  = new InMemoryMetricsCollector();
         $removed  = [];
         $helper   = new RequeueHelper($metrics);
-        $helper->finalize($job, $envelope, function ($j, $r) use (&$removed) {
+        $helper->finalize($job, $envelope, static function ($j, $r) use (&$removed): void {
             $removed[] = [$j, $r];
         }, false);
 
@@ -51,7 +60,7 @@ final class RequeueHelperTest extends TestCase
         $this->assertArrayHasKey('jobs_requeued|queue=default', $snapshot['counters']);
         $this->assertSame(1, $snapshot['counters']['jobs_failed|queue=default']);
         $this->assertSame(1, $snapshot['counters']['jobs_requeued|queue=default']);
-        $this->assertSame([[ $job, true ]], $removed);
+        $this->assertSame([[$job, true]], $removed);
         $this->assertSame(1, $job->getAttempt());
     }
 }

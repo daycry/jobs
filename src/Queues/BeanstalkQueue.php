@@ -94,7 +94,6 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             }
         }
         if ($recreate) {
-            $job->addAttempt();
             $job->push();
         }
         $this->job = null;

@@ -84,6 +84,7 @@ class JobRunner
             if ($job->getQueue() !== null) {
                 $job->push();
                 $this->cliWrite('Enqueued: ' . $job->getName() . ' to queue ' . $job->getQueue(), 'blue');
+
                 continue;
             }
 
@@ -213,6 +214,8 @@ class JobRunner
 
     /**
      * Determine if a job should be skipped due to filters or schedule.
+     *
+     * @param mixed $job
      */
     private function shouldSkipTask($job): bool
     {

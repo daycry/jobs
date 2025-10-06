@@ -55,11 +55,22 @@ class Job
     protected string $job;
     protected mixed $payload;
     protected bool $singleInstance = false;
+
     /**
      * Origin of the job: 'cron' when created via Scheduler, 'queue' when pushed directly,
      * or custom (e.g. 'api') if set by integrator. Propagated into logs for observability.
      */
     protected ?string $source = null;
+
+    /**
+     * True when this job was generated as a callback child of another job.
+     */
+    protected bool $isCallbackChild = false;
+
+    /**
+     * Whether this callback child is permitted to trigger its own callback chain.
+     */
+    protected bool $callbackChainAllowed = false;
 
     public function __construct(...$params)
     {
@@ -75,6 +86,16 @@ class Job
     public function getPayload(): mixed
     {
         return $this->payload;
+    }
+
+    /**
+     * Internal helper allowing lifecycle components to adjust payload (e.g., injecting meta for callback jobs).
+     */
+    public function setPayload(mixed $payload): self
+    {
+        $this->payload = $payload;
+
+        return $this;
     }
 
     public function singleInstance(bool $singleInstance = true): self
@@ -112,12 +133,31 @@ class Job
     public function source(string $source): self
     {
         $this->source = $source;
+
         return $this;
     }
 
     public function getSource(): ?string
     {
         return $this->source;
+    }
+
+    public function markAsCallbackChild(bool $allowChain = false): self
+    {
+        $this->isCallbackChild      = true;
+        $this->callbackChainAllowed = $allowChain;
+
+        return $this;
+    }
+
+    public function isCallbackChild(): bool
+    {
+        return $this->isCallbackChild;
+    }
+
+    public function isCallbackChainAllowed(): bool
+    {
+        return $this->callbackChainAllowed;
     }
 
     /**
@@ -156,6 +196,11 @@ class Job
             for ($i = 0; $i < (int) $record->attempts; $i++) {
                 $instance->addAttempt();
             }
+        }
+
+        // Restore callback flags if present (for enqueued callback children)
+        if (isset($record->isCallbackChild) && $record->isCallbackChild) {
+            $instance->markAsCallbackChild((bool) ($record->callbackChainAllowed ?? false));
         }
 
         return $instance;

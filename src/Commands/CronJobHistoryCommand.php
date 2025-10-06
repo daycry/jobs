@@ -24,16 +24,17 @@ class CronJobHistoryCommand extends BaseJobsCommand
 {
     protected $name        = 'jobs:cronjob:history';
     protected $description = 'Shows recent execution history for a cron job';
-    protected $usage       = 'jobs:cronjob:history <jobName> [--limit n] [--status OK|ERROR] [--full] [--json] [--payload]';
+    protected $usage       = 'jobs:cronjob:history <jobName> [--limit n] [--status OK|ERROR] [--full] [--json] [--payload] [--extended]';
     protected $arguments   = [
         'jobName' => 'The job name as defined in the scheduler',
     ];
     protected $options = [
-        '--limit'   => 'Maximum number of executions to show (default 5)',
-        '--status'  => 'Filter by status OK or ERROR',
-        '--full'    => 'Do not truncate output or error columns',
-        '--json'    => 'Return raw JSON array instead of table',
-        '--payload' => 'Include payload column in table/JSON',
+        '--limit'    => 'Maximum number of executions to show (default 5)',
+        '--status'   => 'Filter by status OK or ERROR',
+        '--full'     => 'Do not truncate output or error columns',
+        '--json'     => 'Return raw JSON array instead of table',
+        '--payload'  => 'Include payload column in table/JSON',
+        '--extended' => 'Include extra fields (attempt, source, outputLength, payloadHash)',
     ];
 
     public function run(array $params)
@@ -68,9 +69,24 @@ class CronJobHistoryCommand extends BaseJobsCommand
             }
         }
 
-        $noTruncate  = CLI::getOption('full') !== null; // presence flag
-        $asJson      = CLI::getOption('json') !== null; // presence flag
-        $showPayload = CLI::getOption('payload') !== null; // presence flag
+        $noTruncate   = CLI::getOption('full') !== null; // presence flag
+        $asJson       = CLI::getOption('json') !== null; // presence flag
+        $showPayload  = CLI::getOption('payload') !== null; // presence flag
+        $extendedMode = CLI::getOption('extended') !== null; // presence flag
+
+        // Manual fallback parsing (useful in unit tests where CLI parser not engaged)
+        if (! $extendedMode && in_array('--extended', $params, true)) {
+            $extendedMode = true;
+            // Remove the flag from params for cleanliness (doesn't impact further logic)
+            $params = array_values(array_filter($params, static fn ($p) => $p !== '--extended'));
+            // Re-evaluate jobName if it was first param
+            $jobName = $params[0] ?? $jobName;
+        }
+        if (! $asJson && in_array('--json', $params, true)) {
+            $asJson  = true;
+            $params  = array_values(array_filter($params, static fn ($p) => $p !== '--json'));
+            $jobName = $params[0] ?? $jobName;
+        }
 
         // Instantiate logging handler like list command
         $handler = null;
@@ -144,10 +160,18 @@ class CronJobHistoryCommand extends BaseJobsCommand
             if ($showPayload) {
                 $rowData['payload'] = $noTruncate ? $payload : ($payload && strlen($payload) > 60 ? substr($payload, 0, 57) . '...' : $payload);
             }
+            if ($extendedMode) {
+                $rowData['attempt']      = $row->attempt ?? null;
+                $rowData['source']       = $row->source ?? null;
+                $rowData['outputLength'] = $row->outputLength ?? null;
+                $rowData['hash']         = $row->payloadHash ?? null;
+            }
             $rows[] = $rowData;
         }
 
         if ($asJson) {
+            // In JSON mode we return raw values (including full hash) when extendedMode
+            // For non-extended we preserve backward compatibility
             CLI::write(json_encode($rows, JSON_PRETTY_PRINT));
 
             return true;
@@ -163,6 +187,20 @@ class CronJobHistoryCommand extends BaseJobsCommand
         ];
         if ($showPayload) {
             $headers[] = $noTruncate ? 'Payload' : 'Payload (trimmed)';
+        }
+        if ($extendedMode) {
+            $headers[] = 'Attempt';
+            $headers[] = 'Source';
+            $headers[] = 'OutputLen';
+            $headers[] = 'Hash';
+
+            // Truncate hash display in table rows
+            foreach ($rows as &$r) {
+                if (isset($r['hash']) && is_string($r['hash']) && strlen($r['hash']) > 12) {
+                    $r['hash'] = substr($r['hash'], 0, 12) . '…';
+                }
+            }
+            unset($r);
         }
 
         CLI::table($rows, $headers);

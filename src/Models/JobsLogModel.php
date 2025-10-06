@@ -23,11 +23,17 @@ use Config\Database;
  */
 class JobsLogModel extends Model
 {
-    protected $primaryKey         = 'id';
-    protected $useAutoIncrement   = true;
-    protected $returnType         = 'object';
-    protected $useSoftDeletes     = false;
-    protected $allowedFields      = ['name', 'job', 'payload', 'environment', 'output', 'error', 'start_at', 'end_at', 'duration', 'test_time'];
+    protected $primaryKey       = 'id';
+    protected $useAutoIncrement = true;
+    protected $returnType       = 'object';
+    protected $useSoftDeletes   = false;
+    protected $allowedFields    = [
+        'name', 'job', 'payload', 'environment', 'output', 'error',
+        'start_at', 'end_at', 'duration', 'test_time',
+        // Extended fields
+        'executionId', 'attempt', 'queue', 'source', 'retryStrategy',
+        'payloadHash', 'outputLength', 'status', 'data',
+    ];
     protected $useTimestamps      = true;
     protected $createdField       = 'created_at';
     protected $updatedField       = 'updated_at';

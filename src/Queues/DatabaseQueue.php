@@ -82,6 +82,7 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
                 id: (string) $this->job->identifier,
                 queue: (string) $this->job->queue,
                 decoded: $decoded,
+                name: isset($decoded->name) ? (string) $decoded->name : null,
                 attempts: (int) ($decoded->attempts ?? 0),
                 priority: isset($this->job->priority) ? (int) $this->job->priority : null,
                 scheduledAt: $scheduledAt,
@@ -102,9 +103,6 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         if ($recreate === true) {
             $this->job->status = 'failed';
             $queueModel->update($this->job->id, $this->job);
-
-            $job->addAttempt();
-            // push() will validate & delegate to worker enqueue returning new identifier
             $job->push();
         } else {
             $this->job->status = 'completed';
