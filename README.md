@@ -1,4 +1,13 @@
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate?business=SYC5XDT23UZ5G&no_recurring=0&item_name=Thank+you%21&currency_code=EUR)
+
 # Daycry Jobs
+
+[![Build status](https://github.com/daycry/jobs/actions/workflows/php.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/php.yml)
+[![Coverage status](https://coveralls.io/repos/github/daycry/jobs/badge.svg?branch=master)](https://coveralls.io/github/daycry/jobs?branch=master)
+[![Downloads](https://poser.pugx.org/daycry/jobs/downloads)](https://packagist.org/packages/daycry/jobs)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
+[![GitHub stars](https://img.shields.io/github/stars/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
+[![GitHub license](https://img.shields.io/github/license/daycry/jobs)](https://github.com/daycry/jobs/blob/master/LICENSE)
 
 Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-style recurring tasks, ad‑hoc queued jobs, multiple backends (Redis, Database, Beanstalk, Azure Service Bus, Sync), structured logging, retry strategies and metrics hooks in a single cohesive package.
 
