@@ -22,6 +22,7 @@ use Daycry\Jobs\Jobs\ShellJob;
 use Daycry\Jobs\Jobs\UrlJob;
 use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
 use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use Daycry\Jobs\Queues\DatabaseQueue;
 use Daycry\Jobs\Queues\RedisQueue;
@@ -113,7 +114,16 @@ class Jobs extends BaseConfig
 
     public array|string $queues = 'default,dummy';
     public string $worker       = 'sync';
-    public array $database      = [
+
+    /**
+     * Fully-qualified class name of the metrics collector to use.
+     * Must implement Daycry\Jobs\Metrics\MetricsCollectorInterface.
+     * Null disables metrics collection (all increment/observe calls no-op).
+     * Default uses the in-memory collector which is fine for local/dev but not for production scraping.
+     */
+    public ?string $metricsCollector = InMemoryMetricsCollector::class;
+
+    public array $database = [
         'group' => null,
         'table' => 'queues',
     ];

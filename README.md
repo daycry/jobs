@@ -14,6 +14,9 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 <a href="docs/COMMANDS.md">CLI Commands</a> ·
 <a href="docs/ARCHITECTURE.md">Architecture</a>
 </p>
+<p align="center">
+<a href="docs/METRICS.md">Metrics</a>
+</p>
 
 ---
 
@@ -407,7 +410,39 @@ $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstanc
 
 
 ## Metrics
-Implement `MetricsCollectorInterface` and inject into RequeueHelper to collect counters (jobs_succeeded, jobs_failed, jobs_requeued, jobs_timed_out) and your own custom metrics.
+The jobs system exposes a lightweight, pluggable metrics layer. Provide your own implementation of
+`MetricsCollectorInterface` to export counters and timings to Prometheus / StatsD / etc.
+
+Built‑in counters currently emitted by `RequeueHelper`:
+* `jobs_succeeded`
+* `jobs_failed`
+* `jobs_requeued`
+* `jobs_timed_out` (reserved for when a timeout hook is added)
+
+Quick example:
+```php
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Queues\RequeueHelper;
+
+$metrics  = new InMemoryMetricsCollector();
+$requeue  = new RequeueHelper($metrics); // core counters now increment
+
+// Custom timing after a run (example placement inside your worker loop)
+$metrics->observe('job_duration_seconds', 0.42, ['queue' => 'default', 'job' => 'jobs:import']);
+```
+
+See the full guide with naming conventions, custom examples (duration, latency, business KPIs) and a Prometheus adapter skeleton in [Metrics Documentation](docs/METRICS.md).
+
+### Configuration
+Set a custom collector (must implement `MetricsCollectorInterface`) in your `Jobs` config:
+```php
+public ?string $metricsCollector = \App\Metrics\PrometheusCollector::class;
+```
+Disable metrics entirely:
+```php
+public ?string $metricsCollector = null; // all metrics become no-ops
+```
+The queue worker (`jobs:queue:run`) auto-instantiates the configured class (no-arg constructor) and falls back to the in-memory collector if misconfigured.
 
 ## Architecture
 High-level components: Job (domain), JobEnvelope (transport across backends), Queue implementations, RequeueHelper (lifecycle & attempts), Logger (structured execution emission), Retry policies (delay computation). See [Architecture](docs/ARCHITECTURE.md).

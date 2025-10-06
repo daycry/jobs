@@ -23,7 +23,7 @@ use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
-use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
 
@@ -34,12 +34,13 @@ use Daycry\Jobs\Queues\RequeueHelper;
  */
 class QueueRunCommand extends BaseJobsCommand
 {
-    protected $name        = 'jobs:queue:run';
-    protected $description = 'Start queue worker.';
-    protected $usage       = 'queue:run <queue> [Options]';
-    protected $arguments   = ['queue' => 'The queue name.'];
-    protected $options     = ['--oneTime' => 'Only executes one time.'];
-    protected bool $locked = false;
+    protected $name                       = 'jobs:queue:run';
+    protected $description                = 'Start queue worker.';
+    protected $usage                      = 'queue:run <queue> [Options]';
+    protected $arguments                  = ['queue' => 'The queue name.'];
+    protected $options                    = ['--oneTime' => 'Only executes one time.'];
+    protected bool $locked                = false;
+    private ?RequeueHelper $requeueHelper = null;
 
     protected function earlyChecks(Job $job): void
     {
@@ -79,11 +80,9 @@ class QueueRunCommand extends BaseJobsCommand
 
     protected function processQueue(string $queue): void
     {
-        $response       = [];
-        static $metrics = null;
-        if ($metrics === null) {
-            $metrics = new InMemoryMetricsCollector();
-        }
+        $response = [];
+        $metrics  = Metrics::get();
+        $this->requeueHelper ??= new RequeueHelper($metrics);
 
         Services::resetSingle('request');
         Services::resetSingle('response');
@@ -142,7 +141,7 @@ class QueueRunCommand extends BaseJobsCommand
 
                 // Finalización: usar completion strategy ya ejecutada dentro del coordinator.
                 // Remoción/requeue ya la maneja la estrategia QueueCompletionStrategy (si lo configuramos). Si aún no, aplicamos fallback:
-                (new RequeueHelper($metrics))->finalize($job, $queueEntity, static fn ($j, $r) => $worker->removeJob($j, $r), $exec->success);
+                $this->requeueHelper->finalize($job, $queueEntity, static fn ($j, $r) => $worker->removeJob($j, $r), $exec->success);
                 if ($queueEntity instanceof JobEnvelope && $queueEntity->createdAt instanceof DateTimeInterface) {
                     $age = microtime(true) - $queueEntity->createdAt->getTimestamp();
                     $metrics->observe('jobs_age_seconds', $age, ['queue' => $queue]);
@@ -202,4 +201,6 @@ class QueueRunCommand extends BaseJobsCommand
     {
         // Ya no se usa: la lógica de finalize se hace inline tras ejecutar el JobExecutor.
     }
+
+    // Metrics retrieval now centralized in Metrics::get(); no local logic needed.
 }

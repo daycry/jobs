@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues;
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 
 /**
@@ -32,6 +33,10 @@ final class RequeueHelper
 
     public function finalize(Job $job, JobEnvelope $envelope, callable $removeFn, bool $success): void
     {
+        // Lazy resolve metrics if not injected (Option B hybrid DI + facade fallback)
+        if ($this->metrics === null) {
+            $this->metrics = Metrics::get();
+        }
         // Authoritative increment for this execution cycle (success or failure)
         $job->addAttempt();
 
