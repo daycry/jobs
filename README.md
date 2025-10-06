@@ -137,6 +137,125 @@ $schedule->command('unstable:task')->maxRetries(3)->timeout(60); // Retries up t
 - `maxRetries(int)` sets how many times the job will be retried if it fails.
 - `timeout(int)` sets the maximum execution time in seconds (enforced at the job logic level).
 
+## Direct Queueing (Services::queueJob)
+
+You can enqueue a job immediately without defining it in the scheduler using the service helper:
+
+```php
+use Daycry\Jobs\Config\Services;
+use Daycry\Jobs\Job;
+
+$id = Services::queueJob(
+    job: 'command',            // Handler key as defined in Jobs config
+    payload: 'jobs:test',      // Payload for the handler
+    queue: 'default',          // Optional queue; if null first configured queue is used
+    configure: function(Job $j) {
+        $j->named('on_demand_test')->priority(3)->singleInstance();
+    }
+);
+```
+
+### Scheduling with $when
+The last argument allows delayed/scheduled enqueueing:
+
+| Type                          | Example                                 | Meaning |
+|-------------------------------|------------------------------------------|---------|
+| `int`                         | `30`                                     | Run ~30 seconds from now |
+| `string`                      | `'2025-12-01 10:30:00'`                  | Parsed by `DateTime` |
+| `DateTimeInterface`           | `new DateTime('+5 minutes')`            | Use directly |
+| `CodeIgniter\I18n\Time`      | `Time::now()->addMinutes(2)`             | Converted to DateTime |
+| `null`                        | `null`                                   | Enqueue immediately |
+
+Example with delay:
+```php
+Services::queueJob('command', 'jobs:notify', 'default', function(Job $j) {
+    $j->named('delayed_notify');
+}, 120); // 120 seconds from now
+```
+
+Example with specific datetime:
+```php
+Services::queueJob('command', 'jobs:midnight:task', 'default', function(Job $j) {
+    $j->named('run_at_midnight');
+}, 'tomorrow 00:00:00');
+```
+
+### Return Value
+Returns the backend queue identifier (string) from the underlying worker after calling `push()`.
+
+### Differences vs Scheduler
+| Aspect              | Scheduler (`$scheduler->command(...)`) | `Services::queueJob(...)` |
+|---------------------|----------------------------------------|---------------------------|
+| Definition Location | Cron-style config time expressions     | Immediate ad‑hoc          |
+| Frequency           | Recurring or complex timing            | One-off (optionally delayed) |
+| Source field        | `cron`                                 | `queue`                   |
+| Fluent Frequency API| Yes (everyMinute, daily, etc.)         | Not applicable            |
+| Callback Support    | Yes (define on Job)                    | Yes (define in configure) |
+
+### Notes
+* Throws `JobException` if the handler key is invalid.
+* The `$configure` closure MUST NOT call `push()` manually (the helper handles it).
+* You can still attach a callback in the configure step:
+```php
+Services::queueJob('command', 'jobs:process', 'default', function(Job $j) {
+    $j->named('process_now')
+      ->setCallbackJob(fn(Job $p) => new Job(job: 'closure', payload: fn() => 'done'));
+});
+```
+* For recurring tasks prefer the scheduler; use this helper for on‑demand / API-triggered jobs.
+
+### Advanced Example (Retries, Timeout, Callback, Delay)
+```php
+use Daycry\Jobs\Config\Services;
+use Daycry\Jobs\Job;
+use CodeIgniter\I18n\Time;
+
+$queueId = Services::queueJob(
+    job: 'command',
+    payload: 'jobs:import:users',
+    queue: 'high',
+    configure: function(Job $job) {
+        $job
+            ->named('import_users_bulk')            // Friendly name
+            ->priority(8)                           // Higher priority (depends on backend semantics)
+            ->singleInstance()                      // Prevent concurrent duplicates
+            ->maxRetries(5)                         // Automatic retry attempts
+            ->timeout(180)                          // Soft timeout (seconds)
+            ->setCallbackJob(
+                builder: function(Job $parent) {
+                    // Callback runs only on success and is enqueued separately
+                    return (new Job(job: 'command', payload: 'jobs:notify:import:done'))
+                        ->named('notify_import_done')
+                        ->enqueue('notifications')
+                        ->setCallbackJob(function(Job $p) {
+                            // Second-level callback (chained) executed inline (no queue)
+                            return new Job(job: 'closure', payload: fn () => 'chained inline log');
+                        }, [
+                            'on' => 'always',
+                            'inherit' => ['name','attempts'],
+                        ]);
+                },
+                options: [
+                    'on'         => 'success',             // Only when import succeeded
+                    'inherit'    => ['output','error','attempts','name','source'],
+                    'allowChain' => true,                  // Permit the second-level callback
+                ]
+            );
+    },
+    when: Time::now()->addMinutes(2) // Delay execution by 2 minutes
+);
+
+// $queueId contains the underlying worker's identifier for this enqueued job
+```
+
+What this does:
+* Schedules the import job to start in ~2 minutes.
+* Retries up to 5 times with default backoff strategy on failure.
+* Aborts logic if it exceeds 180 seconds (internally enforced) per attempt.
+* After a successful import, enqueues a notification job into the `notifications` queue.
+* The notification job defines a chained inline closure callback (because it has no queue) for a lightweight follow-up.
+* Inherited meta fields from the parent import are injected into the first callback's payload under `parentOutput`, `parentError`, etc.
+
 ## Callback Jobs (Post-Execution)
 
 You can attach a follow-up Job that is created and either executed inline or enqueued automatically after the parent Job finishes.
@@ -228,6 +347,8 @@ If `allowChain` is `true`, and the callback job itself defines another callback,
 |------------------|---------|
 | No queue assigned | Executed immediately after parent completion |
 | `->enqueue()` or `->setQueue()` used | Enqueued (executed later by queue worker) |
+
+> Note: When using the `sync` worker backend, the job (and any inline callback chain) is executed immediately in the same PHP process using the full lifecycle (retries and callback dispatch happen inline). This is helpful for local debugging, but means long or blocking work will block the request. Switch to a real async backend (redis, database, etc.) for production.
 
 ### Filtering Examples
 ```php

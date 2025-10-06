@@ -112,7 +112,7 @@ class Jobs extends BaseConfig
     public bool $retryBackoffJitter = true;
 
     public array|string $queues = 'default,dummy';
-    public string $worker       = 'redis';
+    public string $worker       = 'sync';
     public array $database      = [
         'group' => null,
         'table' => 'queues',

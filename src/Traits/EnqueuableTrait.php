@@ -20,6 +20,7 @@ use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Libraries\Utils;
+use Daycry\Jobs\Queues\SyncQueue;
 
 /**
  * Queue-centric capabilities: queue selection, scheduling, attempts tracking and priority validation.
@@ -82,10 +83,32 @@ trait EnqueuableTrait
         if (method_exists($this, 'getSource') && method_exists($this, 'source') && $this->getSource() === null) {
             $this->source('queue');
         }
-        $object = $this->toObject();
-        Utils::checkDataQueue($object, 'queueData');
-        Utils::checkDataQueue($object, $this->getJob());
         $this->checkWorker();
+        // Fast path for SyncQueue: pass original Job instance so callback descriptor & closures are preserved.
+        if ($this->worker instanceof SyncQueue) {
+            // Perform validation using an export snapshot; inject placeholder for closure payload.
+            $export = $this->toObject();
+            if ($this->getJob() === 'closure') {
+                $export->payload = '__closure__';
+            }
+            Utils::checkDataQueue($export, 'queueData');
+            if ($this->getJob() !== 'closure') {
+                Utils::checkDataQueue($export, $this->getJob());
+            }
+
+            return $this->worker->enqueue($this);
+        }
+
+        $object = $this->toObject();
+        if ($this->getJob() === 'closure') {
+            // Validation snapshot with placeholder
+            $snapshot          = clone $object;
+            $snapshot->payload = '__closure__';
+            Utils::checkDataQueue($snapshot, 'queueData');
+        } else {
+            Utils::checkDataQueue($object, 'queueData');
+            Utils::checkDataQueue($object, $this->getJob());
+        }
 
         return $this->worker->enqueue($object);
     }

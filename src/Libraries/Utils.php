@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Libraries;
 
+use Closure;
 use Daycry\Jobs\Config\Validation;
 use Daycry\Jobs\Exceptions\JobException;
 
@@ -28,7 +29,7 @@ class Utils
     public static function checkDataQueue(array|object $data, string $rule): void
     {
         if (! is_array($data)) {
-            $data = json_decode(json_encode($data), true);
+            $data = self::objectToArray($data);
         }
 
         $validator = service('validation', config(Validation::class), false);
@@ -50,5 +51,33 @@ class Utils
         }
 
         return array_map('trim', $attr);
+    }
+
+    private static function objectToArray(object $object): array
+    {
+        $result = [];
+
+        foreach (get_object_vars($object) as $k => $v) {
+            if (is_object($v)) {
+                // Do not traverse closures
+                if ($v instanceof Closure) {
+                    $result[$k] = '__closure__';
+                } else {
+                    $result[$k] = self::objectToArray($v);
+                }
+            } elseif (is_array($v)) {
+                $result[$k] = array_map(static function ($item) {
+                    if (is_object($item)) {
+                        return ($item instanceof Closure) ? '__closure__' : get_object_vars($item);
+                    }
+
+                    return $item;
+                }, $v);
+            } else {
+                $result[$k] = $v;
+            }
+        }
+
+        return $result;
     }
 }

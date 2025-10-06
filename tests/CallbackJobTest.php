@@ -58,6 +58,10 @@ final class CallbackJobTest extends TestCase
 
     public function testEnqueuedCallbackDoesNotRunInline(): void
     {
+        // Force a non-sync worker so that push() does not execute immediately
+        $cfg         = config('Jobs');
+        $cfg->worker = 'database';
+
         $executed = false;
         $childJob = new Job(job: 'closure', payload: static function () use (&$executed) {
             $executed = true; // should not run inline

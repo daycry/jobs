@@ -57,6 +57,7 @@ abstract class TestCase extends CIUnitTestCase
 
     protected function hooksJobs(): void
     {
+        $jobs = [];
         // Create a scheduled job instance for tests (do not enqueue to queues; we only need it in the scheduler list)
         $job = (new Job(job: 'command', payload: 'jobs:test'))
             ->everyMinute()
@@ -66,8 +67,37 @@ abstract class TestCase extends CIUnitTestCase
             ->timeout(30)
             ->environments('testing')
             ->priority(5);
+        $jobs[] = $job;
+
+        $job = (new Job(job: 'closure', payload: static function () {
+            // Your closure code here
+            return 'Closure executed successfully!';
+        }))
+            ->everyMinute()
+            ->named('closure_enabled')
+            ->singleInstance()
+            ->maxRetries(3)
+            ->timeout(30)
+            ->environments('testing')
+            ->priority(5);
+        $jobs[] = $job;
+
+        $job = (new Job(job: 'url', payload: [
+            'url'     => 'https://google.es',
+            'method'  => 'GET',
+            'options' => ['headers' => ['Accept' => 'application/html']],
+        ]))
+            ->everyMinute()
+            ->named('url_enabled')
+            ->singleInstance()
+            ->maxRetries(3)
+            ->timeout(30)
+            ->environments('testing')
+            ->priority(5);
+        $jobs[] = $job;
+
         $scheduler = service('scheduler');
-        $this->setPrivateProperty($scheduler, 'jobs', [$job]);
+        $this->setPrivateProperty($scheduler, 'jobs', $jobs);
         Services::injectMock('scheduler', $scheduler);
     }
 }
