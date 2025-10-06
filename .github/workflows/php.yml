@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-versions: ['8.2', '8.3']
+        php-versions: ['8.3']
         redis-version: [7]
 
     steps:
@@ -57,7 +57,7 @@ jobs:
         run: composer test
       
       - name: Run Coveralls
-        if: matrix.php-versions == '8.2'
+        if: matrix.php-versions == '8.3'
         run: |
           composer global require --ansi php-coveralls/php-coveralls:^2.4
           php-coveralls --coverage_clover=build/logs/clover.xml -v
