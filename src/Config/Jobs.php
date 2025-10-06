@@ -55,7 +55,7 @@ class Jobs extends BaseConfig
      */
     public ?int $maxOutputLength = null;
 
-    public string $log    = 'database'; // 'file' or 'database'
+    public string $log    = 'file'; // 'file' or 'database'
     public array $loggers = [
         'database' => DatabaseLoggerHandler::class,
         'file'     => FileLoggerHandler::class,
