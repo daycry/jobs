@@ -1,5 +1,11 @@
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate?business=SYC5XDT23UZ5G&no_recurring=0&item_name=Thank+you%21&currency_code=EUR)
 
+---
+
+🚀 **[VIEW ONLINE DOCUMENTATION](https://codeigniter-4-jobs.readthedocs.io/)** 🚀
+
+---
+
 # Codeigniter Jobs
 
 [![Build status](https://github.com/daycry/jobs/actions/workflows/php.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/php.yml)
