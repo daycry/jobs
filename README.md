@@ -68,13 +68,18 @@ Jobs are configured with the `app/Config/Jobs.php` config file, inside of the `i
 Lets start with a simple example:
 
 ```php
+// enqueue job for run in background
 $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
 
+// notify by email when the job finishes even if it is an error
 $scheduler->command('jobs:test')->named('enabled')->daily( '11:00 pm' )->singleInstance()->notifyOnCompletion();
 
+//disabled job
 $scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
 
+// run once
 $scheduler->shell('ls')->named('shell_test')->hourly()->singleInstance();
+
 $scheduler->closure(function() {
     // Your closure code here
     return 'Closure executed successfully!';
@@ -82,7 +87,7 @@ $scheduler->closure(function() {
 
 $scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
 
-$scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);
+$scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']])->named('url_test')->everyMinute()->singleInstance();
 
 ```
 
