@@ -19,7 +19,6 @@ use CodeIgniter\HTTP\Response;
 use Config\Services;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
-use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
@@ -74,7 +73,7 @@ class QueueRunCommand extends BaseJobsCommand
         }
 
         while (true) {
-            if($this->conditionalChecks()) {
+            if ($this->conditionalChecks()) {
                 $this->processQueue($queue);
 
                 if ($oneTime) {

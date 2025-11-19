@@ -19,7 +19,6 @@ use Daycry\Jobs\Entities\Queue as QueueEntity;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
-use Daycry\Jobs\Libraries\DateTimeHelper;
 use Daycry\Jobs\Models\QueueModel;
 
 /**
@@ -95,14 +94,20 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         $queueModel = new QueueModel();
 
         if ($recreate === true) {
-            $this->job->status = 'failed';
-            $queueModel->update($this->job->id, $this->job);
+            // Update status only if we have a reserved job entity
+            if ($this->job !== null) {
+                $this->job->status = 'failed';
+                $queueModel->update($this->job->id, $this->job);
+            }
             // Re-enqueue directly to this database backend instead of using push()
             // which might use a different worker from QueueManager
             $this->enqueue($job->toObject());
         } else {
-            $this->job->status = 'completed';
-            $queueModel->update($this->job->id, $this->job);
+            // Completion requires a reserved job to mark as completed
+            if ($this->job !== null) {
+                $this->job->status = 'completed';
+                $queueModel->update($this->job->id, $this->job);
+            }
         }
 
         $this->job = null;

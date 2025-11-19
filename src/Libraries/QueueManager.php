@@ -37,7 +37,7 @@ use Daycry\Jobs\Interfaces\WorkerInterface;
 class QueueManager
 {
     private static ?QueueManager $instance = null;
-    private array $instances = [];
+    private array $instances               = [];
     private array $workers;
     private string $defaultWorker;
 
@@ -81,7 +81,7 @@ class QueueManager
         }
 
         if (! isset($this->instances[$workerName])) {
-            $class = $this->workers[$workerName];
+            $class                        = $this->workers[$workerName];
             $this->instances[$workerName] = new $class();
         }
 

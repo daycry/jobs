@@ -39,9 +39,9 @@ final readonly class DelayResult
             return new self(0, null);
         }
 
-        $now   = time();
+        $now    = time();
         $target = $schedule->getTimestamp();
-        $delay = $target - $now;
+        $delay  = $target - $now;
 
         // Enforce minimum 1 second delay if target is in the future but rounding yields 0
         if ($delay > 0 && $delay < 1) {

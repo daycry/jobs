@@ -12,6 +12,7 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Tests\Support\DatabaseTestCase;
 
 /**
@@ -22,7 +23,7 @@ final class EnqueueIdTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        \Daycry\Jobs\Libraries\QueueManager::reset(); // Clear cached instances
+        QueueManager::reset(); // Clear cached instances
         config('Jobs')->logPerformance = false;
         config('Jobs')->log            = 'file';
     }

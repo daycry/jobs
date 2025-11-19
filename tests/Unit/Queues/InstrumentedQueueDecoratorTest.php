@@ -30,12 +30,12 @@ final class InstrumentedQueueDecoratorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->metrics = new InMemoryMetricsCollector();
-        $this->mockQueue = new MockQueue();
+        $this->metrics      = new InMemoryMetricsCollector();
+        $this->mockQueue    = new MockQueue();
         $this->instrumented = new InstrumentedQueueDecorator(
             $this->mockQueue,
             $this->metrics,
-            'mock'
+            'mock',
         );
     }
 
@@ -66,7 +66,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
         }
 
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_enqueue_total', ['backend' => 'mock', 'queue' => 'alpha', 'status' => 'error']);
+        $key      = $this->buildMetricKey('queue_enqueue_total', ['backend' => 'mock', 'queue' => 'alpha', 'status' => 'error']);
         $this->assertSame(1, $snapshot['counters'][$key]);
     }
 
@@ -91,7 +91,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
             queue: 'beta',
             payload: (object) ['job' => 'test'],
             attempts: 0,
-            createdAt: new DateTimeImmutable()
+            createdAt: new DateTimeImmutable(),
         );
         $this->mockQueue->setWatchResult($envelope);
 
@@ -99,7 +99,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
 
         $this->assertSame($envelope, $result);
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_fetch_total', ['backend' => 'mock', 'queue' => 'beta']);
+        $key      = $this->buildMetricKey('queue_fetch_total', ['backend' => 'mock', 'queue' => 'beta']);
         $this->assertSame(1, $snapshot['counters'][$key]);
     }
 
@@ -111,7 +111,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
 
         $this->assertNull($result);
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_fetch_empty_total', ['backend' => 'mock', 'queue' => 'gamma']);
+        $key      = $this->buildMetricKey('queue_fetch_empty_total', ['backend' => 'mock', 'queue' => 'gamma']);
         $this->assertSame(1, $snapshot['counters'][$key]);
     }
 
@@ -122,7 +122,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
         $this->instrumented->watch('delta');
 
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_fetch_duration_seconds', ['backend' => 'mock', 'queue' => 'delta']);
+        $key      = $this->buildMetricKey('queue_fetch_duration_seconds', ['backend' => 'mock', 'queue' => 'delta']);
         $this->assertArrayHasKey($key, $snapshot['histograms']);
         $this->assertGreaterThan(0, $snapshot['histograms'][$key]['sum']);
     }
@@ -137,7 +137,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
 
         $this->assertTrue($result);
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_ack_total', ['backend' => 'mock', 'queue' => 'epsilon']);
+        $key      = $this->buildMetricKey('queue_ack_total', ['backend' => 'mock', 'queue' => 'epsilon']);
         $this->assertSame(1, $snapshot['counters'][$key]);
     }
 
@@ -151,7 +151,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
 
         $this->assertTrue($result);
         $snapshot = $this->metrics->getSnapshot();
-        $key = $this->buildMetricKey('queue_nack_total', ['backend' => 'mock', 'queue' => 'zeta']);
+        $key      = $this->buildMetricKey('queue_nack_total', ['backend' => 'mock', 'queue' => 'zeta']);
         $this->assertSame(1, $snapshot['counters'][$key]);
     }
 
@@ -167,6 +167,7 @@ final class InstrumentedQueueDecoratorTest extends TestCase
             return $name;
         }
         ksort($labels);
+
         return $name . '|' . http_build_query($labels, '', ';');
     }
 }
@@ -176,17 +177,17 @@ final class InstrumentedQueueDecoratorTest extends TestCase
  */
 final class MockQueue implements QueueInterface, WorkerInterface
 {
-    private ?string $enqueueResult = null;
-    private ?\Throwable $enqueueException = null;
-    private mixed $watchResult = null;
-    private bool $removeJobResult = true;
+    private ?string $enqueueResult       = null;
+    private ?Throwable $enqueueException = null;
+    private mixed $watchResult           = null;
+    private bool $removeJobResult        = true;
 
     public function setEnqueueResult(string $id): void
     {
         $this->enqueueResult = $id;
     }
 
-    public function setEnqueueException(\Throwable $e): void
+    public function setEnqueueException(Throwable $e): void
     {
         $this->enqueueException = $e;
     }
@@ -206,6 +207,7 @@ final class MockQueue implements QueueInterface, WorkerInterface
         if ($this->enqueueException) {
             throw $this->enqueueException;
         }
+
         return $this->enqueueResult ?? 'default-id';
     }
 

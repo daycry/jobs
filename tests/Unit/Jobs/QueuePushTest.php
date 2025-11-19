@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 use CodeIgniter\CLI\Commands;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Models\QueueModel;
 use Daycry\Jobs\Queues\DatabaseQueue;
 use Tests\Support\DatabaseTestCase;
@@ -25,7 +26,7 @@ final class QueuePushTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        \Daycry\Jobs\Libraries\QueueManager::reset();
+        QueueManager::reset();
         $jobs          = config('Jobs');
         $jobs->queues  = 'default';
         $jobs->workers = ['database' => DatabaseQueue::class];

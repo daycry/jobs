@@ -107,12 +107,12 @@ final class JobEnvelope
      *  - rawId: ID nativo original del mensaje (útil para trazabilidad)
      *  - status: estado backend si disponible (pending, in_progress, completed, failed, etc.)
      *
-     * @param string         $backend    Backend identifier (redis|database|beanstalk|servicebus|sync)
-     * @param string         $id         Job identifier (unique within backend)
-     * @param string         $queue      Queue/tube name
-     * @param array|object   $payload    Decoded payload object
-     * @param array          $extraMeta  Additional backend-specific metadata (delay, ttr, entity_id, headers, etc.)
-     * @param mixed          $raw        Original backend object/record (for low-level operations)
+     * @param string       $backend   Backend identifier (redis|database|beanstalk|servicebus|sync)
+     * @param string       $id        Job identifier (unique within backend)
+     * @param string       $queue     Queue/tube name
+     * @param array|object $payload   Decoded payload object
+     * @param array        $extraMeta Additional backend-specific metadata (delay, ttr, entity_id, headers, etc.)
+     * @param mixed        $raw       Original backend object/record (for low-level operations)
      */
     public static function fromBackend(
         string $backend,
@@ -140,7 +140,7 @@ final class JobEnvelope
                 'backend' => $backend,
                 'rawId'   => $id,
             ],
-            $extraMeta
+            $extraMeta,
         );
 
         return new self(

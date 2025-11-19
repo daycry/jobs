@@ -19,6 +19,7 @@ interface PayloadSerializerInterface
      * Serializa un objeto de payload a string (normalmente JSON).
      *
      * @param object $payload Objeto a serializar
+     *
      * @return string Payload serializado
      */
     public function serialize(object $payload): string;
@@ -27,6 +28,7 @@ interface PayloadSerializerInterface
      * Deserializa un string a objeto payload.
      *
      * @param string $data String serializado
+     *
      * @return object|null Objeto deserializado o null si falla
      */
     public function deserialize(string $data): ?object;
@@ -35,6 +37,7 @@ interface PayloadSerializerInterface
      * Verifica si el payload tiene una versión de esquema específica.
      *
      * @param object $payload Payload a verificar
+     *
      * @return int|null Versión del esquema o null si no versionado
      */
     public function getSchemaVersion(object $payload): ?int;

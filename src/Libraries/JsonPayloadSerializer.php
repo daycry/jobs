@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Libraries;
 
 use Daycry\Jobs\Interfaces\PayloadSerializerInterface;
+use JsonException;
 
 /**
  * JSON serializer with optional schema versioning.
@@ -34,7 +35,7 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
     private const DEFAULT_SCHEMA_VERSION = 1;
 
     public function __construct(
-        private ?int $schemaVersion = self::DEFAULT_SCHEMA_VERSION
+        private ?int $schemaVersion = self::DEFAULT_SCHEMA_VERSION,
     ) {
     }
 
@@ -57,7 +58,7 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
             $decoded = json_decode($data, false, 512, JSON_THROW_ON_ERROR);
 
             return is_object($decoded) ? $decoded : null;
-        } catch (\JsonException) {
+        } catch (JsonException) {
             return null;
         }
     }
@@ -70,8 +71,9 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
     /**
      * Valida que el payload contenga campos mínimos requeridos.
      *
-     * @param object $payload Payload a validar
-     * @param array $requiredFields Lista de campos obligatorios
+     * @param object $payload        Payload a validar
+     * @param array  $requiredFields Lista de campos obligatorios
+     *
      * @return bool True si válido
      */
     public function validate(object $payload, array $requiredFields = ['job']): bool
@@ -90,6 +92,7 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
      * Extiende este método en subclases para migraciones complejas.
      *
      * @param object $payload Payload a migrar
+     *
      * @return object Payload migrado
      */
     public function migrate(object $payload): object

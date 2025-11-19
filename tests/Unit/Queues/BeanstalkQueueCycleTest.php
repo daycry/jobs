@@ -12,10 +12,10 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
-use Daycry\Jobs\Libraries\QueueManager;
 use Pheanstalk\Pheanstalk;
 use Tests\Support\TestCase;
 

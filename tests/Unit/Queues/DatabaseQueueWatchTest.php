@@ -12,6 +12,7 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Queues\DatabaseQueue;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Tests\Support\DatabaseTestCase;
@@ -24,7 +25,7 @@ final class DatabaseQueueWatchTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        \Daycry\Jobs\Libraries\QueueManager::reset();
+        QueueManager::reset();
         $jobs          = config('Jobs');
         $jobs->queues  = 'default';
         $jobs->workers = ['database' => DatabaseQueue::class];

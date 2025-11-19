@@ -12,6 +12,7 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RedisQueue;
 use Daycry\Jobs\Queues\RequeueHelper;
@@ -25,7 +26,7 @@ final class RedisQueueCycleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        \Daycry\Jobs\Libraries\QueueManager::reset();
+        QueueManager::reset();
     }
 
     public function testFullCycleWithRequeue(): void

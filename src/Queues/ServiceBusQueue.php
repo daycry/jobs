@@ -16,7 +16,6 @@ namespace Daycry\Jobs\Queues;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
-use Daycry\Jobs\Libraries\DateTimeHelper;
 use Daycry\Jobs\Libraries\ServiceBusHeaders;
 use Throwable;
 
@@ -89,7 +88,7 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
             'headers' => array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders()),
         ]);
         if (method_exists($resp, 'getStatusCode') && $resp->getStatusCode() === 200) {
-            $body      = $this->getSerializer()->deserialize((string) $resp->getBody());
+            $body = $this->getSerializer()->deserialize((string) $resp->getBody());
             if (! $body) {
                 return null;
             }

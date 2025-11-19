@@ -16,6 +16,7 @@ use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Tests\Support\TestCase;
 
 /** @internal */
@@ -25,7 +26,7 @@ final class ServicesQueueJobTest extends TestCase
     {
         parent::setUp();
 
-        \Daycry\Jobs\Libraries\QueueManager::reset(); // Critical: reset before changing config
+        QueueManager::reset(); // Critical: reset before changing config
 
         // Inject stub worker
         $cfg                  = $this->jobsConfig();
@@ -93,7 +94,7 @@ final class ServicesQueueJobTest extends TestCase
 
     public function testSyncQueueExecutesJobAndInlineCallbackImmediately(): void
     {
-        \Daycry\Jobs\Libraries\QueueManager::reset();
+        QueueManager::reset();
         $cfg         = $this->jobsConfig();
         $cfg->worker = 'sync'; // use real SyncQueue implementation
         unset($cfg->workers['stub']); // Remove stub to ensure sync is used
@@ -143,7 +144,7 @@ final class StubQueue implements QueueInterface, WorkerInterface
         return null; // stub never returns jobs
     }
 
-    public function removeJob(\Daycry\Jobs\Job $job, bool $recreate = false): bool
+    public function removeJob(Job $job, bool $recreate = false): bool
     {
         return true; // stub no-op
     }

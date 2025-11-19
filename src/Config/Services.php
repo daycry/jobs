@@ -90,7 +90,10 @@ class Services extends BaseServices
             }
         }
 
-        $instance->enqueue($queue);
+        // Only set queue if not already configured by $configure callback
+        if ($instance->getQueue() === null) {
+            $instance->enqueue($queue);
+        }
 
         return (string) $instance->push();
     }

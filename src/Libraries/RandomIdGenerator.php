@@ -20,6 +20,7 @@ class RandomIdGenerator implements IdGeneratorInterface
     public function generate(int $bytes = 8, ?string $prefix = null): string
     {
         $core = bin2hex(random_bytes($bytes));
+
         return $prefix ? ($prefix . '-' . $core) : $core;
     }
 }

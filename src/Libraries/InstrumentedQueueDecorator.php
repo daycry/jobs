@@ -17,6 +17,8 @@ use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Metrics\MetricsCollectorInterface;
+use InvalidArgumentException;
+use Throwable;
 
 /**
  * Decorator transparente que instrumenta cualquier QueueInterface con métricas.
@@ -44,14 +46,14 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
     public function __construct(
         QueueInterface $decorated,
         MetricsCollectorInterface $metrics,
-        string $backendName
+        string $backendName,
     ) {
         // Validar que también implementa WorkerInterface
         if (! $decorated instanceof WorkerInterface) {
-            throw new \InvalidArgumentException('Decorated queue must implement WorkerInterface');
+            throw new InvalidArgumentException('Decorated queue must implement WorkerInterface');
         }
-        $this->decorated = $decorated;
-        $this->metrics = $metrics;
+        $this->decorated   = $decorated;
+        $this->metrics     = $metrics;
         $this->backendName = $backendName;
     }
 
@@ -69,7 +71,7 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
             ]);
 
             return $id;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->metrics->increment('queue_enqueue_total', 1, [
                 'backend' => $this->backendName,
                 'queue'   => $queue,
@@ -92,7 +94,7 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
 
         try {
             /** @var WorkerInterface $worker */
-            $worker = $this->decorated;
+            $worker   = $this->decorated;
             $envelope = $worker->watch($queue);
 
             if ($envelope !== null) {

@@ -14,11 +14,9 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues;
 
 use Config\Cache;
-use DateTimeImmutable;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob; // ext-redis required
-use Daycry\Jobs\Libraries\DateTimeHelper;
 use Daycry\Jobs\Libraries\RedisHandler as JobsRedisHandler;
 use Redis;
 use RuntimeException;
@@ -67,8 +65,8 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
     public function enqueue(object $data): string
     {
-        $queue = $data->queue ?? 'default';
-        $delay = $this->calculateDelay($data);
+        $queue   = $data->queue ?? 'default';
+        $delay   = $this->calculateDelay($data);
         $now     = time();
         $id      = $now . '-' . $this->generateId(bytes: 4);
         $payload = $this->getSerializer()->serialize((object) [

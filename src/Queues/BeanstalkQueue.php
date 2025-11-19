@@ -16,8 +16,6 @@ namespace Daycry\Jobs\Queues;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
-use Daycry\Jobs\Libraries\DateTimeHelper;
-use Daycry\Jobs\Libraries\Priority;
 use Pheanstalk\Pheanstalk;
 use Pheanstalk\Values\Job;
 use Pheanstalk\Values\TubeName;
@@ -54,7 +52,7 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         $queue = $data->queue ?? 'default';
         $tube  = new TubeName($queue);
         $this->connection->useTube($tube);
-        $delay = $this->calculateDelay($data);
+        $delay   = $this->calculateDelay($data);
         $payload = $this->getSerializer()->serialize($data);
 
         return $this->connection->put($payload, $this->priority, $delay->seconds, $this->ttr)->getId();
@@ -89,12 +87,13 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
-        if ($this->job) {
+        if ($this->job !== null) {
             try {
                 $this->connection->delete($this->job);
             } catch (Throwable) { // ignore
             }
         }
+
         if ($recreate) {
             // Re-enqueue directly to this beanstalk backend instead of using push()
             // which might use a different worker from QueueManager

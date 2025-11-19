@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
-use DateTime;
 use Daycry\Jobs\Interfaces\IdGeneratorInterface;
 use Daycry\Jobs\Interfaces\PayloadSerializerInterface;
 use Daycry\Jobs\Libraries\DelayResult;
@@ -22,8 +21,8 @@ use Daycry\Jobs\Libraries\RandomIdGenerator;
 
 abstract class BaseQueue
 {
-    private ?DelayResult $delayResult = null;
-    private ?IdGeneratorInterface $idGenerator = null;
+    private ?DelayResult $delayResult               = null;
+    private ?IdGeneratorInterface $idGenerator      = null;
     private ?PayloadSerializerInterface $serializer = null;
 
     /**
@@ -31,8 +30,9 @@ abstract class BaseQueue
      */
     protected function calculateDelay(object $data): DelayResult
     {
-        $schedule = $data->schedule ?? null;
+        $schedule          = $data->schedule ?? null;
         $this->delayResult = DelayResult::fromSchedule($schedule);
+
         return $this->delayResult;
     }
 
@@ -44,6 +44,7 @@ abstract class BaseQueue
     public function setIdGenerator(IdGeneratorInterface $generator): self
     {
         $this->idGenerator = $generator;
+
         return $this;
     }
 
@@ -53,6 +54,7 @@ abstract class BaseQueue
             // Posible clase personalizada desde config en fases futuras
             $this->idGenerator = new RandomIdGenerator();
         }
+
         return $this->idGenerator;
     }
 
@@ -64,6 +66,7 @@ abstract class BaseQueue
     public function setSerializer(PayloadSerializerInterface $serializer): self
     {
         $this->serializer = $serializer;
+
         return $this;
     }
 
@@ -72,6 +75,7 @@ abstract class BaseQueue
         if (! $this->serializer) {
             $this->serializer = new JsonPayloadSerializer();
         }
+
         return $this->serializer;
     }
 }
