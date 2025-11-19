@@ -39,12 +39,37 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 - Cron style scheduler (minute level) with enable/disable operations.
 - Unified Job abstraction (command, shell, closure, event, URL) via a consistent API.
 - Multiple queue backends: Redis, Database, Beanstalk, Azure Service Bus, Sync (inline execution).
+- Centralized backend access via `QueueManager` singleton (cached instances, consistent lookup).
+- Payload schema versioning through `JsonPayloadSerializer` (extensible migrations & validation).
+- Transparent queue-level instrumentation using `InstrumentedQueueDecorator` (7 metrics: enqueue/fetch( + empty)/ack/nack + enqueue & fetch duration histograms).
 - Requeue & retry strategies (none, fixed, exponential + optional jitter & cap) with normalized attempt semantics.
 - Structured execution logging (file or database) including: executionId, queue, source, attempt, payload hash, output length, retry strategy.
 - Recursive payload/output/error masking of sensitive keys.
-- Execution metrics hook interface (Prometheus friendly) for counters & timings.
+- Execution metrics layer (job lifecycle + optional queue-level metrics) – Prometheus friendly naming.
 - Pluggable pruning (max logs per job) and payload hashing for dedup/forensics.
 - Clean separation of concerns (JobEnvelope transport + Job domain object + RequeueHelper lifecycle).
+- Comprehensive test suite organized by domain (Queues, Logging, Retry, Jobs, Execution, Callbacks, Scheduler, Metrics, Helpers, Traits). See `docs/TESTING.md`.
+
+### Queue-Level Metrics (Decorator)
+| Metric | Type | Labels |
+|--------|------|--------|
+| `queue_enqueue_total` | counter | backend, queue, status |
+| `queue_fetch_total` | counter | backend, queue |
+| `queue_fetch_empty_total` | counter | backend, queue |
+| `queue_ack_total` | counter | backend, queue |
+| `queue_nack_total` | counter | backend, queue |
+| `queue_enqueue_duration_seconds` | histogram | backend, queue |
+| `queue_fetch_duration_seconds` | histogram | backend, queue |
+
+### Lifecycle Metrics (Core)
+| Metric | When |
+|--------|------|
+| `jobs_succeeded` | Job completes successfully |
+| `jobs_failed` | Job attempt fails |
+| `jobs_requeued` | Failed job re-enqueued |
+| `jobs_timed_out` | (Reserved) timeout hook |
+
+> Enable queue-level metrics by wrapping a backend with `InstrumentedQueueDecorator`.
 
 ## Installation
 ```bash
@@ -128,9 +153,14 @@ There are a number of ways available to specify how often the task is called.
 | ->months([1,7])               | Runs only on January and July.                                        |
 
 
-Run worker (example with Redis worker configured in Jobs config):
+Run cron scheduler worker (evaluate due scheduled jobs):
 ```bash
 php spark jobs:cronjob:run
+```
+
+Run queue worker (consume enqueued jobs):
+```bash
+php spark jobs:queue:run --queue=default --sleep=1
 ```
 
 ## Job Dependencies
@@ -408,6 +438,41 @@ Set `retryBackoffStrategy` to `none`, `fixed`, or `exponential`. Configure `retr
 ## Queue Backends
 Backends are configured in `Jobs::$workers`. Switch active backend via `Jobs::$worker`. See [Queues](docs/QUEUES.md) for notes on each driver and capabilities.
 
+### QueueManager Usage
+```php
+use Daycry\Jobs\Libraries\QueueManager;
+
+$manager = QueueManager::instance();
+$queue   = $manager->getDefault();        // active backend
+$redis   = $manager->get('redis');        // specific backend
+foreach ($manager->list() as $name => $instance) {
+    // inspect backends
+}
+```
+
+### Instrumenting a Queue
+```php
+use Daycry\Jobs\Libraries\InstrumentedQueueDecorator; 
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Libraries\QueueManager;
+
+$backend      = QueueManager::instance()->get('redis');
+$metrics      = new InMemoryMetricsCollector();
+$instrumented = new InstrumentedQueueDecorator($backend, $metrics, 'redis');
+
+$jobId = $instrumented->enqueue((object) ['job' => 'command', 'payload' => 'jobs:test', 'queue' => 'default']);
+```
+
+### Custom Payload Serializer
+```php
+use Daycry\Jobs\Libraries\JsonPayloadSerializer;
+use Daycry\Jobs\Libraries\QueueManager;
+
+$serializer = new JsonPayloadSerializer(schemaVersion: 2);
+$queue = QueueManager::instance()->getDefault();
+$queue->setSerializer($serializer);
+```
+
 ## CLI Commands
 Common commands:
 - `jobs:cronjob:run` run a cron job worker loop.
@@ -431,27 +496,27 @@ $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstanc
 
 ## Metrics
 The jobs system exposes a lightweight, pluggable metrics layer. Provide your own implementation of
-`MetricsCollectorInterface` to export counters and timings to Prometheus / StatsD / etc.
+`MetricsCollectorInterface` to export counters and timings. Two tiers:
 
-Built‑in counters currently emitted by `RequeueHelper`:
-* `jobs_succeeded`
-* `jobs_failed`
-* `jobs_requeued`
-* `jobs_timed_out` (reserved for when a timeout hook is added)
+1. **Lifecycle metrics** (emitted by `RequeueHelper` / worker loop): success, failure, requeue.
+2. **Queue-level metrics** (optional via `InstrumentedQueueDecorator`): enqueue/fetch counters and duration histograms.
 
-Quick example:
+Quick examples:
 ```php
+// Lifecycle only
 use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
 use Daycry\Jobs\Queues\RequeueHelper;
+$metrics = new InMemoryMetricsCollector();
+$requeue = new RequeueHelper($metrics);
 
-$metrics  = new InMemoryMetricsCollector();
-$requeue  = new RequeueHelper($metrics); // core counters now increment
-
-// Custom timing after a run (example placement inside your worker loop)
-$metrics->observe('job_duration_seconds', 0.42, ['queue' => 'default', 'job' => 'jobs:import']);
+// Queue decorator
+use Daycry\Jobs\Libraries\InstrumentedQueueDecorator; 
+use Daycry\Jobs\Libraries\QueueManager;
+$queue        = QueueManager::instance()->get('redis');
+$instrumented = new InstrumentedQueueDecorator($queue, $metrics, 'redis');
 ```
 
-See the full guide with naming conventions, custom examples (duration, latency, business KPIs) and a Prometheus adapter skeleton in [Metrics Documentation](docs/METRICS.md).
+See full guide (naming conventions, latency, buckets, Prometheus adapter) in [Metrics Documentation](docs/METRICS.md).
 
 ### Configuration
 Set a custom collector (must implement `MetricsCollectorInterface`) in your `Jobs` config:

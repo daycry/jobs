@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.2 - 2025-11-19
 - Added JobTestCommandTest to cover custom test CLI command and integration touchpoint in QueuePushTest.
 - Renamed test CLI command to `jobs:test` (alias `job:test` retained) to align with existing invocation attempts and remove warning noise.
 - BREAKING: Removed unused `WorkerInterface::getDataJob()` method and all queue-specific implementations (DatabaseQueue, RedisQueue, BeanstalkQueue, ServiceBusQueue). Payload hydration will be redesigned under a future JobEnvelope abstraction.
@@ -12,6 +12,17 @@
 - Added `RequeueHelper` centralizing success/failure finalization logic (removes duplicated enqueue/remove branches per outcome).
 - Removed legacy mixed payload branch from `QueueRunCommand`; it now exclusively handles `JobEnvelope` instances (BREAKING for custom queues still returning raw payloads).
 - Added watch tests for Database, Beanstalk, and ServiceBus queues ensuring `JobEnvelope` contract coverage.
+- Added `QueueManager` singleton for centralized backend instantiation and caching.
+- Added `PayloadSerializerInterface` + `JsonPayloadSerializer` with schema versioning and migration hook.
+- Added `InstrumentedQueueDecorator` with queue-level metrics (enqueue/fetch/empty/ack/nack + duration histograms).
+- Added `DelayResult` value object (replaces ad-hoc delay integer passing) and `Priority` enum.
+- Behavior Change: `removeJob($job, true)` now re-enqueues directly on the same backend instance (Redis, Database, Beanstalk, ServiceBus) instead of delegating to `$job->push()` (prevents cross-backend requeue in multi-worker setups).
+- Removed deprecated `BaseQueue::getDelay()` method (use `getDelayResult()->seconds`).
+- Removed unused `AttemptsTracker` prototype class (was never wired into retry logic).
+- Test Suite: reorganized under `tests/Unit/{Queues,Logging,Retry,Jobs,Execution,Callbacks,Scheduler,Metrics,Helpers,Traits}` for clarity; added decorator tests.
+- Documentation: updated `README.md`, `ARCHITECTURE.md`, `CONFIGURATION.md`, `METRICS.md`, `advanced.md`, `COMMANDS.md`, `QUEUE_SIMPLIFICATION.md`, and added `TESTING.md` guide.
+- Metrics Documentation: expanded with queue-level metrics table and naming conventions.
+- Added direct serializer and instrumentation usage examples to README.
 
 ### BREAKING: Esquema de logs extendido
 - La tabla de logs (definida por `JobsTables` migration) ahora incluye columnas extendidas: `executionId`, `attempt`, `queue`, `source`, `retryStrategy`, `payloadHash`, `outputLength`, `status`, `data`.
