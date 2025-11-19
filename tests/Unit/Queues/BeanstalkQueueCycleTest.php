@@ -15,6 +15,7 @@ use Daycry\Jobs\Job;
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
+use Daycry\Jobs\Libraries\QueueManager;
 use Pheanstalk\Pheanstalk;
 use Tests\Support\TestCase;
 
@@ -45,6 +46,8 @@ final class BeanstalkQueueCycleTest extends TestCase
 
         $job = new Job(job: 'command', payload: 'jobs:test');
         $job->named('bean_cycle')->setQueue('bean_default');
+        // Ensure QueueManager picks up updated default worker before pushing
+        QueueManager::reset();
         $id1 = $job->push();
         $this->assertIsString($id1);
 
