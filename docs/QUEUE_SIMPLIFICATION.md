@@ -105,6 +105,9 @@ $queue->setIdGenerator(new SequentialIdGenerator());
 - `RedisQueue::failedKey()` – unused method removed (failed job tracking will be reimplemented)
 - Direct `json_encode/json_decode` in queue enqueue/watch – replaced with serializer
 
+#### Behavior Changes
+- **`removeJob($job, $recreate = true)`** in all backends now re-enqueues directly to the **same backend** instance instead of calling `$job->push()` which could route to a different worker via `QueueManager`. This ensures requeued jobs stay in the same queue backend (important for tests and multi-backend setups).
+
 #### New Extension Points
 - `PayloadSerializerInterface::migrate()` – override for custom schema migrations
 - `Priority::parse()` – symbolic → numeric priority mapping

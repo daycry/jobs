@@ -96,7 +96,9 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             }
         }
         if ($recreate) {
-            $job->push();
+            // Re-enqueue directly to this beanstalk backend instead of using push()
+            // which might use a different worker from QueueManager
+            $this->enqueue($job->toObject());
         }
         $this->job = null;
 

@@ -126,7 +126,9 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
         if ($recreate) {
-            $job->push();
+            // Re-enqueue directly to this redis backend instead of using push()
+            // which might use a different worker from QueueManager
+            $this->enqueue($job->toObject());
         }
         $this->job = null;
 

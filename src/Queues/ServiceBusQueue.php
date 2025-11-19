@@ -111,7 +111,9 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
         if ($recreate) {
-            $job->enqueue($job->getQueue());
+            // Re-enqueue directly to this service bus backend instead of using enqueue()
+            // which might cause issues with queue configuration
+            $this->enqueue($job->toObject());
         }
         $this->job = null;
 

@@ -97,7 +97,9 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         if ($recreate === true) {
             $this->job->status = 'failed';
             $queueModel->update($this->job->id, $this->job);
-            $job->push();
+            // Re-enqueue directly to this database backend instead of using push()
+            // which might use a different worker from QueueManager
+            $this->enqueue($job->toObject());
         } else {
             $this->job->status = 'completed';
             $queueModel->update($this->job->id, $this->job);
