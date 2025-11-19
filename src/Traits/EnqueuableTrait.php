@@ -16,9 +16,12 @@ namespace Daycry\Jobs\Traits;
 use CodeIgniter\I18n\Time;
 use DateInterval;
 use DateTime;
+use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Interfaces\QueueInterface;
+use Daycry\Jobs\Interfaces\WorkerInterface;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Libraries\Utils;
 use Daycry\Jobs\Queues\SyncQueue;
 
@@ -156,13 +159,6 @@ trait EnqueuableTrait
 
     protected function checkWorker(): void
     {
-        $workers = config('Jobs')->workers ?? [];
-        $worker  = config('Jobs')->worker ?? '';
-
-        if (! array_key_exists($worker, $workers)) {
-            throw QueueException::forInvalidWorker($worker);
-        }
-
-        $this->worker = new $workers[$worker]();
+        $this->worker = QueueManager::instance()->getDefault();
     }
 }

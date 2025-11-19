@@ -51,5 +51,50 @@ Jobs can carry a schedule timestamp (depending on implementation) to handle futu
 | Cloud integration | Service Bus |
 | Inline / dev | Sync |
 
+## Queue Management
+
+### QueueManager
+The `QueueManager` singleton provides centralized registry and factory for queue backends:
+```php
+use Daycry\Jobs\Libraries\QueueManager;
+
+// Get default worker
+$queue = QueueManager::instance()->getDefault();
+
+// Get specific worker by name
+$queue = QueueManager::instance()->get('redis');
+```
+
+Configuration is read from `Config\Jobs::$workers` array. Instances are cached per worker name.
+
+### PayloadSerializer
+All backends use `PayloadSerializerInterface` for consistent payload serialization:
+- **JsonPayloadSerializer**: Default implementation with schema versioning (`_schemaVersion` field)
+- Handles legacy payloads without version field transparently
+- Extensible via `migrate()` method for future schema upgrades
+
+### Metrics & Observability
+Use `InstrumentedQueueDecorator` to transparently add metrics to any queue:
+```php
+use Daycry\Jobs\Libraries\InstrumentedQueueDecorator;
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+
+$metrics = new InMemoryMetricsCollector();
+$instrumented = new InstrumentedQueueDecorator(
+    queue: $originalQueue,
+    metrics: $metrics,
+    backendName: 'redis'
+);
+```
+
+Tracks 7 metrics:
+- `queue_enqueue_total`: Successful enqueues by backend/queue
+- `queue_fetch_total`: Successful fetches
+- `queue_fetch_empty_total`: Empty fetch attempts
+- `queue_ack_total`: Job acknowledgments (successful completion)
+- `queue_nack_total`: Job negative acknowledgments (requeues)
+- `queue_enqueue_duration_seconds`: Enqueue operation duration histogram
+- `queue_fetch_duration_seconds`: Fetch operation duration histogram
+
 ## Extending
 Implement `QueueInterface`, honor `JobEnvelope` structure, and register your worker in `$workers` map.

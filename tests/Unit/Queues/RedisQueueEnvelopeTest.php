@@ -18,6 +18,12 @@ use Tests\Support\TestCase;
 /** @internal */
 final class RedisQueueEnvelopeTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset();
+    }
+
     public function testDelayedJobEnvelopeContainsMetaAndAvailableAt(): void
     {
         if (! class_exists('Redis')) {

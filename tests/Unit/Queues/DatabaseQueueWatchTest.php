@@ -24,6 +24,7 @@ final class DatabaseQueueWatchTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset();
         $jobs          = config('Jobs');
         $jobs->queues  = 'default';
         $jobs->workers = ['database' => DatabaseQueue::class];
@@ -33,9 +34,10 @@ final class DatabaseQueueWatchTest extends DatabaseTestCase
     public function testWatchReturnsJobEnvelope(): void
     {
         $job = new Job(job: 'command', payload: 'jobs:test');
-        $job->named('db_watch')->enqueue('default');
+        $job->named('db_watch')->setQueue('default');
         $id = $job->push();
         $this->assertIsString($id);
+        $this->assertNotEmpty($id);
 
         $worker   = new DatabaseQueue();
         $envelope = $worker->watch('default');

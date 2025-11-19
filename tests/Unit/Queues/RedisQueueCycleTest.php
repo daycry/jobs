@@ -22,6 +22,12 @@ use Tests\Support\TestCase;
  */
 final class RedisQueueCycleTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset();
+    }
+
     public function testFullCycleWithRequeue(): void
     {
         if (! class_exists('Redis')) {

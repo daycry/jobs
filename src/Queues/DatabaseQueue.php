@@ -40,9 +40,9 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         $queueModel = new QueueModel();
         $job        = new QueueEntity();
 
-        $this->calculateDelay($data);
+        $delay = $this->calculateDelay($data);
 
-        if ($this->getDelay() <= 0) {
+        if ($delay->isImmediate()) {
             $data->schedule = new DateTime('now', new DateTimeZone(config('App')->appTimezone));
         }
 
@@ -70,25 +70,19 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
             $this->job->status     = 'in_progress';
             $this->job->updated_at = date('Y-m-d H:i:s');
             $queueModel->update($this->job->id, $this->job);
-            // Construir envelope normalizado
-            $decoded     = \json_decode($this->job->payload ?? '{}');
-            $scheduledAt = null;
-            if (isset($this->job->schedule)) {
-                $scheduledAt = DateTimeHelper::parseImmutable($this->job->schedule);
-            }
-            $createdAt = $scheduledAt ?? DateTimeHelper::now();
 
-            return JobEnvelope::fromDecoded(
+            $decoded = \json_decode($this->job->payload ?? '{}');
+
+            return JobEnvelope::fromBackend(
+                backend: 'database',
                 id: (string) $this->job->identifier,
                 queue: (string) $this->job->queue,
-                decoded: $decoded,
-                name: isset($decoded->name) ? (string) $decoded->name : null,
-                attempts: (int) ($decoded->attempts ?? 0),
-                priority: isset($this->job->priority) ? (int) $this->job->priority : null,
-                scheduledAt: $scheduledAt,
-                availableAt: null,
-                createdAt: $createdAt,
-                meta: ['entity_id' => $this->job->id, 'status' => $this->job->status],
+                payload: $decoded,
+                extraMeta: [
+                    'entity_id' => $this->job->id,
+                    'status'    => $this->job->status,
+                    'schedule'  => $this->job->schedule ?? null,
+                ],
                 raw: $this->job,
             );
         }

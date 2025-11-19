@@ -14,40 +14,64 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues;
 
 use DateTime;
+use Daycry\Jobs\Interfaces\IdGeneratorInterface;
+use Daycry\Jobs\Interfaces\PayloadSerializerInterface;
+use Daycry\Jobs\Libraries\DelayResult;
+use Daycry\Jobs\Libraries\JsonPayloadSerializer;
+use Daycry\Jobs\Libraries\RandomIdGenerator;
 
 abstract class BaseQueue
 {
-    private int $delay = 0;
+    private ?DelayResult $delayResult = null;
+    private ?IdGeneratorInterface $idGenerator = null;
+    private ?PayloadSerializerInterface $serializer = null;
 
-    public function calculateDelay(object $data): void
+    /**
+     * Calcula delay desde schedule y retorna DelayResult.
+     */
+    protected function calculateDelay(object $data): DelayResult
     {
-        if (isset($data->schedule)) {
-            $now = new DateTime('now');
-
-            $delay = $data->schedule->getTimestamp() - $now->getTimestamp();
-            // Enforce minimum 1 second delay if target is in the future but rounding yields 0
-            if ($delay > 0 && $delay < 1) {
-                $delay = 1;
-            }
-            // If schedule was provided explicitly and computed delay is 0 or negative but schedule second >= now second, force 1 for deterministic promotion
-            if ($delay === 0) {
-                $delay = 1;
-            }
-            $delay = ($delay > 0) ? $delay : 0;
-
-            $this->setDelay($delay);
-        }
+        $schedule = $data->schedule ?? null;
+        $this->delayResult = DelayResult::fromSchedule($schedule);
+        return $this->delayResult;
     }
 
-    protected function setDelay(int $delay)
+    protected function getDelayResult(): DelayResult
     {
-        $this->delay = $delay;
+        return $this->delayResult ?? new DelayResult(0, null);
+    }
 
+    public function setIdGenerator(IdGeneratorInterface $generator): self
+    {
+        $this->idGenerator = $generator;
         return $this;
     }
 
-    protected function getDelay()
+    protected function getIdGenerator(): IdGeneratorInterface
     {
-        return $this->delay;
+        if (! $this->idGenerator) {
+            // Posible clase personalizada desde config en fases futuras
+            $this->idGenerator = new RandomIdGenerator();
+        }
+        return $this->idGenerator;
+    }
+
+    protected function generateId(?string $prefix = null, int $bytes = 8): string
+    {
+        return $this->getIdGenerator()->generate($bytes, $prefix);
+    }
+
+    public function setSerializer(PayloadSerializerInterface $serializer): self
+    {
+        $this->serializer = $serializer;
+        return $this;
+    }
+
+    protected function getSerializer(): PayloadSerializerInterface
+    {
+        if (! $this->serializer) {
+            $this->serializer = new JsonPayloadSerializer();
+        }
+        return $this->serializer;
     }
 }

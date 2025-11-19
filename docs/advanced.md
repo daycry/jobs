@@ -8,6 +8,45 @@ $id = Services::queueJob('command','jobs:cleanup','default', function($j){
 });
 ```
 
+## Queue Management
+
+### Using QueueManager
+Access queue backends centrally:
+```php
+use Daycry\Jobs\Libraries\QueueManager;
+
+// Get default queue
+$queue = QueueManager::instance()->getDefault();
+
+// Get specific backend
+$redis = QueueManager::instance()->get('redis');
+$database = QueueManager::instance()->get('database');
+
+// Enqueue directly
+$job = new Job(job: 'command', payload: 'jobs:cleanup');
+$job->setQueue('high-priority');
+$id = $redis->enqueue($job->getDataQueue());
+```
+
+### Instrumenting Queues with Metrics
+```php
+use Daycry\Jobs\Libraries\InstrumentedQueueDecorator;
+use Daycry\Jobs\Metrics\Metrics;
+
+$queue = QueueManager::instance()->get('redis');
+$instrumented = new InstrumentedQueueDecorator(
+    queue: $queue,
+    metrics: Metrics::get(),
+    backendName: 'redis'
+);
+
+// All operations now tracked:
+// - queue_enqueue_total{backend,queue,status}
+// - queue_fetch_total{backend,queue}
+// - queue_ack_total / queue_nack_total
+// - queue_enqueue_duration_seconds / queue_fetch_duration_seconds
+```
+
 ## Callbacks & Chaining
 Attach a callback job run after completion:
 ```php

@@ -25,6 +25,7 @@ final class QueuePushTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset();
         $jobs          = config('Jobs');
         $jobs->queues  = 'default';
         $jobs->workers = ['database' => DatabaseQueue::class];
@@ -43,11 +44,11 @@ final class QueuePushTest extends DatabaseTestCase
         $this->assertStringContainsString('Commands can output text.', $cmdOut);
 
         $job = new Job(job: 'command', payload: 'jobs:test'); // payload conserva 'jobs:test'
-        $job->named('queue_command')->enqueue('default');
+        $job->named('queue_command')->setQueue('default');
 
         $id = $job->push();
         $this->assertIsString($id);
-        $this->assertSame(32, strlen($id));
+        $this->assertSame(32, strlen($id), 'DatabaseQueue uses random_string alnum 32');
 
         $model  = new QueueModel();
         $record = $model->where('identifier', $id)->first();

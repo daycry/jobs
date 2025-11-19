@@ -7,8 +7,8 @@ The package reads its settings from `Daycry\Jobs\Config\Jobs` (you may publish /
 |----------|------|-------------|
 | `$jobs` | array | Mapping of job handler keys (e.g. `command`, `shell`) to concrete job classes. |
 | `$queues` | string|array | Comma list or array of queue names available. First is used as default if none chosen. |
-| `$worker` | string | Active queue backend key referencing `$workers`. |
-| `$workers` | array | Map of worker key => queue implementation class. |
+| `$worker` | string | Active queue backend key referencing `$workers`. Access via `QueueManager::instance()->get($name)`. |
+| `$workers` | array | Map of worker key => queue implementation class. Instances cached by `QueueManager`. |
 | `$logPerformance` | bool | Enable/disable structured execution logging. |
 | `$log` | string | Logging driver key (`file` or `database`). |
 | `$loggers` | array | Map logging driver key => handler class. |
@@ -55,6 +55,47 @@ Relies on `ext-redis` and host/port taken from environment (e.g. `REDIS_HOST`, `
 
 ## Sensitive Data Masking
 The effective keys are the union of internal defaults (`password`, `token`, `secret`, `authorization`, `api_key`) plus any configured in `$sensitiveKeys` and those appended dynamically at runtime. Matching is case-insensitive and recursive across arrays/objects. Values are replaced with `***`.
+
+## Queue Management
+
+### QueueManager (Centralized Registry)
+Access queue backends via singleton:
+```php
+use Daycry\Jobs\Libraries\QueueManager;
+
+// Get default worker
+$queue = QueueManager::instance()->getDefault();
+
+// Get specific worker by name
+$queue = QueueManager::instance()->get('redis');
+
+// List all configured workers
+$workers = QueueManager::instance()->list();
+```
+
+### PayloadSerializer (Schema Versioning)
+All queues use centralized serialization:
+```php
+use Daycry\Jobs\Libraries\JsonPayloadSerializer;
+
+$serializer = new JsonPayloadSerializer(schemaVersion: 2);
+$queue->setSerializer($serializer);
+```
+
+### InstrumentedQueueDecorator (Metrics)
+Wrap any queue for transparent metrics:
+```php
+use Daycry\Jobs\Libraries\InstrumentedQueueDecorator;
+use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+
+$metrics = new InMemoryMetricsCollector();
+$instrumented = new InstrumentedQueueDecorator(
+    queue: $queue,
+    metrics: $metrics,
+    backendName: 'redis'
+);
+// Tracks: enqueue_total, fetch_total, ack_total, nack_total, durations
+```
 
 ## Publishing / Overriding
 Copy `src/Config/Jobs.php` into `app/Config/Jobs.php` and modify. CodeIgniter's service locator will favor the application namespace.

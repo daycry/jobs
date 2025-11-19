@@ -49,7 +49,35 @@ Will enable the task runner if it was previously disabled, allowing all tasks to
 ## Queues
 | Command | Description |
 |---------|-------------|
-| `jobs:queue:run [--queue=NAME] [--sleep=N]` | Run a worker consuming jobs. |
+| `jobs:queue:run [--queue=NAME] [--sleep=N]` | Run a worker consuming jobs from configured backend. |
+
+### Queue Worker Details
+
+The `jobs:queue:run` command starts a long-running process that:
+1. Uses `QueueManager` to get the configured queue backend
+2. Continuously calls `watch()` to fetch jobs
+3. Executes jobs via `JobLifecycleCoordinator`
+4. Handles retries, metrics, and logging
+5. Sleeps between cycles (default: 1 second)
+
+**Options**:
+- `--queue=NAME` - Specific queue name to consume from (default: uses first in config)
+- `--sleep=N` - Seconds to sleep between fetch cycles (default: 1)
+
+**Queue Backends**:
+The worker automatically uses the backend configured in `Config\Jobs::$worker`:
+- `redis` - Fast in-memory queue with delayed job support
+- `database` - Persistent relational storage
+- `beanstalk` - Beanstalkd tube-based processing
+- `servicebus` - Azure Service Bus integration
+- `sync` - Inline execution (no background processing)
+
+**Metrics**:
+If metrics are enabled, the worker tracks:
+- `jobs_fetched` - Total fetch attempts
+- `jobs_age_seconds` - Queue latency (enqueue → start)
+- `jobs_exec_seconds` - Execution duration
+- Plus queue-level metrics if using `InstrumentedQueueDecorator`
 
 
 ## Examples

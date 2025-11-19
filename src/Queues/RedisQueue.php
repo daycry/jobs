@@ -68,20 +68,20 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
     public function enqueue(object $data): string
     {
         $queue = $data->queue ?? 'default';
-        $this->calculateDelay($data);
+        $delay = $this->calculateDelay($data);
         $now     = time();
-        $id      = $now . '-' . bin2hex(random_bytes(4));
-        $payload = json_encode([
+        $id      = $now . '-' . $this->generateId(bytes: 4);
+        $payload = $this->getSerializer()->serialize((object) [
             'id'    => $id,
             'time'  => $now,
-            'delay' => $this->getDelay(),
+            'delay' => $delay->seconds,
             'data'  => $data,
         ]);
         if (! $this->redis) {
             throw new RuntimeException('Redis extension not available');
         }
-        if ($this->getDelay() > 0) {
-            $this->redis->zAdd($this->delayedKey($queue), $now + $this->getDelay(), $payload);
+        if (! $delay->isImmediate()) {
+            $this->redis->zAdd($this->delayedKey($queue), $now + $delay->seconds, $payload);
         } else {
             $this->redis->lPush($this->waitingKey($queue), $payload);
         }
@@ -101,29 +101,26 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         if (! $raw) {
             return null;
         }
-        $this->job = json_decode($raw);
-        // Build JobEnvelope (keeping legacy structure in raw)
+        $this->job = $this->getSerializer()->deserialize($raw);
+        if (! $this->job) {
+            return null;
+        }
         $decodedPayload = $this->job->data ?? null;
         if ($decodedPayload) {
-            $createdAt = DateTimeHelper::parseImmutable($decodedPayload->createdAt ?? null)
-                ?? (isset($decodedPayload->time) ? (new DateTimeImmutable())->setTimestamp((int) $decodedPayload->time) : DateTimeHelper::now());
-
-            return JobEnvelope::fromDecoded(
+            return JobEnvelope::fromBackend(
+                backend: 'redis',
                 id: (string) ($this->job->id ?? ''),
                 queue: $queue,
-                decoded: $decodedPayload,
-                name: isset($decodedPayload->name) ? (string) $decodedPayload->name : null,
-                attempts: (int) ($decodedPayload->attempts ?? 0),
-                priority: null,
-                scheduledAt: null,
-                availableAt: isset($decodedPayload->time) ? (new DateTimeImmutable())->setTimestamp((int) $decodedPayload->time) : null,
-                createdAt: $createdAt,
-                meta: ['delay' => $this->job->delay ?? 0],
+                payload: $decodedPayload,
+                extraMeta: [
+                    'delay' => $this->job->delay ?? 0,
+                    'time'  => $this->job->time ?? null,
+                ],
                 raw: $this->job,
             );
         }
 
-        return null; // Should not happen, but keeps contract explicit
+        return null;
     }
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
@@ -163,8 +160,5 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         return $this->prefix . $queue . '-delayed';
     }
 
-    private function failedKey(string $queue): string
-    {
-        return $this->prefix . $queue . '-failed';
-    }
+    // Método failedKey eliminado por no uso; se gestionará almacenamiento de fallos en implementación futura.
 }

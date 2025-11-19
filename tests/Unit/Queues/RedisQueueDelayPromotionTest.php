@@ -20,6 +20,12 @@ use Tests\Support\TestCase;
  */
 final class RedisQueueDelayPromotionTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset();
+    }
+
     public function testDelayedJobIsPromotedAndFetched(): void
     {
         if (! class_exists('Redis')) {

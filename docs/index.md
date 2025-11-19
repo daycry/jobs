@@ -9,12 +9,14 @@ Welcome to the documentation for the CodeIgniter Job Scheduler. This index provi
 - [Job Dependencies](dependencies.md)
 - [Advanced Features](advanced.md)
 - [Metrics & Monitoring (Guide)](metrics-monitoring.md)
+- [Testing Guide](TESTING.md)
 
 ---
 ## Core Configuration & Architecture
 - [Configuration Reference](CONFIGURATION.md)
 - [Architecture Overview](ARCHITECTURE.md)
 - [Queues & Backends](QUEUES.md)
+- [Queue Simplification Guide](QUEUE_SIMPLIFICATION.md)
 - [Logging](LOGGING.md)
 - [Metrics (Detailed Spec)](METRICS.md)
 
@@ -46,10 +48,12 @@ Images and diagrams used across pages are stored under [`images/`](images/).
 | CONFIGURATION.md | All configurable options |
 | ARCHITECTURE.md | Internal component design |
 | QUEUES.md | Backend notes & capabilities |
+| QUEUE_SIMPLIFICATION.md | Migration guide for queue refactoring |
 | LOGGING.md | Structured logging & masking |
 | ATTEMPTS.md | Attempt counting model |
 | RETRIES.md | Backoff strategies |
 | COMMANDS.md | CLI command reference |
+| TESTING.md | Test organization and running tests |
 | dashboard.md | Suggested dashboard ideas |
 | home.md | Alternate landing / legacy content |
 | requirements.txt | Python build deps (docs) |

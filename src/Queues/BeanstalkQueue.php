@@ -17,6 +17,7 @@ use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
 use Daycry\Jobs\Libraries\DateTimeHelper;
+use Daycry\Jobs\Libraries\Priority;
 use Pheanstalk\Pheanstalk;
 use Pheanstalk\Values\Job;
 use Pheanstalk\Values\TubeName;
@@ -53,10 +54,10 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         $queue = $data->queue ?? 'default';
         $tube  = new TubeName($queue);
         $this->connection->useTube($tube);
-        $this->calculateDelay($data);
-        $payload = json_encode($data);
+        $delay = $this->calculateDelay($data);
+        $payload = $this->getSerializer()->serialize($data);
 
-        return $this->connection->put($payload, $this->priority, $this->getDelay(), $this->ttr)->getId();
+        return $this->connection->put($payload, $this->priority, $delay->seconds, $this->ttr)->getId();
     }
 
     public function watch(string $queue)
@@ -68,19 +69,20 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         if (! $this->job) {
             return null;
         }
-        $decoded   = json_decode($this->job->getData() ?: '{}');
-        $createdAt = DateTimeHelper::parseImmutable($decoded->createdAt ?? null) ?? DateTimeHelper::now();
+        $decoded = $this->getSerializer()->deserialize($this->job->getData() ?: '{}');
+        if (! $decoded) {
+            return null;
+        }
 
-        return new JobEnvelope(
+        return JobEnvelope::fromBackend(
+            backend: 'beanstalk',
             id: (string) $this->job->getId(),
             queue: $queue,
             payload: $decoded,
-            attempts: isset($decoded->attempts) ? (int) $decoded->attempts : 0,
-            priority: $this->priority,
-            scheduledAt: DateTimeHelper::parseImmutable($decoded->schedule ?? null),
-            availableAt: null,
-            createdAt: $createdAt,
-            meta: ['ttr' => $this->ttr],
+            extraMeta: [
+                'ttr'      => $this->ttr,
+                'priority' => $this->priority,
+            ],
             raw: $this->job,
         );
     }

@@ -15,6 +15,7 @@ namespace Daycry\Jobs\Queues;
 
 use DateTimeInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\DateTimeHelper;
 
 /**
  * Normalized queue message envelope independiente del backend (Redis, Database, Beanstalk, ServiceBus, etc.).
@@ -95,6 +96,65 @@ final class JobEnvelope
             createdAt: $payload->createdAt ?? ($payload->schedule ?? null),
             meta: $meta,
             raw: $job,
+        );
+    }
+
+    /**
+     * Unified factory for creating envelopes from backend-specific messages with normalized metadata.
+     *
+     * Standardized meta keys injected automatically:
+     *  - backend: nombre del backend (redis, database, beanstalk, servicebus, sync)
+     *  - rawId: ID nativo original del mensaje (útil para trazabilidad)
+     *  - status: estado backend si disponible (pending, in_progress, completed, failed, etc.)
+     *
+     * @param string         $backend    Backend identifier (redis|database|beanstalk|servicebus|sync)
+     * @param string         $id         Job identifier (unique within backend)
+     * @param string         $queue      Queue/tube name
+     * @param array|object   $payload    Decoded payload object
+     * @param array          $extraMeta  Additional backend-specific metadata (delay, ttr, entity_id, headers, etc.)
+     * @param mixed          $raw        Original backend object/record (for low-level operations)
+     */
+    public static function fromBackend(
+        string $backend,
+        string $id,
+        string $queue,
+        array|object|null $payload,
+        array $extraMeta = [],
+        mixed $raw = null,
+    ): self {
+        // Extract common fields from payload (puede ser stdClass o array)
+        $data = is_array($payload) ? (object) $payload : $payload;
+
+        $name        = isset($data->name) ? (string) $data->name : null;
+        $attempts    = isset($data->attempts) ? (int) $data->attempts : 0;
+        $priority    = isset($data->priority) ? (int) $data->priority : null;
+        $scheduledAt = DateTimeHelper::parseImmutable($data->schedule ?? null);
+        $availableAt = isset($data->availableAt) ? DateTimeHelper::parseImmutable($data->availableAt) : null;
+        $createdAt   = DateTimeHelper::parseImmutable($data->createdAt ?? null)
+            ?? $scheduledAt
+            ?? DateTimeHelper::now();
+
+        // Merge standard meta + extra
+        $meta = array_merge(
+            [
+                'backend' => $backend,
+                'rawId'   => $id,
+            ],
+            $extraMeta
+        );
+
+        return new self(
+            id: $id,
+            queue: $queue,
+            payload: $payload,
+            name: $name,
+            attempts: $attempts,
+            priority: $priority,
+            scheduledAt: $scheduledAt,
+            availableAt: $availableAt,
+            createdAt: $createdAt,
+            meta: $meta,
+            raw: $raw,
         );
     }
 }

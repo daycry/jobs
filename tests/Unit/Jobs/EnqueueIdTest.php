@@ -22,6 +22,7 @@ final class EnqueueIdTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Daycry\Jobs\Libraries\QueueManager::reset(); // Clear cached instances
         config('Jobs')->logPerformance = false;
         config('Jobs')->log            = 'file';
     }
@@ -51,7 +52,9 @@ final class EnqueueIdTest extends DatabaseTestCase
         $this->assertIsString($id2);
         $this->assertNotSame('', $id2);
         $this->assertNotSame($id1, $id2, 'IDs must be unique');
+        // DatabaseQueue uses random_string('alnum', 32) - 32 char alphanumeric
         $this->assertSame(32, strlen($id1), 'DatabaseQueue IDs expected length 32 alnum');
+        $this->assertSame(32, strlen($id2), 'DatabaseQueue IDs expected length 32 alnum');
     }
 
     public function testSyncQueueReturnsSyntheticIds(): void

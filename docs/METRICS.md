@@ -51,7 +51,7 @@ Histograms store: `count`, `sum`, `min`, `max` per unique (name+labels) key.
 ---
 ## 3. What Is Instrumented Out‑Of‑The‑Box
 
-Currently the core increments the following counters in `RequeueHelper`:
+### Job Lifecycle Metrics (`RequeueHelper`)
 
 | Counter Name       | When Incremented                                | Labels           |
 |--------------------|--------------------------------------------------|------------------|
@@ -59,6 +59,20 @@ Currently the core increments the following counters in `RequeueHelper`:
 | `jobs_failed`      | A job attempt fails (final attempt included)     | `queue`          |
 | `jobs_requeued`    | A job fails and is placed back on the queue      | `queue`          |
 | `jobs_timed_out`   | (Reserved – implement when you add timeout hook) | `queue` (suggest) |
+
+### Queue-Level Metrics (`InstrumentedQueueDecorator`)
+
+Wrap any queue backend for automatic instrumentation:
+
+| Metric Name                        | Type      | Labels                    | Description                          |
+|------------------------------------|-----------|---------------------------|--------------------------------------|
+| `queue_enqueue_total`              | Counter   | `backend`, `queue`, `status` | Total enqueue operations (success/error) |
+| `queue_fetch_total`                | Counter   | `backend`, `queue`        | Successful fetch operations          |
+| `queue_fetch_empty_total`          | Counter   | `backend`, `queue`        | Fetch attempts returning no jobs     |
+| `queue_ack_total`                  | Counter   | `backend`, `queue`        | Job acknowledgments (completion)     |
+| `queue_nack_total`                 | Counter   | `backend`, `queue`        | Job negative acks (requeues)         |
+| `queue_enqueue_duration_seconds`   | Histogram | `backend`, `queue`        | Time spent in enqueue operation      |
+| `queue_fetch_duration_seconds`     | Histogram | `backend`, `queue`        | Time spent in fetch operation        |
 
 Additional custom examples (duration, latency, attempts) are trivial to add – see below.
 

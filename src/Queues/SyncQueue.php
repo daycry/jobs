@@ -33,7 +33,7 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
     public function enqueue(object $data): string
     {
-        $identifier = 'sync-' . bin2hex(random_bytes(6));
+        $identifier = $this->generateId(prefix: 'sync', bytes: 6);
         if ($data instanceof Job) {
             $job = $data; // preserve callbackDescriptor & closures
         } else {

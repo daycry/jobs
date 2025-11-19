@@ -14,11 +14,18 @@ declare(strict_types=1);
 use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Tests\Support\TestCase;
 
 /** @internal */
 final class CallbackJobTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        QueueManager::reset();
+    }
+
     public function testInlineCallbackExecutesImmediately(): void
     {
         $parent = new Job(job: 'closure', payload: static fn () => 'PARENT_OK');

@@ -23,6 +23,7 @@ use Daycry\Jobs\Exceptions\QueueException;
 use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
@@ -58,6 +59,11 @@ class QueueRunCommand extends BaseJobsCommand
     {
     }
 
+    protected function conditionalChecks(): bool
+    {
+        return true;
+    }
+
     public function run(array $params): void
     {
         $queue   = $params[0] ?? CLI::getOption('queue');
@@ -68,13 +74,15 @@ class QueueRunCommand extends BaseJobsCommand
         }
 
         while (true) {
-            $this->processQueue($queue);
+            if($this->conditionalChecks()) {
+                $this->processQueue($queue);
 
-            if ($oneTime) {
-                return;
+                if ($oneTime) {
+                    return;
+                }
+
+                sleep(config('Jobs')->defaultTimeout ?? 5);
             }
-
-            sleep(config('Jobs')->defaultTimeout ?? 5);
         }
     }
 
@@ -158,14 +166,7 @@ class QueueRunCommand extends BaseJobsCommand
 
     protected function getWorker()
     {
-        $workers = config('Jobs')->workers;
-        $worker  = config('Jobs')->worker;
-
-        if (! array_key_exists($worker, $workers)) {
-            throw QueueException::forInvalidWorker($worker);
-        }
-
-        return new $workers[$worker]();
+        return QueueManager::instance()->getDefault();
     }
 
     /*protected function prepareResponse($result): array

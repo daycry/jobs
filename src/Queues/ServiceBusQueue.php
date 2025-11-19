@@ -57,12 +57,12 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
     public function enqueue(object $data): string
     {
         $queue = $data->queue ?? 'default';
-        $this->calculateDelay($data);
+        $delay = $this->calculateDelay($data);
         // BrokerProperties via ServiceBusHeaders
-        if ($this->getDelay() > 0 && isset($data->schedule)) {
+        if (! $delay->isImmediate() && $delay->scheduledAt !== null) {
             // schedule->getTimestamp ya es DateTime; usar schedule builder
             try {
-                $this->headersBuilder->schedule($data->schedule);
+                $this->headersBuilder->schedule($delay->scheduledAt);
             } catch (Throwable) { // ignore
             }
         }
@@ -75,7 +75,7 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
         $headers = array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders());
         $resp    = $this->client()->post($this->baseUrl . $queue . '/messages', [
             'headers' => $headers,
-            'body'    => json_encode($data),
+            'body'    => $this->getSerializer()->serialize($data),
         ]);
 
         return ($resp->getStatusCode() >= 200 && $resp->getStatusCode() < 300)
@@ -89,21 +89,18 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
             'headers' => array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders()),
         ]);
         if (method_exists($resp, 'getStatusCode') && $resp->getStatusCode() === 200) {
-            $body      = json_decode((string) $resp->getBody());
+            $body      = $this->getSerializer()->deserialize((string) $resp->getBody());
+            if (! $body) {
+                return null;
+            }
             $this->job = ['body' => $body, 'status' => 200, 'headers' => []];
-            $createdAt = DateTimeHelper::parseImmutable($body->createdAt ?? null) ?? DateTimeHelper::now();
 
-            return new JobEnvelope(
+            return JobEnvelope::fromBackend(
+                backend: 'servicebus',
                 id: $this->headersBuilder->getMessageId(),
                 queue: $queue,
                 payload: $body,
-                name: isset($body->name) ? (string) $body->name : null,
-                attempts: isset($body->attempts) ? (int) $body->attempts : 0,
-                priority: null,
-                scheduledAt: DateTimeHelper::parseImmutable($body->schedule ?? null),
-                availableAt: null,
-                createdAt: $createdAt,
-                meta: ['status' => 200],
+                extraMeta: ['status' => 200],
                 raw: $this->job,
             );
         }

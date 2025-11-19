@@ -7,10 +7,15 @@ Core building blocks and how they collaborate.
 |-----------|----------------|
 | Job | Domain representation: handler key + payload + metadata (name, queue, schedule, attempts). |
 | EnqueuableTrait | Queue-centric behavior: push, attempts tracking, scheduling, worker lookup. |
-| JobEnvelope | Transport snapshot consumed/produced by queue backends. |
-| QueueInterface + Implementations | Backend-specific enqueue / watch / remove operations. |
+| JobEnvelope | Transport snapshot consumed/produced by queue backends. Normalized with `fromBackend()` factory. |
+| QueueInterface + Implementations | Backend-specific enqueue / watch / remove operations (Redis, Database, Beanstalk, ServiceBus, Sync). |
+| QueueManager | Singleton registry/factory for queue backend instances with caching. |
+| PayloadSerializer | Centralized JSON serialization with schema versioning (`JsonPayloadSerializer`). |
+| InstrumentedQueueDecorator | Transparent metrics wrapper for any queue backend (7 queue-level metrics). |
+| DelayResult | Value object for delay calculation with seconds + scheduledAt timestamp. |
+| Priority | Enum for symbolic priorities (LOW/MEDIUM/HIGH → numeric mapping). |
 | RequeueHelper | Unified finalization (attempt increment + metrics + optional requeue). |
-| Retry Policies | Compute delay/backoff and decide requeue conditions. |
+| Retry Policies | Compute delay/backoff and decide requeue conditions (Fixed, Exponential, None). |
 | Logger + Handlers | Structured execution record emission to file or database. |
 | MetricsCollectorInterface | Pluggable counters/histograms exporter. |
 | Scheduler | Cron expression parsing & due job dispatching. |
@@ -39,9 +44,12 @@ Single authoritative increment in `RequeueHelper` prevents drift. Backends stay 
 - Masking applied only at logging boundaries (source payload kept intact in memory/queue).
 
 ## Extending
-1. Add custom queue: implement `QueueInterface`, create envelope mapping and register in `$workers`.
-2. Add logger: implement handle($level,$message) and register in `$loggers`.
-3. Add retry algorithm: extend a policy class or compute delay before requeue.
+1. **Add custom queue**: implement `QueueInterface`, use `JobEnvelope::fromBackend()` factory, register in `$workers` config, access via `QueueManager::instance()->get('name')`.
+2. **Add logger**: implement `LoggerHandlerInterface`, register in `$loggers` config.
+3. **Add retry algorithm**: extend `RetryPolicyFactory` or implement custom policy class.
+4. **Add metrics**: wrap queue with `InstrumentedQueueDecorator` for automatic 7-metric instrumentation.
+5. **Custom serialization**: implement `PayloadSerializerInterface` with schema versioning support.
+6. **Custom ID generation**: implement `IdGeneratorInterface` and inject via `BaseQueue::setIdGenerator()`.
 
 ## Error Handling
 Exceptions during execution should trigger failure path (increment attempt + potential requeue). Ensure try/catch around job run in worker implementation.

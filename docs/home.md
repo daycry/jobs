@@ -5,10 +5,14 @@ Welcome to the Daycry Jobs documentation. This site centralizes guides, architec
 ## Quick Overview
 - **Unified Job API**: command, shell, closure, event, URL handlers.
 - **Schedulers & Queues**: Cron-like scheduling plus multiple queue backends (Redis, Database, Beanstalk, Azure Service Bus, Sync).
-- **Retries & Backoff**: Fixed, exponential, jitter, attempt semantics.
-- **Structured Logging & Masking**: Configurable drivers & sensitive key masking.
+- **Centralized Queue Management**: `QueueManager` singleton for backend access and caching.
+- **Schema Versioning**: `PayloadSerializer` with migration support for evolving payload structures.
+- **Transparent Metrics**: `InstrumentedQueueDecorator` wraps any queue with 7 automatic metrics.
+- **Retries & Backoff**: Fixed, exponential, jitter policies with normalized attempt semantics.
+- **Structured Logging & Masking**: Configurable drivers (file/database) with sensitive key masking.
 - **Callbacks & Chaining**: Post-execution jobs with inheritance and filter conditions.
-- **Metrics Layer**: Pluggable counters/timings via `MetricsCollectorInterface`.
+- **Metrics Layer**: Pluggable counters/histograms via `MetricsCollectorInterface`.
+- **Clean Architecture**: Value objects (DelayResult, Priority), factories (JobEnvelope::fromBackend), decorators.
 
 ## Getting Started
 1. Install the package:
@@ -35,11 +39,14 @@ Welcome to the Daycry Jobs documentation. This site centralizes guides, architec
 |-------|-------------|
 | Configuration | All tunables (queues, retries, logging, timeouts) |
 | Architecture | Internal components and lifecycle flow |
-| Metrics | Instrumentation, custom collectors |
+| Queues | Backend capabilities, QueueManager, serialization |
+| Queue Simplification | Migration guide for refactored queue subsystem |
+| Metrics | Instrumentation, InstrumentedQueueDecorator, custom collectors |
 | Logging | Structured log emission and masking |
 | Retries | Policies and backoff semantics |
 | Attempts | Attempt counting model |
 | CLI Commands | Operational control & maintenance |
+| Testing | Test organization, running tests, writing tests |
 
 Use the navigation to dive deeper into each area.
 
