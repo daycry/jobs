@@ -63,13 +63,9 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
     {
         $queueModel = new QueueModel();
 
-        $this->job = $queueModel->getJob();
+        $this->job = $queueModel->reserveJob($queue);
 
         if ($this->job !== null) {
-            $this->job->status     = 'in_progress';
-            $this->job->updated_at = date('Y-m-d H:i:s');
-            $queueModel->update($this->job->id, $this->job);
-
             $decoded = \json_decode($this->job->payload ?? '{}');
 
             return JobEnvelope::fromBackend(

@@ -25,6 +25,7 @@ class ShellJob extends Job implements JobInterface
 {
     public function handle(mixed $payload): mixed
     {
+        $payload = escapeshellcmd($payload);
         exec($payload, $output);
 
         return $output;

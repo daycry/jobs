@@ -64,4 +64,45 @@ class QueueModel extends Model
     {
         return $this->where('status', 'pending')->where('schedule <=', date('Y-m-d H:i:s'))->orderBy('priority ASC, schedule ASC')->first();
     }
+
+    /**
+     * Reserve a job from the queue safely (Atomic operation).
+     */
+    public function reserveJob(string $queue): ?Queue
+    {
+        $table = $this->db->prefixTable($this->table);
+        $attempts = 0;
+        $maxAttempts = 3;
+
+        while ($attempts < $maxAttempts) {
+            // 1. Find a candidate ID
+            $sql = "SELECT id FROM {$table} 
+                    WHERE queue = ? AND status = 'pending' AND schedule <= ? 
+                    ORDER BY priority ASC, schedule ASC LIMIT 1";
+
+            $query = $this->db->query($sql, [$queue, date('Y-m-d H:i:s')]);
+            $row = $query->getRow();
+
+            if (! $row) {
+                return null; // Queue empty
+            }
+
+            // 2. Try to lock it
+            $updateSql = "UPDATE {$table} 
+                          SET status = 'in_progress', updated_at = ? 
+                          WHERE id = ? AND status = 'pending'";
+
+            $this->db->query($updateSql, [date('Y-m-d H:i:s'), $row->id]);
+
+            if ($this->db->affectedRows() > 0) {
+                return $this->find($row->id);
+            }
+
+            // If we failed, someone else took it. Retry.
+            $attempts++;
+            usleep(10000); // 10ms wait
+        }
+
+        return null; // Could not lock any job after retries
+    }
 }

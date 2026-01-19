@@ -16,8 +16,10 @@ Multiple backends share a unified abstraction via `QueueInterface` and transport
 
 ## DatabaseQueue
 - Stores jobs in relational table (configured group/table).
+- **Atomic Locking**: Uses `reserveJob` with optimistic locking to prevent race conditions in multi-worker environments.
+- **High Performance**: Optimized with composite indexes `(status, schedule, priority)` for O(1) fetch times independent of history size.
 - Enables inspection and manual intervention via SQL.
-- Slower than in-memory backends but stable for small workloads.
+- Stable for moderate workloads and ensures data integrity.
 
 ## BeanstalkQueue
 - Wraps Pheanstalk client for beanstalkd tube operations.

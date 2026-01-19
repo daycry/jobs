@@ -43,6 +43,14 @@ Single authoritative increment in `RequeueHelper` prevents drift. Backends stay 
 - Validation via `Utils::checkDataQueue()` (ensures necessary fields).
 - Masking applied only at logging boundaries (source payload kept intact in memory/queue).
 
+## Security
+- **Command Injection Prevention**: `ShellJob` sanitizes inputs using `escapeshellcmd` before execution.
+- **Sensitive Data**: Logging system masks configured sensitive keys (passwords, tokens) in payloads and outputs.
+
+## Performance
+- **Database Optimization**: Composite index `(status, schedule, priority)` ensures consistent fetch performance.
+- **Atomic Operations**: `QueueModel::reserveJob` uses atomic updates to guarantee single-consumer delivery without table locking.
+
 ## Extending
 1. **Add custom queue**: implement `QueueInterface`, use `JobEnvelope::fromBackend()` factory, register in `$workers` config, access via `QueueManager::instance()->get('name')`.
 2. **Add logger**: implement `LoggerHandlerInterface`, register in `$loggers` config.
