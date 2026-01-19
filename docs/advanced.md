@@ -47,6 +47,71 @@ $instrumented = new InstrumentedQueueDecorator(
 // - queue_enqueue_duration_seconds / queue_fetch_duration_seconds
 ```
 
+## Fluent Job Chaining (Enhanced)
+
+The callback API now supports a fluent chaining syntax for complex workflows:
+
+### Basic Chaining
+```php
+use Daycry\Jobs\Job;
+
+$processPayment = new Job('command', 'process:payment');
+$sendInvoice = new Job('command', 'send:invoice');
+$notifyAdmin = new Job('command', 'notify:admin');
+$cleanup = new Job('closure', fn() => log_message('info', 'Workflow complete'));
+
+$processPayment
+    ->then($sendInvoice)        // Execute on success
+    ->catch($notifyAdmin)       // Execute on failure
+    ->finally($cleanup)         // Always execute
+    ->push();
+```
+
+### Chain Multiple Jobs
+```php
+$job->chain([
+    new Job('command', 'step1'),
+    new Job('command', 'step2'),
+    new Job('command', 'step3'),
+])->push();
+```
+
+### Method Reference
+| Method | Filter | Description |
+|--------|--------|-------------|
+| `then(Job $next)` | `success` | Enqueue after successful completion |
+| `catch(Job $handler)` | `failure` | Enqueue on failure/error |
+| `finally(Job $cleanup)` | `always` | Always enqueue regardless of outcome |
+| `chain(array $jobs)` | Sequential | Execute jobs in order, stopping on failure |
+
+### Advanced Example with Inheritance
+```php
+$importJob = (new Job('command', 'import:users'))
+    ->named('user_import')
+    ->enqueue('default')
+    ->then(
+        (new Job('command', 'send:welcome:emails'))
+            ->enqueue('notifications')
+    )
+    ->catch(
+        (new Job('closure', function($meta) {
+            // Access parent error via $meta['parentError']
+            log_message('error', 'Import failed: ' . $meta['parentError']);
+        }))
+    )->finally(
+        (new Job('command', 'cleanup:temp:files'))
+    );
+
+$importJob->push();
+```
+
+**Inherited Fields** (`inherit` option in `setCallbackJob`):
+- `output` → `parentOutput`
+- `error` → `parentError`
+- `attempts` → `parentAttempts`
+- `name` → `parentName`
+- `source` → `parentSource`
+
 ## Callbacks & Chaining
 Attach a callback job run after completion:
 ```php

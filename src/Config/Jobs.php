@@ -80,6 +80,52 @@ class Jobs extends BaseConfig
 
     /**
      * --------------------------------------------------------------------------
+     * Shell Command Whitelist
+     * --------------------------------------------------------------------------
+     * List of allowed shell commands. Empty array allows all (backward compatible).
+     * When populated, only listed commands are permitted in ShellJob.
+     * Example: ['ls', 'grep', 'cat', 'find']
+     */
+    public array $allowedShellCommands = [];
+
+    /**
+     * --------------------------------------------------------------------------
+     * Rate Limiting
+     * --------------------------------------------------------------------------
+     * Maximum jobs processed per minute per queue. 0 = unlimited.
+     * Example: ['high_priority' => 100, 'default' => 50]
+     */
+    public array $queueRateLimits = [];
+
+    /**
+     * --------------------------------------------------------------------------
+     * Dead Letter Queue
+     * --------------------------------------------------------------------------
+     * Queue name where failed jobs (after max_retries) are moved.
+     * Null disables DLQ functionality.
+     */
+    public ?string $deadLetterQueue = null;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Job Timeout
+     * --------------------------------------------------------------------------
+     * Maximum execution time per job in seconds. 0 = unlimited.
+     * Can be overridden per-job.
+     */
+    public int $jobTimeout = 300; // 5 minutes
+
+    /**
+     * --------------------------------------------------------------------------
+     * Batch Processing
+     * --------------------------------------------------------------------------
+     * Number of jobs to fetch in batch for database queue.
+     * 1 = process one at a time (backward compatible).
+     */
+    public int $batchSize = 1;
+
+    /**
+     * --------------------------------------------------------------------------
      * Default Timeout (seconds)
      * --------------------------------------------------------------------------
      * A default execution timeout applied to jobs that do not explicitly

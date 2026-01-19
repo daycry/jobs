@@ -118,6 +118,11 @@ class JobLogger
         $configured    = is_array($config->sensitiveKeys ?? null) ? $config->sensitiveKeys : [];
         $sensitiveKeys = array_values(array_unique(array_merge($defaultKeys, $configured)));
         $maskedPayload = $this->maskSensitive($rawPayload, $sensitiveKeys);
+
+        // Additional pattern-based sanitization for token-like strings
+        $maskedPayload = $this->sanitizeTokenPatterns($maskedPayload);
+        $output        = $this->sanitizeTokenPatterns($output);
+        $error         = $this->sanitizeTokenPatterns($error);
         $payloadJson   = $this->normalize($maskedPayload);
 
         $outputLength = $output !== null ? strlen($output) : 0;
@@ -238,5 +243,48 @@ class JobLogger
         };
 
         return $mask($value);
+    }
+
+    /**
+     * Sanitize token-like patterns (API keys, JWTs, etc.) from strings.
+     * Detects common patterns and masks them automatically.
+     */
+    private function sanitizeTokenPatterns(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            // Mask JWT tokens (format: xxx.yyy.zzz where parts are base64)
+            $value = preg_replace(
+                '/\b[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/',
+                '***JWT_TOKEN***',
+                $value,
+            );
+
+            // Mask long alphanumeric strings (likely API keys/tokens)
+            // At least 32 chars, mostly alphanumeric
+            $value = preg_replace(
+                '/\b[A-Za-z0-9_-]{32,}\b/',
+                '***API_KEY***',
+                $value,
+            );
+
+            // Mask Bearer tokens
+            $value = preg_replace(
+                '/Bearer\s+[A-Za-z0-9_\-\.]+/i',
+                'Bearer ***TOKEN***',
+                $value,
+            );
+        } elseif (is_array($value)) {
+            return array_map([$this, 'sanitizeTokenPatterns'], $value);
+        } elseif (is_object($value)) {
+            $clone = clone $value;
+
+            foreach (get_object_vars($clone) as $k => $v) {
+                $clone->{$k} = $this->sanitizeTokenPatterns($v);
+            }
+
+            return $clone;
+        }
+
+        return $value;
     }
 }

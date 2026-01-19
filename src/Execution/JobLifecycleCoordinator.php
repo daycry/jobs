@@ -14,20 +14,19 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Execution;
 
 use Closure;
+use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Job;
 use RuntimeException;
 use Throwable;
 
 /**
- * Orchestrates full job lifecycle including retries, completion strategies, and notifications.
- * Uses configured RetryPolicy and CompletionStrategy factories to drive control flow.
+ * Orchestrates full job lifecycle including retries, notifications, and timeout protection.
+ * Uses configured RetryPolicy to drive control flow.
  * Ensures single-instance jobs acquire and release a runtime flag to avoid concurrent runs.
  */
 class JobLifecycleCoordinator
 {
     public function __construct(
-        private RetryPolicyFactory $retryFactory = new RetryPolicyFactory(),
-        private CompletionStrategyFactory $completionFactory = new CompletionStrategyFactory(),
         private ?JobExecutor $executor = null,
         /**
          * @var callable(int):void
@@ -38,20 +37,30 @@ class JobLifecycleCoordinator
         $this->sleeper ??= static function (int $seconds): void { if ($seconds > 0) { sleep($seconds); } };
     }
 
-    public function run(Job $job, ExecutionContext $ctx): LifecycleOutcome
+    public function run(Job $job, string $source = 'cron'): LifecycleOutcome
     {
-        $attempt      = 0;
         $attemptsMeta = [];
-        $policy       = $this->retryFactory->for($ctx);
-        $completion   = $this->completionFactory->for($ctx);
 
-        $maxRetries   = max(0, $ctx->maxRetries);
+        // Read retry config inline - use direct config() in coordinator to respect test changes
+        $cfg    = config('Jobs');
+        $policy = new RetryPolicyFixed(
+            base: $cfg->retryBackoffBase,
+            strategy: $cfg->retryBackoffStrategy,
+            multiplier: $cfg->retryBackoffMultiplier,
+            max: $cfg->retryBackoffMax,
+            jitter: $cfg->retryBackoffJitter,
+        );
+
+        $maxRetries   = max(0, $job->getMaxRetries() ?? 0);
         $finalFailure = false;
         $requeued     = false;
         $finalResult  = null;
 
+        // Use persistent attempt counter from job instead of local counter
+        $persistentAttempt = $job->getAttempt();
+
         // Lock single instance (si aplica)
-        if ($ctx->singleInstance && $job->isSingleInstance()) {
+        if ($job->isSingleInstance()) {
             if ($job->isRunning()) {
                 throw new RuntimeException('Job already running: ' . $job->getName());
             }
@@ -60,44 +69,49 @@ class JobLifecycleCoordinator
 
         try {
             while (true) {
-                $attempt++;
-                $exec = $this->safeExecute($job);
+                $persistentAttempt++;
+
+                // Use timeout protection only if jobTimeout > 0
+                $timeout = $cfg->jobTimeout ?? 0;
+                $exec    = ($timeout > 0)
+                    ? $this->safeExecuteWithTimeout($job, $timeout)
+                    : $this->safeExecute($job);
 
                 $attemptsMeta[] = [
-                    'attempt'  => $attempt,
+                    'attempt'  => $persistentAttempt,
                     'success'  => $exec->success,
                     'error'    => $exec->error,
                     'duration' => $exec->durationSeconds(),
                 ];
 
                 // Notificaciones directas con ExecutionResult
-                if ($ctx->notifyOnSuccess && $exec->success && $job->shouldNotifyOnSuccess()) {
+                if ($exec->success && $job->shouldNotifyOnSuccess()) {
                     $job->notify($exec);
-                } elseif ($ctx->notifyOnFailure && ! $exec->success && $job->shouldNotifyOnFailure()) {
+                } elseif (! $exec->success && $job->shouldNotifyOnFailure()) {
                     $job->notify($exec);
                 }
 
                 if ($exec->success) {
-                    $completion->onSuccess($job, $exec, $ctx);
+                    // Success: no extra action needed (completion handled by RequeueHelper)
                     $finalResult = $exec;
                     break;
                 }
 
-                // Fallo
-                if ($attempt > $maxRetries) {
-                    $completion->onFailure($job, $exec, $ctx, $attempt);
+                // Fallo - check against persistent counter
+                if ($persistentAttempt > $maxRetries) {
+                    // Final failure: no extra action needed (completion handled by RequeueHelper)
                     $finalResult  = $exec;
                     $finalFailure = true;
                     break;
                 }
 
-                $delay = $policy->computeDelay($attempt + 1); // Próximo intento
+                $delay = $policy->computeDelay($persistentAttempt + 1); // Próximo intento
                 if ($delay > 0) {
                     ($this->sleeper)($delay);
                 }
             }
         } finally {
-            if ($ctx->singleInstance && $job->isSingleInstance()) {
+            if ($job->isSingleInstance()) {
                 $job->clearRunningFlag();
             }
         }
@@ -114,7 +128,7 @@ class JobLifecycleCoordinator
 
         return new LifecycleOutcome(
             finalResult: $finalResult,
-            attempts: $attempt,
+            attempts: $persistentAttempt,
             finalFailure: $finalFailure,
             requeued: $requeued,
             attemptsMeta: $attemptsMeta,
@@ -132,6 +146,51 @@ class JobLifecycleCoordinator
 
             return new ExecutionResult(false, null, $e->getMessage(), $t, $t, null);
         }
+    }
+
+    /**
+     * Execute job with timeout protection.
+     */
+    private function safeExecuteWithTimeout(Job $job, int $timeout): ExecutionResult
+    {
+        if ($timeout <= 0) {
+            return $this->safeExecute($job); // No timeout
+        }
+
+        $startTime = time();
+        $result    = null;
+        $timedOut  = false;
+
+        // Fork execution check using pcntl if available
+        if (function_exists('pcntl_alarm')) {
+            // Register alarm handler
+            pcntl_signal(SIGALRM, static function () use (&$timedOut): void {
+                $timedOut = true;
+            });
+            pcntl_alarm($timeout);
+
+            try {
+                $result = $this->safeExecute($job);
+                pcntl_alarm(0); // Cancel alarm
+            } catch (Throwable $e) {
+                pcntl_alarm(0);
+
+                throw $e;
+            }
+
+            if ($timedOut) {
+                throw JobException::forJobTimeout($job->getName(), $timeout);
+            }
+        } else {
+            // Fallback: simple time check (less accurate, no kill)
+            $result = $this->safeExecute($job);
+
+            if (time() - $startTime > $timeout) {
+                log_message('warning', "Job {$job->getName()} exceeded timeout of {$timeout}s (no pcntl available for hard kill)");
+            }
+        }
+
+        return $result;
     }
 
     /**

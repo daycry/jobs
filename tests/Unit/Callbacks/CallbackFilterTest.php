@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
@@ -19,28 +18,6 @@ use Tests\Support\TestCase;
 /** @internal */
 final class CallbackFilterTest extends TestCase
 {
-    private function context(): ExecutionContext
-    {
-        return new ExecutionContext(
-            source: 'queue',
-            maxRetries: 0,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 0,
-                'multiplier' => 1,
-                'jitter'     => false,
-                'max'        => 0,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
-    }
-
     public function testCallbackRunsOnlyOnSuccess(): void
     {
         $ran = false;
@@ -50,7 +27,7 @@ final class CallbackFilterTest extends TestCase
 
             return new Job(job: 'closure', payload: static fn () => 'child');
         }, ['on' => 'success']);
-        (new JobLifecycleCoordinator())->run($j, $this->context());
+        (new JobLifecycleCoordinator())->run($j, 'queue');
         $this->assertTrue($ran);
     }
 
@@ -63,7 +40,7 @@ final class CallbackFilterTest extends TestCase
 
             return new Job(job: 'closure', payload: static fn () => 'child');
         }, ['on' => 'failure']);
-        (new JobLifecycleCoordinator())->run($j, $this->context());
+        (new JobLifecycleCoordinator())->run($j, 'queue');
         $this->assertFalse($ran);
     }
 
@@ -76,7 +53,7 @@ final class CallbackFilterTest extends TestCase
 
             return new Job(job: 'closure', payload: static fn () => 'child');
         }, ['on' => 'error']);
-        (new JobLifecycleCoordinator())->run($j, $this->context());
+        (new JobLifecycleCoordinator())->run($j, 'queue');
         $this->assertTrue($ran);
     }
 
@@ -89,7 +66,7 @@ final class CallbackFilterTest extends TestCase
 
             return new Job(job: 'closure', payload: static fn () => 'child');
         }); // default always
-        (new JobLifecycleCoordinator())->run($j, $this->context());
+        (new JobLifecycleCoordinator())->run($j, 'queue');
         $this->assertTrue($ran);
     }
 }

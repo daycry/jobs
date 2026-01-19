@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\RetryPolicyExponential;
 use Daycry\Jobs\Execution\RetryPolicyFixed;
 use PHPUnit\Framework\TestCase;
 
@@ -22,7 +21,7 @@ final class RetryPoliciesExtraTest extends TestCase
 {
     public function testFixedPolicyBaseDelay(): void
     {
-        $p = new RetryPolicyFixed(5);
+        $p = new RetryPolicyFixed(base: 5, strategy: 'fixed');
         $this->assertSame(0, $p->computeDelay(1));
         $this->assertSame(5, $p->computeDelay(2));
         $this->assertSame(5, $p->computeDelay(5));
@@ -30,7 +29,7 @@ final class RetryPoliciesExtraTest extends TestCase
 
     public function testExponentialPolicyNoJitter(): void
     {
-        $p = new RetryPolicyExponential(base: 2, multiplier: 3.0, max: 50, jitter: false);
+        $p = new RetryPolicyFixed(base: 2, strategy: 'exponential', multiplier: 3.0, max: 50, jitter: false);
         // attempt=1 => 0
         $this->assertSame(0, $p->computeDelay(1));
         // attempt=2 exponent 0 => 2
@@ -43,7 +42,7 @@ final class RetryPoliciesExtraTest extends TestCase
 
     public function testExponentialPolicyJitter(): void
     {
-        $p   = new RetryPolicyExponential(base: 2, multiplier: 2.0, max: 40, jitter: true);
+        $p   = new RetryPolicyFixed(base: 2, strategy: 'exponential', multiplier: 2.0, max: 40, jitter: true);
         $val = $p->computeDelay(5); // attempt=5 exponent=3 => base*(2^3)=16 (within max)
         $this->assertGreaterThanOrEqual(1, $val);
         $this->assertLessThanOrEqual(40, $val);

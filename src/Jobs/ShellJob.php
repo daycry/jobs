@@ -13,18 +13,21 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Jobs;
 
+use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
 
 /**
  * Executes a shell command using exec().
  * Payload: string command to execute. Returns captured output array.
- * NOTE: Use cautiously; ensure payload is trusted to avoid command injection.
+ * NOTE: Commands are validated against whitelist if configured.
  */
 class ShellJob extends Job implements JobInterface
 {
     public function handle(mixed $payload): mixed
     {
+        $this->validateCommand($payload);
+
         $payload = escapeshellcmd($payload);
         exec($payload, $output);
 
@@ -39,5 +42,28 @@ class ShellJob extends Job implements JobInterface
     public function afterRun(Job $job): Job
     {
         return $job;
+    }
+
+    /**
+     * Validate command against whitelist if configured.
+     */
+    private function validateCommand(string $command): void
+    {
+        $config  = config('Jobs');
+        $allowed = $config->allowedShellCommands ?? [];
+
+        // Empty whitelist = allow all (backward compatible)
+        if (empty($allowed)) {
+            return;
+        }
+
+        // Extract command name (first token)
+        $parts   = preg_split('/\s+/', trim($command), 2);
+        $cmdName = $parts[0] ?? '';
+
+        // Check if command is in whitelist
+        if (! in_array($cmdName, $allowed, true)) {
+            throw JobException::forShellCommandNotAllowed($cmdName);
+        }
     }
 }

@@ -36,6 +36,8 @@ class Queue extends Entity
      * @var array<string, string>
      */
     protected $casts = [
-        'id' => '?integer',
+        'id'          => '?integer',
+        'max_retries' => '?integer',
+        'attempts'    => 'integer',
     ];
 }

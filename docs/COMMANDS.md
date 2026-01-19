@@ -50,6 +50,7 @@ Will enable the task runner if it was previously disabled, allowing all tasks to
 | Command | Description |
 |---------|-------------|
 | `jobs:queue:run [--queue=NAME] [--sleep=N]` | Run a worker consuming jobs from configured backend. |
+| `jobs:health [--json] [--queue=NAME]` | Display system health and queue statistics. |
 
 ### Queue Worker Details
 
@@ -78,6 +79,71 @@ If metrics are enabled, the worker tracks:
 - `jobs_age_seconds` - Queue latency (enqueue → start)
 - `jobs_exec_seconds` - Execution duration
 - Plus queue-level metrics if using `InstrumentedQueueDecorator`
+
+## Health Monitoring
+
+**jobs:health**
+
+    > php spark jobs:health
+
+Displays comprehensive system health and queue statistics.
+
+**Options**:
+- `--json` - Output in JSON format (machine-readable)
+- `--queue=NAME` - Show statistics for a specific queue only
+
+**Example Output** (table format):
+```
+=== Jobs System Health Check ===
+
+Configuration:
+  Retry Strategy: exponential (base: 60s, multiplier: 2.0, max: 3600s)
+  Job Timeout: 300 seconds
+  Dead Letter Queue: failed_jobs
+  Rate Limits: default=50/min, high_priority=100/min
+
+Queue: default
+  Status:
+    Pending: 42
+    Processing: 3
+    Completed: 1,245
+    Failed: 12
+  Rate Limit: 23/50 (46% used)
+  Last 24h:
+    Executions: 156
+    Success Rate: 92.3%
+    Failure Rate: 7.7%
+    Avg Duration: 2.45s
+```
+
+**JSON Output** (`--json`):
+```json
+{
+  "config": {
+    "retry_strategy": "exponential",
+    "job_timeout": 300,
+    "dead_letter_queue": "failed_jobs",
+    "rate_limits": {"default": 50}
+  },
+  "queues": {
+    "default": {
+      "status": {"pending": 42, "processing": 3, "completed": 1245, "failed": 12},
+      "rate_limit": {"current": 23, "max": 50},
+      "last_24h": {
+        "executions": 156,
+        "success_rate": 92.3,
+        "avg_duration_seconds": 2.45
+      }
+    }
+  }
+}
+```
+
+**Use Cases**:
+- Monitoring dashboards (JSON output to Prometheus/Grafana)
+- Quick operational health checks
+- Identifying bottlenecks and failure patterns
+- Rate limit capacity planning
 
 
 ## Examples

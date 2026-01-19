@@ -47,12 +47,14 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
         $data->identifier = $identifier;
 
-        $job->queue      = $data->queue;
-        $job->payload    = \json_encode($data);
-        $job->priority   = $data->priority;
-        $job->schedule   = $data->schedule->format('Y-m-d H:i:s');
-        $job->identifier = $identifier;
-        $job->status     = 'pending';
+        $job->queue       = $data->queue;
+        $job->payload     = \json_encode($data);
+        $job->priority    = $data->priority;
+        $job->schedule    = $data->schedule->format('Y-m-d H:i:s');
+        $job->identifier  = $identifier;
+        $job->status      = 'pending';
+        $job->max_retries = $data->maxRetries ?? null;
+        $job->attempts    = $data->attempts ?? 0;
 
         $queueModel->insert($job);
 

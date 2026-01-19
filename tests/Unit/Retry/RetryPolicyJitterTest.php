@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
@@ -43,28 +42,10 @@ final class RetryPolicyJitterTest extends TestCase
             return 'done';
         });
         $job->named('jitter_strategy');
-
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 5,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'exponential',
-                'base'       => 4,
-                'multiplier' => 2.0,
-                'jitter'     => true,
-                'max'        => 100,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
+        $job->maxRetries(5);
 
         $coordinator = new JobLifecycleCoordinator(sleeper: $sleeper);
-        $coordinator->run($job, $ctx);
+        $coordinator->run($job, 'queue');
 
         // Expected theoretical base delays without jitter: attempt transitions -> 4, 8, 16
         $expected = [4, 8, 16];

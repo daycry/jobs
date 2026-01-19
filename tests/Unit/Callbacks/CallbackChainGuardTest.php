@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
@@ -36,25 +35,7 @@ final class CallbackChainGuardTest extends TestCase
             return $child; // sin allowChain en padre
         });
 
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 0,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 0,
-                'multiplier' => 1,
-                'jitter'     => false,
-                'max'        => 0,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
-        (new JobLifecycleCoordinator())->run($parent, $ctx);
+        (new JobLifecycleCoordinator())->run($parent, 'queue');
         $this->assertFalse($grandChildExecuted, 'Grandchild callback executed unexpectedly without allowChain');
     }
 
@@ -74,25 +55,7 @@ final class CallbackChainGuardTest extends TestCase
             return $child;
         }, ['allowChain' => true]);
 
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 0,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 0,
-                'multiplier' => 1,
-                'jitter'     => false,
-                'max'        => 0,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
-        (new JobLifecycleCoordinator())->run($parent, $ctx);
+        (new JobLifecycleCoordinator())->run($parent, 'queue');
         $this->assertTrue($grandChildExecuted, 'Grandchild callback did not execute with allowChain');
     }
 }

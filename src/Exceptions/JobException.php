@@ -50,4 +50,19 @@ class JobException extends RuntimeException
     {
         return new self("The priority '{$priority}' is not valid. It must be between 0 and 10.");
     }
+
+    public static function forShellCommandNotAllowed(string $command)
+    {
+        return new self("Shell command '{$command}' is not in the whitelist of allowed commands.");
+    }
+
+    public static function forJobTimeout(string $jobName, int $timeout)
+    {
+        return new self("Job '{$jobName}' exceeded maximum execution time of {$timeout} seconds.");
+    }
+
+    public static function forRateLimitExceeded(string $queue, int $limit)
+    {
+        return new self("Queue '{$queue}' has exceeded rate limit of {$limit} jobs per minute.");
+    }
 }

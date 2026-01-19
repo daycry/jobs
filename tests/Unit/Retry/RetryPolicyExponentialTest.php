@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
@@ -44,28 +43,10 @@ final class RetryPolicyExponentialTest extends TestCase
             return 'ok';
         });
         $job->named('exp_strategy');
-
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 5,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'exponential',
-                'base'       => 2,
-                'multiplier' => 3.0,
-                'jitter'     => false,
-                'max'        => 20,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
+        $job->maxRetries(5);
 
         $coordinator = new JobLifecycleCoordinator(sleeper: $sleeper);
-        $outcome     = $coordinator->run($job, $ctx);
+        $outcome     = $coordinator->run($job, 'queue');
 
         // attempt sequence: 1(fail),2(fail),3(fail),4(success) -> 3 sleeps
         // Expected raw delays (attempt+1): for attempt 1 next attempt=2 exponent 0 => 2
@@ -90,28 +71,10 @@ final class RetryPolicyExponentialTest extends TestCase
 
         $job = new Job(job: 'closure', payload: static function (): void { throw new RuntimeException('always'); });
         $job->named('exp_cap');
-
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 3,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'exponential',
-                'base'       => 3,
-                'multiplier' => 4.0,
-                'jitter'     => false,
-                'max'        => 10,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
+        $job->maxRetries(3);
 
         $coordinator = new JobLifecycleCoordinator(sleeper: $sleeper);
-        $outcome     = $coordinator->run($job, $ctx);
+        $outcome     = $coordinator->run($job, 'queue');
 
         // attempts: 1,2,3,4 (fail final) -> sleeps between first 3 failures
         // next attempt delays: exponent sequence 0:3, 1:12->cap10, 2:48->cap10

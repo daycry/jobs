@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
@@ -35,27 +34,10 @@ final class RetryPolicyNoneTest extends TestCase
 
         $job = new Job(job: 'closure', payload: static function (): void { throw new RuntimeException('fail'); });
         $job->named('none_strategy');
-        $ctx = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 5,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 1,
-                'multiplier' => 2.0,
-                'jitter'     => false,
-                'max'        => 10,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
+        $job->maxRetries(5);
 
         $coordinator = new JobLifecycleCoordinator(sleeper: $sleeper);
-        $outcome     = $coordinator->run($job, $ctx);
+        $outcome     = $coordinator->run($job, 'queue');
         $this->assertSame(6, $outcome->attempts, 'Initial + maxRetries attempts expected');
         $this->assertEmpty($attemptsSleeps, 'Sleeper should not be invoked (all delays zero)');
     }

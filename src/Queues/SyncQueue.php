@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
@@ -47,26 +46,8 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
         } else {
             $queueName = $job->getQueue() ?? ($data->queue ?? 'default');
         }
-        $context = new ExecutionContext(
-            source: 'queue',
-            maxRetries: $job->getMaxRetries() ?? 0,
-            notifyOnSuccess: method_exists($job, 'shouldNotifyOnSuccess') ? $job->shouldNotifyOnSuccess() : false,
-            notifyOnFailure: method_exists($job, 'shouldNotifyOnFailure') ? $job->shouldNotifyOnFailure() : false,
-            singleInstance: $job->isSingleInstance(),
-            queueName: $queueName,
-            queueWorker: $this,
-            retryConfig: [
-                'strategy'   => $cfg->retryBackoffStrategy,
-                'base'       => $cfg->retryBackoffBase,
-                'multiplier' => $cfg->retryBackoffMultiplier,
-                'jitter'     => $cfg->retryBackoffJitter,
-                'max'        => $cfg->retryBackoffMax,
-            ],
-            eventsEnabled: true,
-            meta: [],
-        );
 
-        (new JobLifecycleCoordinator())->run($job, $context);
+        (new JobLifecycleCoordinator())->run($job, 'queue');
 
         return $identifier;
     }

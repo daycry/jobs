@@ -19,7 +19,6 @@ use CodeIgniter\I18n\Time;
 use DateTime;
 use Daycry\Jobs\Config\Jobs;
 use Daycry\Jobs\Exceptions\JobException;
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
@@ -60,26 +59,6 @@ class JobRunner
 
             $this->cliWrite('Processing: ' . $job->getName(), 'green');
 
-            // Preparar contexto de ejecución unificado
-            $ctx = new ExecutionContext(
-                source: 'cron',
-                maxRetries: $job->getMaxRetries() ?? 0,
-                notifyOnSuccess: $job->shouldNotifyOnSuccess(),
-                notifyOnFailure: $job->shouldNotifyOnFailure(),
-                singleInstance: $job->isSingleInstance(),
-                queueName: $job->getQueue(),
-                queueWorker: null,
-                retryConfig: [
-                    'strategy'   => $this->config->retryBackoffStrategy,
-                    'base'       => $this->config->retryBackoffBase,
-                    'multiplier' => $this->config->retryBackoffMultiplier,
-                    'jitter'     => $this->config->retryBackoffJitter,
-                    'max'        => $this->config->retryBackoffMax,
-                ],
-                eventsEnabled: $this->config->enableEvents ?? true,
-                meta: [],
-            );
-
             // Caso especial: si el job está configurado con queue, solo encolar
             if ($job->getQueue() !== null) {
                 $job->push();
@@ -89,7 +68,7 @@ class JobRunner
             }
 
             // Ejecutar ciclo completo
-            $outcome = $coordinator->run($job, $ctx);
+            $outcome = $coordinator->run($job, 'cron');
 
             $exec = $outcome->finalResult; // ExecutionResult
 

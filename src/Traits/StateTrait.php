@@ -14,14 +14,60 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Traits;
 
 use Daycry\Jobs\Execution\ExecutionResult;
+use Daycry\Jobs\Job;
 
 /**
- * Enables opt-in email notifications on job success/failure using configured view & parser.
+ * Unified trait for job state management and notifications.
+ * Combines StatusTrait and NotificableTrait functionality.
+ *
+ * @mixin Job
  */
-trait NotificableTrait
+trait StateTrait
 {
+    protected bool $enabled         = true;
     protected bool $notifyOnFailure = false;
     protected bool $notifyOnSuccess = false;
+
+    // ============================================================
+    // Status & Single Instance (formerly StatusTrait)
+    // ============================================================
+
+    public function saveRunningFlag(): bool
+    {
+        $cache = service('cache');
+
+        return $cache->save('job_running', $this->getName(), 0);
+    }
+
+    public function isRunning(): bool
+    {
+        $cache = service('cache');
+
+        return (bool) ($cache->get('job_running') === $this->getName());
+    }
+
+    public function clearRunningFlag(): bool
+    {
+        $cache = service('cache');
+
+        return $cache->delete('job_running');
+    }
+
+    public function disable(): self
+    {
+        $this->enabled = false;
+
+        return $this;
+    }
+
+    public function isEnabled(): bool
+    {
+        return $this->enabled;
+    }
+
+    // ============================================================
+    // Notifications (formerly NotificableTrait)
+    // ============================================================
 
     public function notifyOnFailure(bool $notify = true): self
     {

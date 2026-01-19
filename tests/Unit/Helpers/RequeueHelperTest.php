@@ -46,7 +46,8 @@ final class RequeueHelperTest extends TestCase
 
     public function testFinalizeFailureRequeues(): void
     {
-        $job      = $this->dummyJob();
+        $job = $this->dummyJob();
+        $job->maxRetries(2); // Configure max retries to allow requeue
         $envelope = JobEnvelope::fromJob($job, []);
         $metrics  = new InMemoryMetricsCollector();
         $removed  = [];

@@ -8,6 +8,7 @@ Welcome to the documentation for the CodeIgniter Job Scheduler. This index provi
 - [Defining Schedules](scheduling.md)
 - [Job Dependencies](dependencies.md)
 - [Advanced Features](advanced.md)
+- [**Enhanced Features (NEW)**](ENHANCEMENTS.md)
 - [Metrics & Monitoring (Guide)](metrics-monitoring.md)
 - [Testing Guide](TESTING.md)
 
@@ -24,6 +25,7 @@ Welcome to the documentation for the CodeIgniter Job Scheduler. This index provi
 ## Execution Semantics
 - [Attempts Semantics](ATTEMPTS.md)
 - [Retry Policies](RETRIES.md)
+- [**Exception Handling (NEW)**](EXCEPTIONS.md)
 - [CLI Commands](COMMANDS.md)
 
 ---
@@ -43,6 +45,7 @@ Images and diagrams used across pages are stored under [`images/`](images/).
 | scheduling.md | Frequency & scheduling API |
 | dependencies.md | Job dependency chaining |
 | advanced.md | Direct queueing, callbacks, retries summary |
+| **ENHANCEMENTS.md** | **Security, performance & operational features (NEW)** |
 | metrics-monitoring.md | Operational metrics quick guide |
 | METRICS.md | Full metrics system specification |
 | CONFIGURATION.md | All configurable options |
@@ -52,6 +55,7 @@ Images and diagrams used across pages are stored under [`images/`](images/).
 | LOGGING.md | Structured logging & masking |
 | ATTEMPTS.md | Attempt counting model |
 | RETRIES.md | Backoff strategies |
+| **EXCEPTIONS.md** | **Exception handling & resilience (NEW)** |
 | COMMANDS.md | CLI command reference |
 | TESTING.md | Test organization and running tests |
 | dashboard.md | Suggested dashboard ideas |

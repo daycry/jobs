@@ -11,7 +11,6 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\QueueManager;
@@ -41,25 +40,7 @@ final class CallbackJobTest extends TestCase
         });
 
         $coordinator = new JobLifecycleCoordinator();
-        $ctx         = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 0,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 0,
-                'multiplier' => 1,
-                'jitter'     => false,
-                'max'        => 0,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
-        $coordinator->run($parent, $ctx);
+        $coordinator->run($parent, 'queue');
         $this->assertTrue($flag, 'Inline callback did not execute');
     }
 
@@ -84,25 +65,7 @@ final class CallbackJobTest extends TestCase
 
         // Stub executor to detect only parent execution
         $coordinator = new JobLifecycleCoordinator();
-        $ctx         = new ExecutionContext(
-            source: 'queue',
-            maxRetries: 0,
-            notifyOnSuccess: false,
-            notifyOnFailure: false,
-            singleInstance: false,
-            queueName: 'default',
-            queueWorker: null,
-            retryConfig: [
-                'strategy'   => 'none',
-                'base'       => 0,
-                'multiplier' => 1,
-                'jitter'     => false,
-                'max'        => 0,
-            ],
-            eventsEnabled: false,
-            meta: [],
-        );
-        $coordinator->run($parent, $ctx);
+        $coordinator->run($parent, 'queue');
         $this->assertFalse($executed, 'Enqueued callback executed inline unexpectedly');
     }
 }

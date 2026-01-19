@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
+use Daycry\Jobs\Job;
 use stdClass;
 
 /**
@@ -57,6 +58,66 @@ trait CallbackTrait
         $this->callbackDescriptor = $descriptor;
 
         return $this;
+    }
+
+    /**
+     * Fluent API: Chain multiple jobs to execute sequentially.
+     *
+     * @param list<Job> $jobs Array of jobs to chain
+     */
+    public function chain(array $jobs): self
+    {
+        if (empty($jobs)) {
+            return $this;
+        }
+
+        // Build chain from last to first
+        $previousJob = null;
+
+        foreach (array_reverse($jobs) as $job) {
+            if ($previousJob) {
+                $job->then($previousJob);
+            }
+            $previousJob = $job;
+        }
+
+        // Set first job as callback of current job
+        $this->then($jobs[0]);
+
+        return $this;
+    }
+
+    /**
+     * Fluent API: Execute job after successful completion.
+     */
+    public function then(Job $nextJob): self
+    {
+        return $this->setCallbackJob(
+            static fn ($parent) => $nextJob,
+            ['filter' => 'success', 'allowChain' => true],
+        );
+    }
+
+    /**
+     * Fluent API: Execute job on failure.
+     */
+    public function catch(Job $failureJob): self
+    {
+        return $this->setCallbackJob(
+            static fn ($parent) => $failureJob,
+            ['filter' => 'failure', 'allowChain' => false],
+        );
+    }
+
+    /**
+     * Fluent API: Execute job regardless of outcome.
+     */
+    public function finally(Job $finallyJob): self
+    {
+        return $this->setCallbackJob(
+            static fn ($parent) => $finallyJob,
+            ['filter' => 'always', 'allowChain' => false],
+        );
     }
 
     public function hasCallbackJob(): bool

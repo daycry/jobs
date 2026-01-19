@@ -34,6 +34,8 @@ class QueueModel extends Model
         'priority',
         'schedule',
         'status',
+        'max_retries',
+        'attempts',
     ];
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
@@ -70,26 +72,26 @@ class QueueModel extends Model
      */
     public function reserveJob(string $queue): ?Queue
     {
-        $table = $this->db->prefixTable($this->table);
-        $attempts = 0;
+        $table       = $this->db->prefixTable($this->table);
+        $attempts    = 0;
         $maxAttempts = 3;
 
         while ($attempts < $maxAttempts) {
             // 1. Find a candidate ID
-            $sql = "SELECT id FROM {$table} 
-                    WHERE queue = ? AND status = 'pending' AND schedule <= ? 
+            $sql = "SELECT id FROM {$table}
+                    WHERE queue = ? AND status = 'pending' AND schedule <= ?
                     ORDER BY priority ASC, schedule ASC LIMIT 1";
 
             $query = $this->db->query($sql, [$queue, date('Y-m-d H:i:s')]);
-            $row = $query->getRow();
+            $row   = $query->getRow();
 
             if (! $row) {
                 return null; // Queue empty
             }
 
             // 2. Try to lock it
-            $updateSql = "UPDATE {$table} 
-                          SET status = 'in_progress', updated_at = ? 
+            $updateSql = "UPDATE {$table}
+                          SET status = 'in_progress', updated_at = ?
                           WHERE id = ? AND status = 'pending'";
 
             $this->db->query($updateSql, [date('Y-m-d H:i:s'), $row->id]);

@@ -19,10 +19,10 @@ use CodeIgniter\HTTP\Response;
 use Config\Services;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
-use Daycry\Jobs\Execution\ExecutionContext;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\QueueManager;
+use Daycry\Jobs\Libraries\RateLimiter;
 use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
@@ -91,6 +91,20 @@ class QueueRunCommand extends BaseJobsCommand
         $metrics  = Metrics::get();
         $this->requeueHelper ??= new RequeueHelper($metrics);
 
+        // Rate limiting check
+        $config    = config('Jobs');
+        $rateLimit = $config->queueRateLimits[$queue] ?? 0;
+
+        if ($rateLimit > 0) {
+            $rateLimiter = new RateLimiter();
+            if (! $rateLimiter->allow($queue, $rateLimit)) {
+                // Rate limit exceeded, skip processing this cycle
+                CLI::write("[Rate Limited] Queue '{$queue}' has reached limit of {$rateLimit} jobs/minute", 'yellow');
+
+                return;
+            }
+        }
+
         Services::resetSingle('request');
         Services::resetSingle('response');
 
@@ -114,28 +128,9 @@ class QueueRunCommand extends BaseJobsCommand
 
                 $this->lateChecks($job); // todavía antes de ejecutar? mantener orden original
 
-                $ctx = new ExecutionContext(
-                    source: 'queue',
-                    maxRetries: $job->getMaxRetries() ?? 0,
-                    notifyOnSuccess: $job->shouldNotifyOnSuccess(),
-                    notifyOnFailure: $job->shouldNotifyOnFailure(),
-                    singleInstance: $job->isSingleInstance(),
-                    queueName: $queue,
-                    queueWorker: $worker,
-                    retryConfig: [
-                        'strategy'   => config('Jobs')->retryBackoffStrategy,
-                        'base'       => config('Jobs')->retryBackoffBase,
-                        'multiplier' => config('Jobs')->retryBackoffMultiplier,
-                        'jitter'     => config('Jobs')->retryBackoffJitter,
-                        'max'        => config('Jobs')->retryBackoffMax,
-                    ],
-                    eventsEnabled: config('Jobs')->enableEvents ?? true,
-                    meta: [],
-                );
-
                 $coordinator = new JobLifecycleCoordinator();
                 $startExec   = microtime(true);
-                $outcome     = $coordinator->run($job, $ctx);
+                $outcome     = $coordinator->run($job, 'queue');
                 $latency     = microtime(true) - $startExec;
                 $exec        = $outcome->finalResult;
 

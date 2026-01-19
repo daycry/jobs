@@ -9,11 +9,13 @@ You are an expert AI programming assistant for the `daycry/jobs` library, a Code
 
 ## Key Architectural Components
 1. **Jobs**: Encapsulate logic (`CommandJob`, `ShellJob`, `ClosureJob`, `EventJob`, `UrlJob`).
-2. **Queues**: Backend implementations (`DatabaseQueue`, `RedisQueue`, `BeanstalkQueue`, `SyncQueue`, `ServiceBusQueue`).
-3. **Execution**:
+2. **Traits**: Job uses 5 consolidated traits (IdentityTrait, StateTrait, EnqueuableTrait, ActivityTrait, FrequenciesTrait, EnvironmentTrait, CallbackTrait).
+3. **Queues**: Backend implementations (`DatabaseQueue`, `RedisQueue`, `BeanstalkQueue`, `SyncQueue`, `ServiceBusQueue`).
+4. **Execution**:
     - `JobExecutor`: Runs the job logic safely.
-    - `JobLifecycleCoordinator`: Manages retries, notifications, and completion strategies.
-4. **Models**: `QueueModel` handles persistence for `DatabaseQueue` with atomic locking.
+    - `JobLifecycleCoordinator`: Orchestrates retries and notifications (simplified signature: `run(Job $job, string $source)`).
+    - `RetryPolicyFixed`: Unified retry policy supporting 'none', 'fixed', 'exponential' strategies.
+5. **Models**: `QueueModel` handles persistence for `DatabaseQueue` with atomic locking.
 
 ## Documentation
 - Refer to the `docs/` folder for detailed architectural decisions and configuration guides.
@@ -44,7 +46,13 @@ You are an expert AI programming assistant for the `daycry/jobs` library, a Code
 
 ## Recent Changes (Keep in Mind)
 - **DatabaseQueue**: Now uses `reserveJob` for atomic locking preventing race conditions.
-- **Datbase Performance**: Added `idx_queue_fetch` composite index on `(status, schedule, priority)`.
+- **Database Performance**: Added `idx_queue_fetch` composite index on `(status, schedule, priority)`.
 - **ShellJob**: Added input sanitization.
+- **Architecture Simplification** (Jan 2026):
+  - Removed `ExecutionContext` wrapper - `JobLifecycleCoordinator` now accepts `(Job, string $source)` directly.
+  - Removed `CompletionStrategy` pattern - logic consolidated in `RequeueHelper`.
+  - Unified `RetryPolicy` classes - `RetryPolicyFixed` now handles all strategies.
+  - Consolidated traits from 9 to 5 (`IdentityTrait`, `StateTrait` replace 4 smaller traits).
+  - **13 files deleted**, functionality 100% preserved, all tests passing.
 
 When asked to implement features, checking `docs/` first is mandatory to ensure consistency with existing patterns.

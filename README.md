@@ -22,6 +22,8 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 <a href="#quick-start">Quick Start</a> ·
 <a href="#features">Features</a> ·
 <a href="docs/CONFIGURATION.md">Configuration</a> ·
+<a href="docs/ENHANCEMENTS.md">Enhanced Features</a> ·
+<a href="docs/EXCEPTIONS.md">Exception Handling</a> ·
 <a href="docs/LOGGING.md">Logging</a> ·
 <a href="docs/RETRIES.md">Retries</a> ·
 <a href="docs/ATTEMPTS.md">Attempts</a> ·
@@ -49,6 +51,16 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 - Pluggable pruning (max logs per job) and payload hashing for dedup/forensics.
 - Clean separation of concerns (JobEnvelope transport + Job domain object + RequeueHelper lifecycle).
 - Comprehensive test suite organized by domain (Queues, Logging, Retry, Jobs, Execution, Callbacks, Scheduler, Metrics, Helpers, Traits). See `docs/TESTING.md`.
+
+### New Security & Performance Features
+- **Shell Command Whitelisting**: Optional whitelist to restrict allowed shell commands, preventing command injection.
+- **Smart Token Detection**: Automatic detection and masking of JWT tokens, API keys, and Bearer tokens in logs.
+- **Rate Limiting**: Per-queue rate limits to prevent resource exhaustion (cache-based token bucket).
+- **Dead Letter Queue**: Automatic routing of permanently failed jobs to a dedicated queue for analysis.
+- **Job Timeout Protection**: Hard timeout enforcement with `pcntl_alarm` (fallback to time check if unavailable).
+- **Config Caching**: Singleton-based configuration caching to reduce overhead in high-throughput scenarios.
+- **Fluent Job Chaining**: Enhanced callback API with `then()`, `catch()`, `finally()`, and `chain()` methods.
+- **Health Monitoring**: Built-in `jobs:health` command with queue statistics, success rates, and JSON output.
 
 ### Queue-Level Metrics (Decorator)
 | Metric | Type | Labels |
@@ -161,6 +173,19 @@ php spark jobs:cronjob:run
 Run queue worker (consume enqueued jobs):
 ```bash
 php spark jobs:queue:run --queue=default --sleep=1
+```
+
+### Health Monitoring
+Check system health and queue statistics:
+```bash
+# Human-readable table format
+php spark jobs:health
+
+# JSON output for monitoring systems
+php spark jobs:health --json
+
+# Specific queue only
+php spark jobs:health --queue=high_priority
 ```
 
 ## Job Dependencies

@@ -17,13 +17,11 @@ use DateTime;
 use DateTimeZone;
 use Daycry\Jobs\Traits\ActivityTrait;
 use Daycry\Jobs\Traits\CallbackTrait;
-use Daycry\Jobs\Traits\DependableTrait;
 use Daycry\Jobs\Traits\EnqueuableTrait;
 use Daycry\Jobs\Traits\EnvironmentTrait;
 use Daycry\Jobs\Traits\FrequenciesTrait;
-use Daycry\Jobs\Traits\NameableTrait;
-use Daycry\Jobs\Traits\NotificableTrait;
-use Daycry\Jobs\Traits\StatusTrait;
+use Daycry\Jobs\Traits\IdentityTrait;
+use Daycry\Jobs\Traits\StateTrait;
 use Throwable;
 
 /**
@@ -44,11 +42,9 @@ class Job
 {
     use EnvironmentTrait;
     use FrequenciesTrait;
-    use NameableTrait;
-    use DependableTrait;
+    use IdentityTrait;
     use ActivityTrait;
-    use StatusTrait;
-    use NotificableTrait;
+    use StateTrait;
     use EnqueuableTrait;
     use CallbackTrait;
 
@@ -196,6 +192,11 @@ class Job
             for ($i = 0; $i < (int) $record->attempts; $i++) {
                 $instance->addAttempt();
             }
+        }
+
+        // Restore maxRetries configuration
+        if (isset($record->maxRetries) && is_numeric($record->maxRetries)) {
+            $instance->maxRetries((int) $record->maxRetries);
         }
 
         // Restore callback flags if present (for enqueued callback children)

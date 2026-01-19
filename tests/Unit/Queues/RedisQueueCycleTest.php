@@ -54,7 +54,7 @@ final class RedisQueueCycleTest extends TestCase
             $cfg->queues .= (empty($cfg->queues) ? '' : ',') . $queueName;
         }
         $job = new Job(job: 'command', payload: 'jobs:test');
-        $job->named('redis_cycle')->setQueue($queueName);
+        $job->named('redis_cycle')->setQueue($queueName)->maxRetries(2); // Add maxRetries to allow requeue
         $id1 = $job->push();
         $this->assertIsString($id1);
 
