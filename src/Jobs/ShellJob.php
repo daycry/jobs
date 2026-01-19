@@ -61,8 +61,11 @@ class ShellJob extends Job implements JobInterface
         $parts   = preg_split('/\s+/', trim($command), 2);
         $cmdName = $parts[0] ?? '';
 
-        // Check if command is in whitelist
-        if (! in_array($cmdName, $allowed, true)) {
+        // Normalize whitelist to lowercase for case-insensitive comparison
+        $allowedLower = array_map('strtolower', $allowed);
+
+        // Check if command is in whitelist (case-insensitive)
+        if (! in_array(strtolower($cmdName), $allowedLower, true)) {
             throw JobException::forShellCommandNotAllowed($cmdName);
         }
     }
