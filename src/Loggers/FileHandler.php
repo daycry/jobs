@@ -59,7 +59,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
             $this->name = 'unnamed'; // fallback definitivo
         }
         // Sanitizar nombre para uso de archivo (sin espacios raros / separadores peligrosos)
-        $safeName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $this->name) ?? 'unnamed';
+        $safeName = $this->sanitizeName($this->name);
         $fileName = rtrim($config->filePath, '/\\') . '/' . $safeName . '.json';
 
         if (file_exists($fileName)) {
@@ -97,7 +97,8 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
 
     public function lastRun(string $name): string|Time
     {
-        $fileName = $this->path . '/' . $name . '.json';
+        $safeName = $this->sanitizeName($name);
+        $fileName = $this->path . '/' . $safeName . '.json';
         if (! file_exists($fileName)) {
             return '--';
         }
@@ -120,7 +121,8 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
      */
     public function history(string $name, int $limit = 10): array
     {
-        $fileName = $this->path . '/' . $name . '.json';
+        $safeName = $this->sanitizeName($name);
+        $fileName = $this->path . '/' . $safeName . '.json';
         if (! file_exists($fileName)) {
             return [];
         }
@@ -130,5 +132,13 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         }
 
         return array_slice($logs, 0, $limit);
+    }
+
+    /**
+     * Sanitize job name for safe filesystem usage.
+     */
+    private function sanitizeName(string $name): string
+    {
+        return preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?? 'unnamed';
     }
 }

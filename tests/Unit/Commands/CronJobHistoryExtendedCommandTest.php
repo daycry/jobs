@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\ConfigCache;
 use Daycry\Jobs\Loggers\FileHandler;
 use Daycry\Jobs\Loggers\JobLogger;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +32,8 @@ final class CronJobHistoryExtendedCommandTest extends TestCase
         if (! is_dir($cfg->filePath)) {
             mkdir($cfg->filePath, 0777, true);
         }
+        // Ensure FileHandler uses the updated config
+        ConfigCache::set($cfg);
         $job = new Job(job: 'command', payload: ['demo' => 'x']);
         $job->named('hist_demo');
         $job->source('cron');
@@ -51,5 +54,11 @@ final class CronJobHistoryExtendedCommandTest extends TestCase
         $this->assertTrue(property_exists($row, 'source'));
         $this->assertTrue(property_exists($row, 'outputLength'));
         $this->assertTrue(property_exists($row, 'payloadHash'));
+    }
+
+    protected function tearDown(): void
+    {
+        ConfigCache::clear();
+        parent::tearDown();
     }
 }
