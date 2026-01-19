@@ -19,17 +19,11 @@ class QueueCompletionStrategy implements CompletionStrategy
 {
     public function onSuccess(Job $job, ExecutionResult $result, ExecutionContext $ctx): void
     {
-        if ($ctx->queueWorker) {
-            // removeJob recreate=false
-            $ctx->queueWorker->removeJob($job, false);
-        }
+        // Responsibility delegated to QueueRunCommand/RequeueHelper to ensure metrics and consistency.
     }
 
     public function onFailure(Job $job, ExecutionResult $result, ExecutionContext $ctx, int $attempt): void
     {
-        if ($ctx->queueWorker) {
-            // Para ahora: siempre recreate=true → en el futuro podríamos limitar por maxRetries
-            $ctx->queueWorker->removeJob($job, true);
-        }
+        // Responsibility delegated to QueueRunCommand/RequeueHelper to ensure metrics and consistency.
     }
 }

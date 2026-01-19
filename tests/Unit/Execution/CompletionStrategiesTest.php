@@ -67,7 +67,7 @@ final class CompletionStrategiesTest extends TestCase
         $this->assertTrue(true); // If we reach here, pass
     }
 
-    public function testQueueStrategyCallsRemoveJobOnSuccess(): void
+    public function testQueueStrategyDoesNotCallRemoveJobOnSuccess(): void
     {
         $calls  = [];
         $worker = new class ($calls) implements WorkerInterface {
@@ -95,11 +95,10 @@ final class CompletionStrategiesTest extends TestCase
         $ctx    = $this->makeContext('queue', $worker);
         $result = new ExecutionResult(true, 'ok', null, microtime(true), microtime(true), 'closure');
         $strategy->onSuccess($job, $result, $ctx);
-        $this->assertCount(1, $worker->log);
-        $this->assertFalse($worker->log[0]['recreate']);
+        $this->assertCount(0, $worker->log);
     }
 
-    public function testQueueStrategyCallsRemoveJobWithRecreateOnFailure(): void
+    public function testQueueStrategyDoesNotCallRemoveJobWithRecreateOnFailure(): void
     {
         $calls  = [];
         $worker = new class ($calls) implements WorkerInterface {
@@ -127,7 +126,6 @@ final class CompletionStrategiesTest extends TestCase
         $ctx    = $this->makeContext('queue', $worker, maxRetries: 0);
         $result = new ExecutionResult(false, null, 'err', microtime(true), microtime(true), 'closure');
         $strategy->onFailure($job, $result, $ctx, 1);
-        $this->assertCount(1, $worker->log);
-        $this->assertTrue($worker->log[0]['recreate']);
+        $this->assertCount(0, $worker->log);
     }
 }
