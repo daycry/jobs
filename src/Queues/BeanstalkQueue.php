@@ -62,13 +62,14 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
     {
         $tube = new TubeName($queue);
 
-        // Reset to watch only the specified tube
+        // Watch the new tube first, then ignore others to avoid NotIgnoredException
+        // (Beanstalk requires at least one tube to be watched)
+        $this->connection->watch($tube);
         foreach ($this->connection->listTubesWatched() as $watched) {
             if ((string) $watched !== $queue) {
                 $this->connection->ignore($watched);
             }
         }
-        $this->connection->watch($tube);
         // Reserve with timeout to avoid blocking forever
         $this->job = $this->connection->reserveWithTimeout(1); // 1 second poll
         if (! $this->job) {
