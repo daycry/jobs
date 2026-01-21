@@ -106,7 +106,12 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         if ($recreate) {
             // Re-enqueue directly to this beanstalk backend instead of using push()
             // which might use a different worker from QueueManager
-            $this->enqueue($job->toObject());
+            // Force immediate availability by setting delay to 0
+            $queue   = $job->getQueue() ?? 'default';
+            $tube    = new TubeName($queue);
+            $payload = $this->getSerializer()->serialize($job->toObject());
+            $this->connection->useTube($tube);
+            $this->connection->put($payload, $this->priority, 0, $this->ttr); // delay = 0
         }
         $this->job = null;
 
