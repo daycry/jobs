@@ -64,8 +64,8 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
 
         // Reset to watch only the specified tube
         foreach ($this->connection->listTubesWatched() as $watched) {
-            if ($watched !== $queue) {
-                $this->connection->ignore(new TubeName($watched));
+            if ((string) $watched !== $queue) {
+                $this->connection->ignore($watched);
             }
         }
         $this->connection->watch($tube);
