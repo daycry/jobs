@@ -71,8 +71,12 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
                 $this->connection->ignore($watched);
             }
         }
-        // Reserve with timeout to avoid blocking forever
-        $this->job = $this->connection->reserveWithTimeout(1); // 1 second poll
+
+        // Ensure we're watching the correct tube after ignoring others
+        $this->connection->watch($tube);
+
+        // Reserve with timeout - use 3 seconds to allow for requeue delays
+        $this->job = $this->connection->reserveWithTimeout(3);
         if (! $this->job) {
             return null;
         }
@@ -112,6 +116,9 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             $payload = $this->getSerializer()->serialize($job->toObject());
             $this->connection->useTube($tube);
             $this->connection->put($payload, $this->priority, 0, $this->ttr); // delay = 0
+
+            // Small sleep to ensure beanstalkd has processed the job before next reserve
+            usleep(50000); // 50ms
         }
         $this->job = null;
 
