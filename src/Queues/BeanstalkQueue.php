@@ -75,8 +75,22 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         // Ensure we're watching the correct tube after ignoring others
         $this->connection->watch($tube);
 
-        // Reserve with timeout - use 3 seconds to allow for requeue delays
-        $this->job = $this->connection->reserveWithTimeout(3);
+        // Reserve with timeout - use 5 seconds to allow for requeue delays and network latency
+        // With exponential backoff for retries in case of requeued jobs
+        $maxAttempts = 3;
+        $delay       = 100000; // Start with 100ms
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $this->job = $this->connection->reserveWithTimeout(5);
+            if ($this->job !== null) {
+                break;
+            }
+            if ($attempt < $maxAttempts) {
+                usleep($delay);
+                $delay *= 2; // Exponential backoff
+            }
+        }
+
         if (! $this->job) {
             return null;
         }
@@ -117,8 +131,9 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             $this->connection->useTube($tube);
             $this->connection->put($payload, $this->priority, 0, $this->ttr); // delay = 0
 
-            // Small sleep to ensure beanstalkd has processed the job before next reserve
-            usleep(50000); // 50ms
+            // Sleep to ensure beanstalkd has processed the job before next reserve
+            // Increased delay for GitHub Actions CI environments where latency is higher
+            usleep(200000); // 200ms
         }
         $this->job = null;
 
