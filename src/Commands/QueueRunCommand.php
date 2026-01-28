@@ -71,16 +71,6 @@ class QueueRunCommand extends BaseJobsCommand
 
         // Spawn background child and exit parent if requested (avoid respawn with --noBackground)
         if ($background) {
-            $cwd = dirname(FCPATH);
-
-            $spark = $cwd . DIRECTORY_SEPARATOR . 'spark';
-            // Pass queue as named option to avoid interactive prompt in non-interactive child
-            if($oneTime) {
-                $args = [PHP_BINARY, $spark, $this->name, '--queue ' . $queue, '--oneTime'];
-            } else {
-                $args = [PHP_BINARY, $spark, $this->name, '--queue ' . $queue];
-            }
-
             $cmd = sprintf(
             '%s %s %s',
             PHP_BINARY,
