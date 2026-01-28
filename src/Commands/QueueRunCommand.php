@@ -16,6 +16,7 @@ namespace Daycry\Jobs\Commands;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Exceptions\ExceptionInterface;
 use Config\Services;
+use Symfony\Component\Process\Process;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
@@ -64,12 +65,36 @@ class QueueRunCommand extends BaseJobsCommand
 
     public function run(array $params): void
     {
-        $queue      = $params[0] ?? CLI::getOption('queue');
-        $oneTime    = array_key_exists('oneTime', $params)    || CLI::getOption('oneTime');
-        $background = array_key_exists('background', $params) || CLI::getOption('background');
+        $queue      = $params['queue'] ?? $params[0] ?? CLI::getOption('queue');
+        $oneTime    = isset($params['oneTime']) ? (bool) $params['oneTime'] : (bool) CLI::getOption('oneTime');
+        $background = isset($params['background']) ? (bool) $params['background'] : (bool) CLI::getOption('background');
+
+        // Spawn background child and exit parent if requested (avoid respawn with --noBackground)
+        if ($background) {
+            $cwd = dirname(FCPATH);
+
+            $spark = $cwd . DIRECTORY_SEPARATOR . 'spark';
+            // Pass queue as named option to avoid interactive prompt in non-interactive child
+            if($oneTime) {
+                $args = [PHP_BINARY, $spark, $this->name, '--queue ' . $queue, '--oneTime'];
+            } else {
+                $args = [PHP_BINARY, $spark, $this->name, '--queue ' . $queue];
+            }
+
+            $cmd = sprintf(
+            '%s %s %s',
+            PHP_BINARY,
+                realpath(FCPATH . '../spark'),
+                escapeshellarg($this->name) . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''),
+            );
+
+            exec($cmd);
+
+            return;
+        }
 
         if (empty($queue)) {
-            $queue = CLI::prompt(lang('Queue.insertQueue'));
+            $queue = CLI::prompt(lang('Queue.insertQueue'), config('Jobs')->queues, 'required');
         }
 
         while (true) {
