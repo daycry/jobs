@@ -73,6 +73,34 @@ The worker automatically uses the backend configured in `Config\Jobs::$worker`:
 - `servicebus` - Azure Service Bus integration
 - `sync` - Inline execution (no background processing)
 
+### Background Worker (detached)
+
+The `jobs:queue:run` command supports starting the worker in the background so it can run independently of the shell session.
+
+- Option: `--background` — spawn a detached worker process and return immediately to the caller.
+
+Implementation notes:
+- The worker is spawned using a platform-appropriate detached invocation: `nohup` + `&` on POSIX systems, and `start /B` on Windows. Standard output and error are redirected to the system null device to avoid writing to a closed CLI stream.
+- The child is invoked with `--queue=<name>` so it does not prompt interactively for the queue name.
+
+PHP executable selection:
+- When running from the CLI (`php spark ...`) the system PHP binary is used (`PHP_BINARY`).
+- When the worker is started from a non-CLI SAPI (for example, from a web request or a supervisor that does not provide a proper PHP path), you can configure the PHP binary path using the `PHP_BINARY_PATH` environment variable. Set it to the absolute path of your `php` executable, for example:
+
+  - POSIX: `export PHP_BINARY_PATH=/usr/bin/php`
+  - Windows (PowerShell): `$env:PHP_BINARY_PATH = 'C:\\php\\php.exe'`
+
+You can also set `PHP_BINARY_PATH` inside your framework project's `.env` file so it's available to the application at runtime. Example `.env` entry:
+
+```
+PHP_BINARY_PATH=/usr/bin/php
+```
+
+Notes and recommendations:
+- Ensure the `spark` script is accessible and executable from the working directory used when spawning the background process (the implementation uses the project `spark` script by path).
+- Because the background child runs detached and has its stdout/stderr redirected, any early startup errors are captured in a brief trace file under the Jobs log directory (see `config('Jobs')->filePath`). Check that location if a background child exits immediately.
+- For more advanced background supervision consider using a process manager (systemd, Supervisor, or equivalent) instead of ad-hoc detaching.
+
 **Metrics**:
 If metrics are enabled, the worker tracks:
 - `jobs_fetched` - Total fetch attempts

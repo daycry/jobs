@@ -70,14 +70,20 @@ class QueueRunCommand extends BaseJobsCommand
 
         // Spawn background child and exit parent if requested (avoid respawn with --noBackground)
         if ($background) {
-            $cmd = sprintf(
-                '%s %s %s',
-                PHP_BINARY,
-                realpath(FCPATH . '../spark'),
-                escapeshellarg($this->name) . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''),
-            );
+            $phpBin    = $this->getPhpBinary();
+            $sparkPath = ROOTPATH . 'spark';
 
-            exec($cmd);
+            if (str_starts_with(strtolower(PHP_OS), strtolower('WIN'))) {
+                // Windows: use start /B and redirect to NUL
+                $cmd    = sprintf('%s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), $this->name . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''));
+                $winCmd = 'start "" /B ' . $cmd . ' > NUL 2>&1';
+                pclose(popen($winCmd, 'r'));
+            } else {
+                // POSIX: use nohup and redirect to /dev/null, detach with &
+                $cmd      = sprintf('%s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), $this->name . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''));
+                $posixCmd = 'nohup ' . $cmd . ' > /dev/null 2>&1 &';
+                exec($posixCmd);
+            }
 
             return;
         }
@@ -183,20 +189,6 @@ class QueueRunCommand extends BaseJobsCommand
         return QueueManager::instance()->getDefault();
     }
 
-    /*protected function prepareResponse($result): array
-    {
-        $response['status'] = true;
-
-        if (! $result instanceof Response) {
-            $result = (Services::response(null, true))->setStatusCode(200)->setBody($result);
-        }
-
-        $response['statusCode'] = $result->getStatusCode();
-        $response['data']       = $result->getBody();
-
-        return $response;
-    }*/
-
     protected function handleException($e, $worker, $job): array
     {
         $response['statusCode'] = $e->getCode();
@@ -212,10 +204,12 @@ class QueueRunCommand extends BaseJobsCommand
         return $response;
     }
 
-    protected function finalizeJob(array $response, $worker, Job $job): void
+    private function getPhpBinary(): string
     {
-        // Ya no se usa: la lógica de finalize se hace inline tras ejecutar el JobExecutor.
-    }
+        if (PHP_SAPI === 'cli') {
+            return PHP_BINARY;
+        }
 
-    // Metrics retrieval now centralized in Metrics::get(); no local logic needed.
+        return env('PHP_BINARY_PATH', 'php');
+    }
 }
