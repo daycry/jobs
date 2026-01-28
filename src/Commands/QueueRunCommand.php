@@ -15,7 +15,6 @@ namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\Exceptions\ExceptionInterface;
-use CodeIgniter\HTTP\Response;
 use Config\Services;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
@@ -38,7 +37,7 @@ class QueueRunCommand extends BaseJobsCommand
     protected $description                = 'Start queue worker.';
     protected $usage                      = 'queue:run <queue> [Options]';
     protected $arguments                  = ['queue' => 'The queue name.'];
-    protected $options                    = ['--oneTime' => 'Only executes one time.'];
+    protected $options                    = ['--oneTime' => 'Only executes one time.', '--background' => 'Run the worker in background.'];
     protected bool $locked                = false;
     private ?RequeueHelper $requeueHelper = null;
 
@@ -65,8 +64,9 @@ class QueueRunCommand extends BaseJobsCommand
 
     public function run(array $params): void
     {
-        $queue   = $params[0] ?? CLI::getOption('queue');
-        $oneTime = array_key_exists('oneTime', $params) || CLI::getOption('oneTime');
+        $queue      = $params[0] ?? CLI::getOption('queue');
+        $oneTime    = array_key_exists('oneTime', $params)    || CLI::getOption('oneTime');
+        $background = array_key_exists('background', $params) || CLI::getOption('background');
 
         if (empty($queue)) {
             $queue = CLI::prompt(lang('Queue.insertQueue'));
@@ -112,6 +112,11 @@ class QueueRunCommand extends BaseJobsCommand
             $worker      = $this->getWorker();
             $queueEntity = $worker->watch($queue);
 
+            if ($queueEntity === null) {
+                // No available job for this queue at this time.
+                return;
+            }
+
             if ($queueEntity !== null) {
                 $metrics->increment('jobs_fetched', 1, ['queue' => $queue]);
                 $this->locked = true;
@@ -133,13 +138,14 @@ class QueueRunCommand extends BaseJobsCommand
                 $outcome     = $coordinator->run($job, 'queue');
                 $latency     = microtime(true) - $startExec;
                 $exec        = $outcome->finalResult;
-
-                $response = [
+                $response    = [
                     'status'     => $exec->success,
                     'statusCode' => $exec->success ? 200 : 500,
                     'data'       => $exec->output,
                     'error'      => $exec->success ? null : $exec->error,
                 ];
+
+                // Execution completed; outcome handled below.
 
                 // Finalización: usar completion strategy ya ejecutada dentro del coordinator.
                 // Remoción/requeue ya la maneja la estrategia QueueCompletionStrategy (si lo configuramos). Si aún no, aplicamos fallback:

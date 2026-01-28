@@ -44,7 +44,8 @@ class JobExecutor
             }
             /** @var JobInterface $handler */
             $handler = new $class();
-            $job     = $handler->beforeRun($job);
+
+            $job = $handler->beforeRun($job);
             ob_start();
             $bufferActive = true;
             $returned     = $handler->handle($job->getPayload()); // Handler arbitrary return (scalar|array|object|null)

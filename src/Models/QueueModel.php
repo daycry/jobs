@@ -17,6 +17,8 @@ use CodeIgniter\Database\ConnectionInterface;
 use CodeIgniter\Model;
 use CodeIgniter\Validation\ValidationInterface;
 use Config\Database;
+use DateTime;
+use DateTimeZone;
 use Daycry\Jobs\Entities\Queue;
 
 /**
@@ -64,7 +66,12 @@ class QueueModel extends Model
      */
     public function getJob(): ?Queue
     {
-        return $this->where('status', 'pending')->where('schedule <=', date('Y-m-d H:i:s'))->orderBy('priority ASC, schedule ASC')->first();
+        $now = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
+
+        return $this->where('status', 'pending')
+            ->where('schedule <=', $now)
+            ->orderBy('priority ASC, schedule ASC')
+            ->first();
     }
 
     /**
@@ -78,11 +85,13 @@ class QueueModel extends Model
 
         while ($attempts < $maxAttempts) {
             // 1. Find a candidate ID
+            $now = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
+
             $sql = "SELECT id FROM {$table}
                     WHERE queue = ? AND status = 'pending' AND schedule <= ?
                     ORDER BY priority ASC, schedule ASC LIMIT 1";
 
-            $query = $this->db->query($sql, [$queue, date('Y-m-d H:i:s')]);
+            $query = $this->db->query($sql, [$queue, $now]);
             $row   = $query->getRow();
 
             if (! $row) {
@@ -94,7 +103,7 @@ class QueueModel extends Model
                           SET status = 'in_progress', updated_at = ?
                           WHERE id = ? AND status = 'pending'";
 
-            $this->db->query($updateSql, [date('Y-m-d H:i:s'), $row->id]);
+            $this->db->query($updateSql, [$now, $row->id]);
 
             if ($this->db->affectedRows() > 0) {
                 return $this->find($row->id);

@@ -33,7 +33,7 @@ class JobLogger
 
     public function __construct()
     {
-        $this->executionId = $this->generateUuidV4();
+        $this->executionId = (string) service('uuid')->uuid7()->toRfc4122();
     }
 
     /**
@@ -186,18 +186,6 @@ class JobLogger
             // Use job name as path/filename context
             // setPath is called later with the job name by consumer if needed
         }
-    }
-
-    /**
-     * Generate a RFC 4122 compliant UUID v4 (random).
-     */
-    private function generateUuidV4(): string
-    {
-        $data    = random_bytes(16);
-        $data[6] = chr((ord($data[6]) & 0x0F) | 0x40); // version 4
-        $data[8] = chr((ord($data[8]) & 0x3F) | 0x80); // variant
-
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**

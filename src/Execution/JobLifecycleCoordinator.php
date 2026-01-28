@@ -71,9 +71,22 @@ class JobLifecycleCoordinator
             while (true) {
                 $persistentAttempt++;
 
-                // Use timeout protection only if jobTimeout > 0
-                $timeout = $cfg->jobTimeout ?? 0;
-                $exec    = ($timeout > 0)
+                // Determine effective timeout for this job.
+                // Priority: job-specific timeout (Job::getTimeout()), then config defaultTimeout.
+                // If neither is set, treat as unlimited (0). Do NOT apply a global "cap" here.
+                $jobSpecific    = method_exists($job, 'getTimeout') ? $job->getTimeout() : null;
+                $defaultTimeout = $cfg->defaultTimeout ?? null;
+
+                if ($jobSpecific !== null) {
+                    $timeout = (int) $jobSpecific;
+                } elseif ($defaultTimeout !== null) {
+                    $timeout = (int) $defaultTimeout;
+                } else {
+                    // Unlimited by default if nothing specified
+                    $timeout = 0;
+                }
+
+                $exec = ($timeout > 0)
                     ? $this->safeExecuteWithTimeout($job, $timeout)
                     : $this->safeExecute($job);
 
