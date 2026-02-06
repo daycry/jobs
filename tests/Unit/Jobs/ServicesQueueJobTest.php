@@ -120,7 +120,7 @@ final class ServicesQueueJobTest extends TestCase
             },
         );
 
-        $this->assertMatchesRegularExpression('/^sync-[0-9a-f]{12}$/', $id, 'SyncQueue ID format');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $id, 'SyncQueue ID format');
         $this->assertTrue($flag, 'Inline callback should have executed synchronously');
     }
 }

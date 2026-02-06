@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace Daycry\Jobs\Libraries;
+namespace Daycry\Jobs\Generators;
 
 use Daycry\Jobs\Interfaces\IdGeneratorInterface;
 

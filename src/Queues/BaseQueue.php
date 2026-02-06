@@ -17,7 +17,7 @@ use Daycry\Jobs\Interfaces\IdGeneratorInterface;
 use Daycry\Jobs\Interfaces\PayloadSerializerInterface;
 use Daycry\Jobs\Libraries\DelayResult;
 use Daycry\Jobs\Libraries\JsonPayloadSerializer;
-use Daycry\Jobs\Libraries\RandomIdGenerator;
+use Daycry\Jobs\Generators\UuidGenerator;
 
 abstract class BaseQueue
 {
@@ -52,7 +52,7 @@ abstract class BaseQueue
     {
         if (! $this->idGenerator) {
             // Posible clase personalizada desde config en fases futuras
-            $this->idGenerator = new RandomIdGenerator();
+            $this->idGenerator = new UuidGenerator();
         }
 
         return $this->idGenerator;

@@ -49,7 +49,7 @@ final class QueuePushTest extends DatabaseTestCase
 
         $id = $job->push();
         $this->assertIsString($id);
-        $this->assertSame(32, strlen($id), 'DatabaseQueue uses random_string alnum 32');
+        $this->assertSame(36, strlen($id), 'DatabaseQueue uses random_string alnum 32');
 
         $model  = new QueueModel();
         $record = $model->where('identifier', $id)->first();

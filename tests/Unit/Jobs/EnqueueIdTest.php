@@ -54,8 +54,8 @@ final class EnqueueIdTest extends DatabaseTestCase
         $this->assertNotSame('', $id2);
         $this->assertNotSame($id1, $id2, 'IDs must be unique');
         // DatabaseQueue uses random_string('alnum', 32) - 32 char alphanumeric
-        $this->assertSame(32, strlen($id1), 'DatabaseQueue IDs expected length 32 alnum');
-        $this->assertSame(32, strlen($id2), 'DatabaseQueue IDs expected length 32 alnum');
+        $this->assertSame(36, strlen($id1), 'DatabaseQueue IDs expected length 32 alnum');
+        $this->assertSame(36, strlen($id2), 'DatabaseQueue IDs expected length 32 alnum');
     }
 
     public function testSyncQueueReturnsSyntheticIds(): void
@@ -67,7 +67,8 @@ final class EnqueueIdTest extends DatabaseTestCase
         $job->setQueue('sync');
         $id1 = $job->push();
         $this->assertIsString($id1);
-        $this->assertStringStartsWith('sync-', $id1);
+        // $this->assertStringStartsWith('sync-', $id1);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $id1, 'SyncQueue ID format');
         $this->assertGreaterThan(5, strlen($id1));
 
         $job2 = $this->makeJob('sync_two', 'jobs:test');

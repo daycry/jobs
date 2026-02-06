@@ -34,7 +34,7 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
     {
         helper('text');
 
-        $identifier = random_string('alnum', 32);
+        $identifier = $this->generateId(bytes: 4);
 
         $queueModel = new QueueModel();
         $job        = new QueueEntity();

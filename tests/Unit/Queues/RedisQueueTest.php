@@ -53,6 +53,6 @@ final class RedisQueueTest extends TestCase
         $id            = $queue->enqueue($object);
         $this->assertIsString($id);
         $this->assertNotSame('', $id);
-        $this->assertMatchesRegularExpression('/^\d+-[0-9a-f]{8}$/', $id, 'Expected timestamp-randhex format');
+        $this->assertMatchesRegularExpression('/^\d+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $id, 'Expected timestamp-UUID format');
     }
 }
