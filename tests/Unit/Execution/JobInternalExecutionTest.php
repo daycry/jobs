@@ -89,9 +89,9 @@ final class JobInternalExecutionTest extends TestCase
 
     public function testSuccessMergesBufferAndReturn(): void
     {
-        $job  = new Job(job: '_exec_success', payload: 'x');
+        $job         = new Job(job: '_exec_success', payload: 'x');
         $coordinator = new JobLifecycleCoordinator();
-        $exec = $coordinator->run($job)->finalResult;
+        $exec        = $coordinator->run($job)->finalResult;
         $this->assertTrue($exec->success);
         // Expect returned + \n? handled by merge logic -> returned\n?buffered or returnedbuffered depending on newline logic
         $this->assertStringContainsString('returned', $exec->output ?? '');
@@ -101,18 +101,18 @@ final class JobInternalExecutionTest extends TestCase
 
     public function testArrayReturnNormalizedJson(): void
     {
-        $job  = new Job(job: '_exec_array', payload: null);
+        $job         = new Job(job: '_exec_array', payload: null);
         $coordinator = new JobLifecycleCoordinator();
-        $exec = $coordinator->run($job)->finalResult;
+        $exec        = $coordinator->run($job)->finalResult;
         $this->assertTrue($exec->success);
         $this->assertSame('{"a":1}', $exec->output);
     }
 
     public function testExceptionPath(): void
     {
-        $job  = new Job(job: '_exec_exception', payload: null);
+        $job         = new Job(job: '_exec_exception', payload: null);
         $coordinator = new JobLifecycleCoordinator();
-        $exec = $coordinator->run($job)->finalResult;
+        $exec        = $coordinator->run($job)->finalResult;
         $this->assertFalse($exec->success);
         $this->assertNull($exec->output);
         $this->assertSame('boom', $exec->error);

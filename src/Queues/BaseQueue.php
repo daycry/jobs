@@ -13,11 +13,11 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
+use Daycry\Jobs\Generators\UuidGenerator;
 use Daycry\Jobs\Interfaces\IdGeneratorInterface;
 use Daycry\Jobs\Interfaces\PayloadSerializerInterface;
 use Daycry\Jobs\Libraries\DelayResult;
 use Daycry\Jobs\Libraries\JsonPayloadSerializer;
-use Daycry\Jobs\Generators\UuidGenerator;
 
 abstract class BaseQueue
 {
