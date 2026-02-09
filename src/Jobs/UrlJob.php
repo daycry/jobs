@@ -15,6 +15,7 @@ namespace Daycry\Jobs\Jobs;
 
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
 
 /**
  * Performs an HTTP request using CodeIgniter curlrequest service.
@@ -23,18 +24,10 @@ use Daycry\Jobs\Job;
  */
 class UrlJob extends Job implements JobInterface
 {
+    use InteractsWithCurrentJob;
+
     public function handle(mixed $payload): mixed
     {
         return service('curlrequest')->request($payload['method'], $payload['url'], $payload['options'] ?? [])->getBody();
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 }

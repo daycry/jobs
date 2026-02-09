@@ -6,7 +6,7 @@ This document explains how exceptions are processed and handled throughout the J
 
 The Jobs system implements a **resilient exception handling** strategy with multiple layers:
 
-1. **Safe Execution Wrapper** (`JobExecutor`)
+1. **Safe Execution Wrapper** (`JobLifecycleCoordinator`)
 2. **Retry Logic** (`JobLifecycleCoordinator`)
 3. **Logging & Metrics** (automatic on exceptions)
 4. **Dead Letter Queue** (permanent failures)
@@ -22,8 +22,8 @@ The Jobs system implements a **resilient exception handling** strategy with mult
 Job Execution Attempt
         ↓
 ┌─────────────────────┐
-│   JobExecutor       │
-│  - execute(job)     │
+│JobLifecycleCoordinator│
+│  - executeJobInternal(job) │
 └─────────────────────┘
         ↓
    Try-Catch Block
@@ -64,16 +64,16 @@ jobs_requeued jobs_failed_permanently
 
 ---
 
-## Layer 1: JobExecutor (Safe Execution)
+## Layer 1: Safe Execution (Internal)
 
-**Location**: [`src/Execution/JobExecutor.php`](c:\\laragon\\github\\jobs\\src\\Execution\\JobExecutor.php)
+**Location**: [`src/Execution/JobLifecycleCoordinator.php`](c:\\laragon\\github\\jobs\\src\\Execution\\JobLifecycleCoordinator.php)
 
-**Responsibility**: Execute the job handler with exception safety.
+**Responsibility**: Execute the job handler with exception safety, handling buffer capture and timing.
 
 ### Code Flow
 
 ```php
-public function execute(Job $job): ExecutionResult
+private function executeJobInternal(Job $job): ExecutionResult
 {
     $start = microtime(true);
     

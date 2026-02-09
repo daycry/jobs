@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
@@ -44,7 +44,7 @@ final class LoggingTruncateTest extends TestCase
         $payload = str_repeat('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 5); // 130 chars
         $job     = new Job(job: 'closure', payload: static fn () => $payload);
         $job->named('truncate_job');
-        (new JobExecutor())->execute($job);
+        (new JobLifecycleCoordinator())->run($job);
 
         $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/truncate_job.json';
         $this->assertFileExists($file);

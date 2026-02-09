@@ -16,18 +16,18 @@ namespace Daycry\Jobs\Queues;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
+use Daycry\Jobs\Job;
+use Daycry\Jobs\Job as DomainJob;
+
 /**
  * Synchronous (in-process) queue implementation.
  *
  * Contract notes:
- *  - enqueue(): executes the job immediately through JobExecutor and returns a synthetic identifier.
+ *  - enqueue(): executes the job immediately through JobLifecycleCoordinator and returns a synthetic identifier.
  *  - No watch()/removeJob(): it is not a WorkerInterface implementation by design.
  *
  * Use cases: testing, local development, or fallback when no async backend is desired.
  */
-use Daycry\Jobs\Job;
-use Daycry\Jobs\Job as DomainJob;
-
 class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
     public function enqueue(object $data): string

@@ -1,5 +1,36 @@
 # Advanced Features
 
+## Accessing Job Context
+You can access the current Job instance (ID, attempts, configuration) from within your handler by using the `$this->currentJob` property. This is available in all standard Job types (`CommandJob`, `ShellJob`, `UrlJob`, `ClosureJob`, `EventJob`).
+
+### Example
+```php
+// In a custom CommandJob or ShellJob
+public function handle(mixed $payload): mixed
+{
+    $jobId = $this->currentJob->getJobId();
+    $attempts = $this->currentJob->getAttempt();
+    
+    // Pass context to the command
+    return command("process:data --id={$jobId} --try={$attempts}");
+}
+```
+
+If you are creating a custom Job class, simply use the trait:
+```php
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
+
+class MyCustomJob extends Job implements JobInterface
+{
+    use InteractsWithCurrentJob;
+
+    public function handle(mixed $payload): mixed
+    {
+        // Access $this->currentJob
+    }
+}
+```
+
 ## Direct Queueing
 Enqueue ad-hoc jobs without scheduler:
 ```php

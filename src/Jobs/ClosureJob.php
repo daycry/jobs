@@ -15,6 +15,7 @@ namespace Daycry\Jobs\Jobs;
 
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
 
 /**
  * Executes a user-provided Closure (callable) stored in the payload.
@@ -22,18 +23,10 @@ use Daycry\Jobs\Job;
  */
 class ClosureJob extends Job implements JobInterface
 {
+    use InteractsWithCurrentJob;
+
     public function handle(mixed $payload): mixed
     {
         return $payload->__invoke();
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 }

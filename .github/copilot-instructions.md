@@ -12,8 +12,7 @@ You are an expert AI programming assistant for the `daycry/jobs` library, a Code
 2. **Traits**: Job uses 5 consolidated traits (IdentityTrait, StateTrait, EnqueuableTrait, ActivityTrait, FrequenciesTrait, EnvironmentTrait, CallbackTrait).
 3. **Queues**: Backend implementations (`DatabaseQueue`, `RedisQueue`, `BeanstalkQueue`, `SyncQueue`, `ServiceBusQueue`).
 4. **Execution**:
-    - `JobExecutor`: Runs the job logic safely.
-    - `JobLifecycleCoordinator`: Orchestrates retries and notifications (simplified signature: `run(Job $job, string $source)`).
+    - `JobLifecycleCoordinator`: Orchestrates retries, notifications, and safely executes job logic.
     - `RetryPolicyFixed`: Unified retry policy supporting 'none', 'fixed', 'exponential' strategies.
 5. **Models**: `QueueModel` handles persistence for `DatabaseQueue` with atomic locking.
 

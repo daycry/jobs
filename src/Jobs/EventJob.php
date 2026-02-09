@@ -16,6 +16,7 @@ namespace Daycry\Jobs\Jobs;
 use CodeIgniter\Events\Events;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
 
 /**
  * Triggers a CodeIgniter event.
@@ -23,18 +24,10 @@ use Daycry\Jobs\Job;
  */
 class EventJob extends Job implements JobInterface
 {
+    use InteractsWithCurrentJob;
+
     public function handle(mixed $payload): mixed
     {
         return Events::trigger($payload['name'], $payload['data'] ?? []);
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 }

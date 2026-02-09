@@ -15,6 +15,7 @@ namespace Daycry\Jobs\Jobs;
 
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
 
 /**
  * Executes a framework CLI command via helper command().
@@ -22,18 +23,10 @@ use Daycry\Jobs\Job;
  */
 class CommandJob extends Job implements JobInterface
 {
+    use InteractsWithCurrentJob;
+
     public function handle(mixed $payload): mixed
     {
         return command($payload);
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 }

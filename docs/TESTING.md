@@ -131,14 +131,14 @@ public function testEnqueueReturnsId(): void
 #### Testing Job Execution
 ```php
 use Daycry\Jobs\Job;
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 
 public function testJobExecutesSuccessfully(): void
 {
     $job = new Job(job: 'command', payload: 'jobs:test');
-    $executor = new JobExecutor();
+    $coordinator = new JobLifecycleCoordinator();
     
-    $result = $executor->execute($job);
+    $result = $coordinator->run($job)->finalResult;
     
     $this->assertTrue($result->success);
     $this->assertNull($result->error);

@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
@@ -32,8 +32,8 @@ final class ClosureExecutionTest extends TestCase
     {
         $job = new Job(job: 'closure', payload: static fn () => 'OK');
         $job->named('closure_ok');
-        $executor = new JobExecutor();
-        $result   = $executor->execute($job); // ExecutionResult
+        $coordinator = new JobLifecycleCoordinator();
+        $result      = $coordinator->run($job)->finalResult; // ExecutionResult
         $this->assertTrue($result->success);
         $this->assertSame('OK', $result->output);
     }

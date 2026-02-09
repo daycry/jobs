@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
@@ -45,8 +45,8 @@ final class LoggingFileTest extends TestCase
     {
         $job = new Job(job: 'closure', payload: static fn () => 'OUT');
         $job->named('log_closure');
-        $executor = new JobExecutor();
-        $result   = $executor->execute($job); // ExecutionResult
+        $coordinator = new JobLifecycleCoordinator();
+        $result      = $coordinator->run($job)->finalResult; // ExecutionResult
         $this->assertTrue($result->success);
 
         $file = $this->logDir . '/log_closure.json';

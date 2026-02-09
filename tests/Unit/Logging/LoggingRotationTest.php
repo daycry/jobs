@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
@@ -41,12 +41,12 @@ final class LoggingRotationTest extends TestCase
 
     public function testLogRotationKeepsOnlyConfiguredEntries(): void
     {
-        $executor = new JobExecutor();
+        $coordinator = new JobLifecycleCoordinator();
 
         for ($i = 1; $i <= 5; $i++) {
             $job = new Job(job: 'closure', payload: static fn () => 'Run ' . $i);
             $job->named('rotation_job');
-            $executor->execute($job);
+            $coordinator->run($job);
         }
         $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/rotation_job.json';
         $this->assertFileExists($file);

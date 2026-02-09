@@ -11,7 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-use Daycry\Jobs\Execution\JobExecutor;
+use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
@@ -35,8 +35,8 @@ final class ExecutionBufferMergeTest extends TestCase
             return 'MAIN';
         });
         $job->named('buffer_merge');
-        $executor = new JobExecutor();
-        $result   = $executor->execute($job);
+        $coordinator = new JobLifecycleCoordinator();
+        $result      = $coordinator->run($job)->finalResult;
         $this->assertTrue($result->success);
         // Expect MAIN + newline + SIDE or MAIN directly followed by SIDE depending on buffer newline
         $this->assertSame("MAIN\nSIDE", $result->output, 'Merged output should combine return + buffered echo');
@@ -50,8 +50,8 @@ final class ExecutionBufferMergeTest extends TestCase
             return null; // trigger assign buffer branch
         });
         $job->named('buffer_only');
-        $executor = new JobExecutor();
-        $result   = $executor->execute($job);
+        $coordinator = new JobLifecycleCoordinator();
+        $result      = $coordinator->run($job)->finalResult;
         $this->assertTrue($result->success);
         $this->assertSame('ONLY', $result->output);
     }

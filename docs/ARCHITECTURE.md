@@ -20,7 +20,6 @@ Core building blocks and how they collaborate.
 | RequeueHelper | Unified finalization (attempt increment + metrics + DLQ routing + optional requeue). |
 | RetryPolicyFixed | Unified retry policy supporting 'none', 'fixed', and 'exponential' strategies. |
 | JobLifecycleCoordinator | Orchestrates job execution with retries, notifications, and timeout enforcement. |
-| JobExecutor | Safely executes job handlers with error handling. |
 | Logger + Handlers | Structured execution record emission with smart token pattern detection. |
 | MetricsCollectorInterface | Pluggable counters/histograms exporter. |
 | Scheduler | Cron expression parsing & due job dispatching. |
@@ -35,7 +34,7 @@ Core building blocks and how they collaborate.
 2. Worker loop calls `watch(queue)` obtaining `JobEnvelope`.
 3. `JobLifecycleCoordinator::run(Job, 'queue')` orchestrates execution:
    - Reads retry config from global config inline
-   - Uses `JobExecutor` for safe handler execution
+   - Executes handler logic safely (internal try/catch & buffer capture)
    - Manages retry loop with delay calculation
    - Triggers notifications based on job settings
 4. `RequeueHelper::finalize()` invoked with success flag.

@@ -16,6 +16,7 @@ namespace Daycry\Jobs\Jobs;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Traits\InteractsWithCurrentJob;
 
 /**
  * Executes a shell command using exec().
@@ -24,6 +25,8 @@ use Daycry\Jobs\Job;
  */
 class ShellJob extends Job implements JobInterface
 {
+    use InteractsWithCurrentJob;
+
     public function handle(mixed $payload): mixed
     {
         $this->validateCommand($payload);
@@ -32,16 +35,6 @@ class ShellJob extends Job implements JobInterface
         exec($payload, $output);
 
         return $output;
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 
     /**
