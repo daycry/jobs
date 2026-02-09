@@ -148,6 +148,8 @@ class QueueRunCommand extends BaseJobsCommand
                     throw JobException::validationError('Invalid envelope payload format.');
                 }
                 $job = Job::fromQueueRecord($decoded);
+                // Inject backend ID into job instance for context availability
+                $job->setJobId($queueEntity->id);
 
                 $this->earlyChecks($job);
 

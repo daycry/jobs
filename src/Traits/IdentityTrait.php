@@ -20,6 +20,7 @@ namespace Daycry\Jobs\Traits;
 trait IdentityTrait
 {
     protected ?string $name    = null;
+    protected ?string $jobId   = null;
     protected array $dependsOn = [];
 
     // ============================================================
@@ -38,6 +39,18 @@ trait IdentityTrait
         $this->name ??= $this->job . '-' . md5(serialize($this->payload));
 
         return $this->name;
+    }
+
+    public function setJobId(string $id): self
+    {
+        $this->jobId = $id;
+
+        return $this;
+    }
+
+    public function getJobId(): ?string
+    {
+        return $this->jobId;
     }
 
     // ============================================================

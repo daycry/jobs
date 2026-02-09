@@ -17,7 +17,6 @@ use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job;
-use Daycry\Jobs\Job as DomainJob;
 
 /**
  * Synchronous (in-process) queue implementation.
@@ -40,6 +39,8 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
             $job              = Job::fromQueueRecord($data);
         }
 
+        $job->setJobId($identifier);
+
         $cfg = config('Jobs');
         if ($data instanceof Job) {
             $queueName = $job->getQueue() ?? 'default';
@@ -58,7 +59,7 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
         return null; // Sync queue doesn't support pulling jobs (they run immediately)
     }
 
-    public function removeJob(DomainJob $job, bool $recreate = false): bool
+    public function removeJob(Job $job, bool $recreate = false): bool
     {
         // In sync mode retries would already have been performed inline; nothing to remove.
         return true;

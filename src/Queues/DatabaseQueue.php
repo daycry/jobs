@@ -46,7 +46,6 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
         }
 
         $data->identifier = $identifier;
-
         $job->queue       = $data->queue;
         $job->payload     = \json_encode($data);
         $job->priority    = $data->priority;
