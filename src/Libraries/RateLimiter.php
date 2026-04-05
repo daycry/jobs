@@ -35,7 +35,7 @@ class RateLimiter
             return true; // Unlimited
         }
 
-        $key   = "queue_rate:{$queue}";
+        $key   = "queue_rate_{$queue}";
         $cache = service('cache');
 
         $count = (int) ($cache->get($key) ?? 0);
@@ -69,7 +69,7 @@ class RateLimiter
      */
     public function getUsage(string $queue): int
     {
-        $key   = "queue_rate:{$queue}";
+        $key   = "queue_rate_{$queue}";
         $cache = service('cache');
 
         return (int) ($cache->get($key) ?? 0);
@@ -80,7 +80,7 @@ class RateLimiter
      */
     public function reset(string $queue): void
     {
-        $key   = "queue_rate:{$queue}";
+        $key   = "queue_rate_{$queue}";
         $cache = service('cache');
         $cache->delete($key);
     }

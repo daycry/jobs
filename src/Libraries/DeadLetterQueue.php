@@ -48,7 +48,7 @@ class DeadLetterQueue
 
         // Create a new job instance for DLQ
         $dlqJob = clone $job;
-        $dlqJob->queue($dlqName);
+        $dlqJob->setQueue($dlqName);
 
         // Store metadata in payload if possible
         $payload = $dlqJob->getPayload();

@@ -138,15 +138,34 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         if (! $this->redis) {
             return;
         }
-        $now   = time();
-        $items = $this->redis->zRangeByScore($this->delayedKey($queue), 0, $now, ['limit' => [0, 50]]);
-        if (! $items) {
-            return;
-        }
+        $now = time();
 
-        foreach ($items as $raw) {
-            $this->redis->zRem($this->delayedKey($queue), $raw);
-            $this->redis->lPush($this->waitingKey($queue), $raw);
+        // Atomic promotion via Lua script to prevent duplicate job execution
+        // under concurrent workers. Falls back to non-atomic approach if eval fails.
+        $lua = <<<'LUA'
+local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, 50)
+for _, item in ipairs(items) do
+    if redis.call('ZREM', KEYS[1], item) == 1 then
+        redis.call('LPUSH', KEYS[2], item)
+    end
+end
+return #items
+LUA;
+
+        try {
+            $this->redis->eval($lua, [$this->delayedKey($queue), $this->waitingKey($queue), (string) $now], 2);
+        } catch (Throwable) {
+            // Fallback: non-atomic promotion with zRem check
+            $items = $this->redis->zRangeByScore($this->delayedKey($queue), 0, $now, ['limit' => [0, 50]]);
+            if (! $items) {
+                return;
+            }
+
+            foreach ($items as $raw) {
+                if ($this->redis->zRem($this->delayedKey($queue), $raw) > 0) {
+                    $this->redis->lPush($this->waitingKey($queue), $raw);
+                }
+            }
         }
     }
 

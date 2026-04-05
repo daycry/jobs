@@ -186,7 +186,17 @@ class JobLifecycleCoordinator
             $job = $handler->beforeRun($job);
             ob_start();
             $bufferActive = true;
-            $returned     = $handler->handle($job->getPayload()); // Handler arbitrary return (scalar|array|object|null)
+
+            // Build middleware pipeline wrapping the handler execution
+            $middlewareStack = $job->getMiddleware();
+            $core            = static fn (Job $j) => $handler->handle($j->getPayload());
+            $pipeline        = array_reduce(
+                array_reverse($middlewareStack),
+                static fn (callable $next, callable $mw) => static fn (Job $j) => $mw($j, $next),
+                $core,
+            );
+            $returned = $pipeline($job);
+
             $buffer       = ob_get_clean();
             $bufferActive = false;
 

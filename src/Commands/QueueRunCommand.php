@@ -20,6 +20,7 @@ use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Libraries\CircuitBreaker;
 use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Libraries\RateLimiter;
 use Daycry\Jobs\Metrics\Metrics;
@@ -40,6 +41,7 @@ class QueueRunCommand extends BaseJobsCommand
     protected $options                    = ['--oneTime' => 'Only executes one time.', '--background' => 'Run the worker in background.'];
     protected bool $locked                = false;
     private ?RequeueHelper $requeueHelper = null;
+    private bool $shouldStop              = false;
 
     protected function earlyChecks(Job $job): void
     {
@@ -92,7 +94,28 @@ class QueueRunCommand extends BaseJobsCommand
             $queue = CLI::prompt(lang('Queue.insertQueue'), config('Jobs')->queues, 'required');
         }
 
+        // Register signal handlers for graceful shutdown (POSIX only)
+        if (function_exists('pcntl_signal')) {
+            pcntl_signal(SIGTERM, function (): void {
+                $this->shouldStop = true;
+                CLI::write('[Worker] SIGTERM received, finishing current job...', 'yellow');
+            });
+            pcntl_signal(SIGINT, function (): void {
+                $this->shouldStop = true;
+                CLI::write('[Worker] SIGINT received, finishing current job...', 'yellow');
+            });
+        }
+
         while (true) {
+            if (function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+
+            if ($this->shouldStop) {
+                CLI::write('[Worker] Graceful shutdown complete.', 'yellow');
+                break;
+            }
+
             if ($this->conditionalChecks()) {
                 $this->processQueue($queue);
 
@@ -100,7 +123,7 @@ class QueueRunCommand extends BaseJobsCommand
                     return;
                 }
 
-                sleep(config('Jobs')->defaultTimeout ?? 5);
+                sleep(config('Jobs')->pollInterval);
             }
         }
     }
@@ -125,12 +148,26 @@ class QueueRunCommand extends BaseJobsCommand
             }
         }
 
+        // Circuit breaker check
+        $breaker = new CircuitBreaker(
+            'queue_' . $queue,
+            $config->circuitBreakerThreshold,
+            $config->circuitBreakerCooldown,
+        );
+
+        if (! $breaker->isAvailable()) {
+            CLI::write("[Circuit Open] Backend for '{$queue}' is temporarily unavailable, skipping.", 'red');
+
+            return;
+        }
+
         Services::resetSingle('request');
         Services::resetSingle('response');
 
         try {
             $worker      = $this->getWorker();
             $queueEntity = $worker->watch($queue);
+            $breaker->recordSuccess();
 
             if ($queueEntity === null) {
                 // No available job for this queue at this time.
@@ -179,6 +216,7 @@ class QueueRunCommand extends BaseJobsCommand
                 $metrics->observe('jobs_exec_seconds', $latency, ['queue' => $queue]);
             }
         } catch (ExceptionInterface $e) {
+            $breaker->recordFailure();
             $response = $this->handleException($e, $worker ?? null, $job ?? null);
         }
 

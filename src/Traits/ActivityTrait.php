@@ -54,9 +54,8 @@ trait ActivityTrait
 
     public function shouldRun(?Time $testTime = null): bool
     {
-        $this->testTime = $testTime;
         // Are we restricting to environments?
-        if (! empty($this->environments) && ! $this->runsInEnvironment($_SERVER['CI_ENVIRONMENT'])) {
+        if (! empty($this->environments) && ! $this->inEnvironment($_SERVER['CI_ENVIRONMENT'] ?? 'production')) {
             return false;
         }
 
@@ -68,34 +67,59 @@ trait ActivityTrait
     }
 
     /**
-     * Returns the date this was last ran.
+     * Returns the date this was last ran, using the configured logger handler.
      *
      * @return string|Time
      */
-    public function lastRun()
+    public function lastRun(): string|Time
     {
-        if (config('Jobs')->logPerformance === false) {
+        $config = config('Jobs');
+
+        if ($config->logPerformance === false) {
             return '--';
         }
 
-        $name = ($this->name) ?: $this->getName();
+        $name = ($this->name ?? '') ?: $this->getName();
 
-        $this->setHandler();
+        $handler = $this->resolveLoggerHandler($config);
+        if ($handler === null) {
+            return '--';
+        }
 
-        return $this->handler->lastRun($name);
+        return $handler->lastRun($name);
     }
 
     /**
      * Returns the last run time as a Time instance or null when not available.
-     * Non-breaking addition alongside lastRun() method that can return string "--" when performance logging disabled.
      */
     public function getLastRunTime(): ?Time
     {
-        if ($this->config->logPerformance === false) {
-            return null;
-        }
         $val = $this->lastRun();
 
         return $val instanceof Time ? $val : null;
+    }
+
+    /**
+     * Resolve the configured logger handler instance (file or database).
+     */
+    private function resolveLoggerHandler(object $config): ?object
+    {
+        if (empty($config->log) || ! isset($config->loggers[$config->log])) {
+            return null;
+        }
+
+        $class = $config->loggers[$config->log];
+
+        if (! class_exists($class)) {
+            return null;
+        }
+
+        try {
+            $handler = new $class();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return method_exists($handler, 'lastRun') ? $handler : null;
     }
 }

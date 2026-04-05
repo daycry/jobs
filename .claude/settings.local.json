@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs wc:*)",
+      "Bash(vendor/bin/phpunit)",
+      "Bash(vendor/bin/phpunit --filter \"DatabaseQueueRemoveJobTest\")",
+      "Bash(vendor/bin/phpunit --exclude-group database)",
+      "Bash(vendor/bin/phpstan analyse:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

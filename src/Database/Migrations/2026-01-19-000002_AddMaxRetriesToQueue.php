@@ -43,6 +43,11 @@ class AddMaxRetriesToQueue extends Migration
     {
         $table = config('Jobs')->database['table'];
 
-        $this->forge->dropColumn($table, ['max_retries', 'attempts']);
+        // SQLite does not support DROP COLUMN in older versions — skip gracefully
+        try {
+            $this->forge->dropColumn($table, ['max_retries', 'attempts']);
+        } catch (\Throwable) {
+            // Silently ignore if the database engine does not support dropping columns
+        }
     }
 }

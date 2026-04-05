@@ -126,12 +126,31 @@ class Jobs extends BaseConfig
 
     /**
      * --------------------------------------------------------------------------
+     * Poll Interval
+     * --------------------------------------------------------------------------
+     * Seconds to sleep between queue polling cycles when no job is available.
+     */
+    public int $pollInterval = 5;
+
+    /**
+     * --------------------------------------------------------------------------
      * Default Timeout (seconds)
      * --------------------------------------------------------------------------
      * A default execution timeout applied to jobs that do not explicitly
      * define one. Null disables global timeout.
      */
     public ?int $defaultTimeout = null; // in seconds e.g. 2
+
+    /**
+     * --------------------------------------------------------------------------
+     * Circuit Breaker
+     * --------------------------------------------------------------------------
+     * Protects queue workers from hammering unavailable backends.
+     * After $circuitBreakerThreshold consecutive failures, the circuit opens
+     * and skips attempts for $circuitBreakerCooldown seconds.
+     */
+    public int $circuitBreakerThreshold = 5;
+    public int $circuitBreakerCooldown  = 60;
 
     /**
      * Backoff strategy for retries: 'none', 'fixed', 'exponential'

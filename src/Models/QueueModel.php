@@ -76,15 +76,83 @@ class QueueModel extends Model
 
     /**
      * Reserve a job from the queue safely (Atomic operation).
+     * Attempts FOR UPDATE SKIP LOCKED first (MySQL 8+, PostgreSQL 9.5+),
+     * falls back to optimistic locking for older databases or SQLite.
      */
     public function reserveJob(string $queue): ?Queue
+    {
+        // Try atomic locking first (best for concurrency)
+        if (self::$supportsSkipLocked !== false) {
+            $result = $this->reserveJobSkipLocked($queue);
+            if ($result !== null || self::$supportsSkipLocked === true) {
+                return $result;
+            }
+        }
+
+        return $this->reserveJobOptimistic($queue);
+    }
+
+    private static ?bool $supportsSkipLocked = null;
+
+    /**
+     * Reserve using FOR UPDATE SKIP LOCKED (MySQL 8+, PostgreSQL 9.5+).
+     */
+    private function reserveJobSkipLocked(string $queue): ?Queue
+    {
+        $table = $this->db->prefixTable($this->table);
+        $now   = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
+
+        try {
+            $this->db->transStart();
+
+            $sql = "SELECT id FROM {$table}
+                    WHERE queue = ? AND status = 'pending' AND schedule <= ?
+                    ORDER BY priority ASC, schedule ASC
+                    LIMIT 1
+                    FOR UPDATE SKIP LOCKED";
+
+            $query = $this->db->query($sql, [$queue, $now]);
+            $row   = $query->getRow();
+
+            if (! $row) {
+                $this->db->transComplete();
+                self::$supportsSkipLocked = true;
+
+                return null;
+            }
+
+            $updateSql = "UPDATE {$table}
+                          SET status = 'in_progress', updated_at = ?
+                          WHERE id = ?";
+
+            $this->db->query($updateSql, [$now, $row->id]);
+            $this->db->transComplete();
+
+            self::$supportsSkipLocked = true;
+
+            return $this->find($row->id);
+        } catch (\Throwable $e) {
+            try {
+                $this->db->transRollback();
+            } catch (\Throwable) {
+            }
+            // Database doesn't support SKIP LOCKED — fall back permanently
+            self::$supportsSkipLocked = false;
+
+            return null;
+        }
+    }
+
+    /**
+     * Reserve using optimistic locking (fallback for older databases).
+     */
+    private function reserveJobOptimistic(string $queue): ?Queue
     {
         $table       = $this->db->prefixTable($this->table);
         $attempts    = 0;
         $maxAttempts = 3;
 
         while ($attempts < $maxAttempts) {
-            // 1. Find a candidate ID
             $now = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
 
             $sql = "SELECT id FROM {$table}
@@ -95,10 +163,9 @@ class QueueModel extends Model
             $row   = $query->getRow();
 
             if (! $row) {
-                return null; // Queue empty
+                return null;
             }
 
-            // 2. Try to lock it
             $updateSql = "UPDATE {$table}
                           SET status = 'in_progress', updated_at = ?
                           WHERE id = ? AND status = 'pending'";
@@ -109,11 +176,18 @@ class QueueModel extends Model
                 return $this->find($row->id);
             }
 
-            // If we failed, someone else took it. Retry.
             $attempts++;
             usleep(10000); // 10ms wait
         }
 
-        return null; // Could not lock any job after retries
+        return null;
+    }
+
+    /**
+     * Reset SKIP LOCKED detection (for testing).
+     */
+    public static function resetSkipLockedDetection(): void
+    {
+        self::$supportsSkipLocked = null;
     }
 }

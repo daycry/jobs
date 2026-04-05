@@ -32,25 +32,30 @@ trait StateTrait
     // Status & Single Instance (formerly StatusTrait)
     // ============================================================
 
+    private function runningCacheKey(): string
+    {
+        return 'job_running_' . $this->getName();
+    }
+
     public function saveRunningFlag(): bool
     {
         $cache = service('cache');
 
-        return $cache->save('job_running', $this->getName(), 0);
+        return $cache->save($this->runningCacheKey(), true, 0);
     }
 
     public function isRunning(): bool
     {
         $cache = service('cache');
 
-        return (bool) ($cache->get('job_running') === $this->getName());
+        return (bool) $cache->get($this->runningCacheKey());
     }
 
     public function clearRunningFlag(): bool
     {
         $cache = service('cache');
 
-        return $cache->delete('job_running');
+        return $cache->delete($this->runningCacheKey());
     }
 
     public function disable(): self

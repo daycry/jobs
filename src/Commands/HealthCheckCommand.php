@@ -83,8 +83,8 @@ class HealthCheckCommand extends BaseCommand
                 'pending' => $queueModel->where('queue', $queue)
                     ->where('status', 'pending')
                     ->countAllResults(false),
-                'processing' => $queueModel->where('queue', $queue)
-                    ->where('status', 'processing')
+                'in_progress' => $queueModel->where('queue', $queue)
+                    ->where('status', 'in_progress')
                     ->countAllResults(false),
                 'completed' => $queueModel->where('queue', $queue)
                     ->where('status', 'completed')
@@ -157,7 +157,7 @@ class HealthCheckCommand extends BaseCommand
         foreach ($stats['queues'] as $name => $queueStats) {
             CLI::write("  [{$name}]", 'yellow');
             CLI::write("    Pending: {$queueStats['pending']}");
-            CLI::write("    Processing: {$queueStats['processing']}");
+            CLI::write("    In Progress: {$queueStats['in_progress']}");
             CLI::write("    Completed: {$queueStats['completed']}");
             CLI::write("    Failed: {$queueStats['failed']}");
 

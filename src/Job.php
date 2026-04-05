@@ -68,6 +68,14 @@ class Job
      */
     protected bool $callbackChainAllowed = false;
 
+    /**
+     * Middleware callables to wrap job execution.
+     * Each middleware receives (Job $job, callable $next) and must call $next($job) to proceed.
+     *
+     * @var array<callable>
+     */
+    protected array $middleware = [];
+
     public function __construct(...$params)
     {
         $this->job     = $params['job'] ?? '';
@@ -110,7 +118,7 @@ class Job
     {
         $data = get_object_vars($this);
 
-        unset($data['types'], $data['worker']);
+        unset($data['types'], $data['worker'], $data['middleware']);
 
         $data = json_decode(json_encode($data));
 
@@ -154,6 +162,25 @@ class Job
     public function isCallbackChainAllowed(): bool
     {
         return $this->callbackChainAllowed;
+    }
+
+    /**
+     * Register middleware callables to wrap job execution.
+     * Each middleware receives (Job $job, callable $next) and must call $next($job) to proceed.
+     */
+    public function middleware(callable ...$fns): self
+    {
+        $this->middleware = array_merge($this->middleware, $fns);
+
+        return $this;
+    }
+
+    /**
+     * @return array<callable>
+     */
+    public function getMiddleware(): array
+    {
+        return $this->middleware;
     }
 
     /**

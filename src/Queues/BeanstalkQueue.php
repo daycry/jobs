@@ -55,7 +55,9 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         $delay   = $this->calculateDelay($data);
         $payload = $this->getSerializer()->serialize($data);
 
-        return $this->connection->put($payload, $this->priority, $delay->seconds, $this->ttr)->getId();
+        $effectiveTtr = (int) ($data->timeout ?? config('Jobs')->jobTimeout ?? $this->ttr);
+
+        return $this->connection->put($payload, $this->priority, $delay->seconds, $effectiveTtr)->getId();
     }
 
     public function watch(string $queue)
@@ -129,7 +131,8 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             $tube    = new TubeName($queue);
             $payload = $this->getSerializer()->serialize($job->toObject());
             $this->connection->useTube($tube);
-            $this->connection->put($payload, $this->priority, 0, $this->ttr); // delay = 0
+            $effectiveTtr = (int) ($job->getTimeout() ?? config('Jobs')->jobTimeout ?? $this->ttr);
+            $this->connection->put($payload, $this->priority, 0, $effectiveTtr); // delay = 0
 
             // Sleep to ensure beanstalkd has processed the job before next reserve
             // Increased delay for GitHub Actions CI environments where latency is higher
