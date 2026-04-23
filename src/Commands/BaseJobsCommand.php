@@ -27,6 +27,9 @@ use stdClass;
  */
 abstract class BaseJobsCommand extends BaseCommand
 {
+    public const SUCCESS = 0;
+    public const FAILURE = 1;
+
     protected Jobs $config;
     protected $group = 'Jobs';
 
@@ -40,14 +43,10 @@ abstract class BaseJobsCommand extends BaseCommand
      */
     protected function isActive(): bool
     {
-        $cache = service('cache');
-        if ($settings = $cache->get('jobs_active')) {
-            if ($settings->status === 'enabled') {
-                return true;
-            }
-        }
+        $cache    = service('cache');
+        $settings = $cache->get('jobs_active');
 
-        return false;
+        return $settings !== null && $settings->status === 'enabled';
     }
 
     /**

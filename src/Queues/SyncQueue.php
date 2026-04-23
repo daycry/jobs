@@ -41,7 +41,7 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
         $job->setJobId($identifier);
 
-        $cfg = config('Jobs');
+        config('Jobs');
         if ($data instanceof Job) {
             $queueName = $job->getQueue() ?? 'default';
         } else {
@@ -54,7 +54,7 @@ class SyncQueue extends BaseQueue implements QueueInterface, WorkerInterface
     }
 
     // WorkerInterface implementation (minimal / no-op)
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         return null; // Sync queue doesn't support pulling jobs (they run immediately)
     }

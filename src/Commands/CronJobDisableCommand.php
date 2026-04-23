@@ -44,7 +44,7 @@ class CronJobDisableCommand extends BaseJobsCommand
      */
     public function run(array $params): void
     {
-        if ($this->isActive() === true) {
+        if ($this->isActive()) {
             $this->disable();
         } else {
             $this->alreadyDisabled();

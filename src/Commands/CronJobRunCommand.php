@@ -31,12 +31,12 @@ class CronJobRunCommand extends BaseJobsCommand
         '-oneTime'  => 'Run only one time and exit',
     ];
 
-    public function run(array $params)
+    public function run(array $params): int
     {
         if ($this->isActive() === false) {
             $this->tryToEnable();
 
-            return false;
+            return self::FAILURE;
         }
 
         $this->getConfig();
@@ -63,5 +63,7 @@ class CronJobRunCommand extends BaseJobsCommand
         }
 
         $runner->run();
+
+        return self::SUCCESS;
     }
 }

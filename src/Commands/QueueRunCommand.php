@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
+use Throwable;
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Exceptions\ExceptionInterface;
 use Config\Services;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
@@ -75,14 +75,19 @@ class QueueRunCommand extends BaseJobsCommand
             $phpBin    = $this->getPhpBinary();
             $sparkPath = ROOTPATH . 'spark';
 
+            $args = escapeshellarg('--queue') . ' ' . escapeshellarg($queue);
+            if ($oneTime) {
+                $args .= ' ' . escapeshellarg('--oneTime');
+            }
+
             if (str_starts_with(strtolower(PHP_OS), strtolower('WIN'))) {
                 // Windows: use start /B and redirect to NUL
-                $cmd    = sprintf('%s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), $this->name . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''));
+                $cmd    = sprintf('%s %s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), escapeshellarg($this->name), $args);
                 $winCmd = 'start "" /B ' . $cmd . ' > NUL 2>&1';
                 pclose(popen($winCmd, 'r'));
             } else {
                 // POSIX: use nohup and redirect to /dev/null, detach with &
-                $cmd      = sprintf('%s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), $this->name . ' --queue ' . escapeshellarg($queue) . ($oneTime ? ' --oneTime' : ''));
+                $cmd      = sprintf('%s %s %s %s', escapeshellarg($phpBin), escapeshellarg($sparkPath), escapeshellarg($this->name), $args);
                 $posixCmd = 'nohup ' . $cmd . ' > /dev/null 2>&1 &';
                 exec($posixCmd);
             }
@@ -209,13 +214,13 @@ class QueueRunCommand extends BaseJobsCommand
                 // Finalización: usar completion strategy ya ejecutada dentro del coordinator.
                 // Remoción/requeue ya la maneja la estrategia QueueCompletionStrategy (si lo configuramos). Si aún no, aplicamos fallback:
                 $this->requeueHelper->finalize($job, $queueEntity, static fn ($j, $r) => $worker->removeJob($j, $r), $exec->success);
-                if ($queueEntity instanceof JobEnvelope && $queueEntity->createdAt instanceof DateTimeInterface) {
+                if ($queueEntity->createdAt instanceof DateTimeInterface) {
                     $age = microtime(true) - $queueEntity->createdAt->getTimestamp();
                     $metrics->observe('jobs_age_seconds', $age, ['queue' => $queue]);
                 }
                 $metrics->observe('jobs_exec_seconds', $latency, ['queue' => $queue]);
             }
-        } catch (ExceptionInterface $e) {
+        } catch (Throwable $e) {
             $breaker->recordFailure();
             $response = $this->handleException($e, $worker ?? null, $job ?? null);
         }
@@ -250,6 +255,6 @@ class QueueRunCommand extends BaseJobsCommand
             return PHP_BINARY;
         }
 
-        return env('PHP_BINARY_PATH', 'php');
+        return (string) (env('PHP_BINARY_PATH') ?? 'php');
     }
 }

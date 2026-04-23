@@ -202,15 +202,16 @@ class Job
         if (isset($record->priority)) {
             try {
                 $instance->priority((int) $record->priority);
-            } catch (Throwable) { // ignore invalid
+            } catch (Throwable $e) {
+                log_message('warning', 'Job::fromQueueRecord: invalid priority — ' . $e->getMessage());
             }
         }
         if (isset($record->schedule) && $record->schedule) {
             try {
                 $dt = new DateTime($record->schedule->date ?? $record->schedule, new DateTimeZone($record->schedule->timezone ?? date_default_timezone_get()));
                 $instance->scheduled($dt);
-            } catch (Throwable) {
-                // ignorar si no se puede parsear
+            } catch (Throwable $e) {
+                log_message('warning', 'Job::fromQueueRecord: could not parse schedule — ' . $e->getMessage());
             }
         }
         // Attempts (si estuviera presente en versiones futuras)

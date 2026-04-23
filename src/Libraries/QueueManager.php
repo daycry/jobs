@@ -39,7 +39,7 @@ class QueueManager
     private static ?QueueManager $instance = null;
     private array $instances               = [];
     private array $workers;
-    private string $defaultWorker;
+    private readonly string $defaultWorker;
 
     private function __construct()
     {
@@ -47,14 +47,14 @@ class QueueManager
         $this->workers       = $config->workers ?? [];
         $this->defaultWorker = $config->worker ?? 'sync';
 
-        if (empty($this->workers)) {
+        if ($this->workers === []) {
             throw QueueException::forInvalidWorker('No workers configured');
         }
     }
 
     public static function instance(): self
     {
-        if (self::$instance === null) {
+        if (!self::$instance instanceof \Daycry\Jobs\Libraries\QueueManager) {
             self::$instance = new self();
         }
 

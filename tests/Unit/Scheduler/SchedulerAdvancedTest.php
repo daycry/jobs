@@ -10,7 +10,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please view
  * the LICENSE file that was distributed with this source code.
  */
-
+use Daycry\Jobs\Job;
 use CodeIgniter\Exceptions\RuntimeException;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Daycry\Jobs\Exceptions\JobException;
@@ -24,8 +24,8 @@ final class SchedulerAdvancedTest extends TestCase
         $s = new Scheduler();
         $s->command('job:one')->named('one');
         $s->command('job:two')->named('two');
-        $this->assertNotNull($s->findJobByName('one'));
-        $this->assertNull($s->findJobByName('missing'));
+        $this->assertInstanceOf(Job::class, $s->findJobByName('one'));
+        $this->assertNotInstanceOf(Job::class, $s->findJobByName('missing'));
         $this->assertCount(2, $s->getJobs());
         $s->clearJobs();
         $this->assertCount(0, $s->getJobs());

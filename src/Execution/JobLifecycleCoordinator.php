@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Execution;
 
+use Closure;
+use Daycry\Jobs\Config\Jobs;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
@@ -27,6 +29,8 @@ use Throwable;
  */
 class JobLifecycleCoordinator
 {
+    private const MAX_CALLBACK_DEPTH = 5;
+
     private $sleeper;
 
     public function __construct(
@@ -47,7 +51,7 @@ class JobLifecycleCoordinator
         $attemptsMeta = [];
 
         // Read retry config inline - use direct config() in coordinator to respect test changes
-        $cfg    = config('Jobs');
+        $cfg    = config(Jobs::class) ?? new Jobs();
         $policy = new RetryPolicyFixed(
             base: $cfg->retryBackoffBase,
             strategy: $cfg->retryBackoffStrategy,
@@ -79,11 +83,11 @@ class JobLifecycleCoordinator
                 // Determine effective timeout for this job.
                 // Priority: job-specific timeout (Job::getTimeout()), then config defaultTimeout.
                 // If neither is set, treat as unlimited (0). Do NOT apply a global "cap" here.
-                $jobSpecific    = method_exists($job, 'getTimeout') ? $job->getTimeout() : null;
+                $jobSpecific    = $job->getTimeout();
                 $defaultTimeout = $cfg->defaultTimeout ?? null;
 
                 if ($jobSpecific !== null) {
-                    $timeout = (int) $jobSpecific;
+                    $timeout = $jobSpecific;
                 } elseif ($defaultTimeout !== null) {
                     $timeout = (int) $defaultTimeout;
                 } else {
@@ -134,13 +138,8 @@ class JobLifecycleCoordinator
             }
         }
 
-        if (! $finalResult) {
-            // fallback improbable
-            $finalResult = new ExecutionResult(false, null, 'Unknown execution state', microtime(true), microtime(true));
-        }
-
         // Dispatch callback job if defined
-        if (method_exists($job, 'hasCallbackJob') && $job->hasCallbackJob()) {
+        if ($job->hasCallbackJob()) {
             $this->dispatchCallbackJob($job, $finalResult);
         }
 
@@ -160,22 +159,23 @@ class JobLifecycleCoordinator
         } catch (Throwable $e) {
             $t = microtime(true);
 
-            return new ExecutionResult(false, null, $e->getMessage(), $t, $t, null);
+            return new ExecutionResult(false, null, $e->getMessage(), $t, $t);
         }
     }
 
     private function executeJobInternal(Job $job): ExecutionResult
     {
         $start  = microtime(true);
+        $cfg    = config(Jobs::class) ?? new Jobs();
         $logger = null;
-        if (config('Jobs')->logPerformance) {
+        if ($cfg->logPerformance) {
             $logger = new JobLogger();
             $logger->start(date('Y-m-d H:i:s'));
         }
         $bufferActive = false;
 
         try {
-            $mapping = config('Jobs')->jobs;
+            $mapping = $cfg->jobs;
             $class   = $mapping[$job->getJob()] ?? null;
             if (! $class || ! is_subclass_of($class, Job::class)) {
                 throw JobException::forInvalidJob($job->getJob());
@@ -228,9 +228,9 @@ class JobLifecycleCoordinator
                 endedAt: $end,
                 handlerClass: $class,
             );
-            if ($logger) {
+            if ($logger instanceof JobLogger) {
                 $logger->end(date('Y-m-d H:i:s'));
-                $logger->log($job, $executionResult, null);
+                $logger->log($job, $executionResult);
             }
 
             return $executionResult;
@@ -242,10 +242,10 @@ class JobLifecycleCoordinator
                 }
             }
             $t               = microtime(true);
-            $executionResult = new ExecutionResult(false, null, $e->getMessage(), $start, $t, null);
-            if ($logger) {
+            $executionResult = new ExecutionResult(false, null, $e->getMessage(), $start, $t);
+            if ($logger instanceof JobLogger) {
                 $logger->end(date('Y-m-d H:i:s'));
-                $logger->log($job, $executionResult, null);
+                $logger->log($job, $executionResult);
             }
 
             return $executionResult;
@@ -261,7 +261,9 @@ class JobLifecycleCoordinator
             return (string) $data;
         }
 
-        return json_encode($data);
+        $encoded = json_encode($data);
+
+        return $encoded !== false ? $encoded : null;
     }
 
     /**
@@ -312,8 +314,14 @@ class JobLifecycleCoordinator
     /**
      * Builds and executes or enqueues the callback job based on descriptor.
      */
-    private function dispatchCallbackJob(Job $parent, ExecutionResult $result): void
+    private function dispatchCallbackJob(Job $parent, ExecutionResult $result, int $depth = 0): void
     {
+        if ($depth >= self::MAX_CALLBACK_DEPTH) {
+            log_message('warning', 'JobLifecycleCoordinator: max callback chain depth (' . self::MAX_CALLBACK_DEPTH . ') reached for job: ' . $parent->getName());
+
+            return;
+        }
+
         $descriptor = $parent->getCallbackDescriptor();
         if (! $descriptor) {
             return;
@@ -332,7 +340,9 @@ class JobLifecycleCoordinator
             $builder = $descriptor->builder;
             $child   = $builder($parent);
         } catch (Throwable $e) {
-            return; // Fail silently to not break parent flow
+            log_message('error', 'JobLifecycleCoordinator: callback builder failed for job ' . $parent->getName() . ' — ' . $e->getMessage());
+
+            return; // Fail gracefully to not break parent flow
         }
         if (! $child instanceof Job) {
             return; // Invalid builder return
@@ -390,12 +400,8 @@ class JobLifecycleCoordinator
         }
 
         // Mark origin
-        if (method_exists($child, 'source')) {
-            $child->source('callback');
-        }
-        if (method_exists($child, 'markAsCallbackChild')) {
-            $child->markAsCallbackChild((bool) ($descriptor->allowChain ?? false));
-        }
+        $child->source('callback');
+        $child->markAsCallbackChild((bool) ($descriptor->allowChain ?? false));
 
         $allowChain = (bool) ($descriptor->allowChain ?? false);
 
@@ -403,17 +409,19 @@ class JobLifecycleCoordinator
             // Enqueue: we cannot process child's callback chain now (will happen when worker executes it)
             try {
                 $child->push();
-            } catch (Throwable) { // silent
+            } catch (Throwable $e) {
+                log_message('error', 'JobLifecycleCoordinator: failed to enqueue callback job — ' . $e->getMessage());
             }
         } else {
             // Inline execution (we can cascade if allowed)
             try {
                 $childResult = $this->executeJobInternal($child);
-                if ($allowChain && method_exists($child, 'hasCallbackJob') && $child->hasCallbackJob()) {
-                    // recursive dispatch for child
-                    $this->dispatchCallbackJob($child, $childResult);
+                if ($allowChain && $child->hasCallbackJob()) {
+                    // recursive dispatch for child with depth tracking
+                    $this->dispatchCallbackJob($child, $childResult, $depth + 1);
                 }
-            } catch (Throwable) { // ignore
+            } catch (Throwable $e) {
+                log_message('error', 'JobLifecycleCoordinator: inline callback execution failed — ' . $e->getMessage());
             }
         }
     }

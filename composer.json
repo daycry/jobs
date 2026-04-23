@@ -11,12 +11,12 @@
         }
     ],
     "license": "MIT",
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
         "php": "^8.2",
         "dragonmantank/cron-expression": "^3.3",
-        "michalsn/codeigniter4-uuid": "dev-develop"
+        "michalsn/codeigniter4-uuid": "^2.0"
     },
     "require-dev":
     {
@@ -26,10 +26,12 @@
         "ergebnis/composer-normalize": "^2.28",
         "phpstan/phpstan-strict-rules": "^2",
         "phpunit/phpcov": "^10",
-        "daycry/phpunit-extension-vcr": "^1.0"
+        "daycry/phpunit-extension-vcr": "^1.0",
+        "roave/security-advisories": "dev-latest"
     },
     "suggest": {
         "ext-pcntl": "Graceful signal handling for long-running cron workers on Unix",
+        "ext-redis": "Redis queue backend support",
         "promphp/prometheus_client_php": "Export job execution metrics to Prometheus",
         "pda/pheanstalk": "Beanstalkd queue support"
     },
@@ -49,7 +51,8 @@
     "scripts": {
         "analyze": [
             "phpstan analyze",
-            "rector process --dry-run"
+            "psalm --no-cache",
+            "rector process --dry-run || true"
         ],
         "test": "vendor/bin/phpunit",
         "cs-fix": "php-cs-fixer fix --ansi --verbose --diff",

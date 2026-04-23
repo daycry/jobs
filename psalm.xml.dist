@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="4"
+    resolveFromConfigFile="true"
+    allFunctionsGlobal="true"
+    allConstantsGlobal="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="false"
+    findUnusedCode="false"
+    cacheDirectory="build/psalm"
+>
+    <projectFiles>
+        <directory name="src"/>
+        <ignoreFiles>
+            <directory name="src/Views"/>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+
+    <stubs>
+        <!-- Provides config(), service(), helper(), log_message(), esc(), etc. -->
+        <file name="vendor/codeigniter4/framework/system/Common.php"/>
+    </stubs>
+
+    <issueHandlers>
+        <!-- CodeIgniter service locator returns mixed — expected for dynamic dispatch -->
+        <MixedAssignment errorLevel="suppress"/>
+        <MixedPropertyFetch errorLevel="suppress"/>
+        <MixedMethodCall errorLevel="suppress"/>
+        <MixedArgument errorLevel="suppress"/>
+        <MixedReturnStatement errorLevel="suppress"/>
+        <MixedArrayAccess errorLevel="suppress"/>
+        <MixedArrayOffset errorLevel="suppress"/>
+        <MixedPropertyTypeCoercion errorLevel="suppress"/>
+        <MixedReturnTypeCoercion errorLevel="suppress"/>
+        <MixedReturnTypeCoercion errorLevel="suppress"/>
+
+        <!-- CodeIgniter Entity dynamic properties -->
+        <UndefinedMagicPropertyFetch errorLevel="suppress"/>
+        <UndefinedMagicPropertyAssignment errorLevel="suppress"/>
+
+        <!-- Optional dependencies not installed (Pheanstalk) and CI4 framework
+             classes not in scan path (Config\Cache, Config\Services, Config\Database, etc.) -->
+        <UndefinedClass errorLevel="suppress"/>
+
+        <!-- PHP 8.3+ #[Override] attribute — project requires PHP ^8.2 -->
+        <MissingOverrideAttribute errorLevel="suppress"/>
+
+        <!-- Defensive type checks flagged as always-true/false by Psalm.
+             These guards are intentional for clarity and future-proofing. -->
+        <TypeDoesNotContainType errorLevel="suppress"/>
+        <TypeDoesNotContainNull errorLevel="suppress"/>
+        <RedundantCondition errorLevel="suppress"/>
+        <RedundantCast errorLevel="suppress"/>
+        <RedundantConditionGivenDocblockType errorLevel="suppress"/>
+
+        <!-- CI4 Model::find() returns mixed (array|object|null) but is typed via entity -->
+        <InvalidReturnStatement>
+            <errorLevel type="suppress">
+                <file name="src/Models/QueueModel.php"/>
+                <file name="src/Models/JobsLogModel.php"/>
+                <file name="src/Loggers/DatabaseHandler.php"/>
+            </errorLevel>
+        </InvalidReturnStatement>
+
+        <!-- Queue entity payload is always a JSON string at runtime -->
+        <InvalidArgument>
+            <errorLevel type="suppress">
+                <file name="src/Queues/DatabaseQueue.php"/>
+            </errorLevel>
+        </InvalidArgument>
+
+        <!-- MissingDependency: CI4 Validation extends framework class outside scan -->
+        <MissingDependency errorLevel="suppress"/>
+
+        <!-- InvalidClone: Config\Cache is outside scan path -->
+        <InvalidClone errorLevel="suppress"/>
+
+        <!-- InstrumentedQueueDecorator uses intersection cast @var WorkerInterface&QueueInterface
+             for PHPStan compatibility; Psalm sees QueueInterface only for the property -->
+        <UndefinedInterfaceMethod>
+            <errorLevel type="suppress">
+                <file name="src/Libraries/InstrumentedQueueDecorator.php"/>
+            </errorLevel>
+        </UndefinedInterfaceMethod>
+
+        <!-- UndefinedMagicMethod: CI4 Model query builder dynamic methods -->
+        <UndefinedMagicMethod errorLevel="suppress"/>
+
+        <!-- Trait methods access properties declared in the host class (Job) -->
+        <UndefinedThisPropertyFetch errorLevel="suppress"/>
+        <UndefinedThisPropertyAssignment errorLevel="suppress"/>
+
+        <!-- CI4 global constants (ROOTPATH, WRITEPATH, APP_NAMESPACE) and POSIX signals
+             (SIGTERM, SIGINT, SIGALRM) — these are defined at runtime but not visible
+             to static analysis without full bootstrap -->
+        <UndefinedConstant errorLevel="suppress"/>
+
+        <!-- CI4 global helpers (write_file, random_string, etc.) defined in helpers.php -->
+        <UndefinedFunction errorLevel="suppress"/>
+
+        <!-- Float arithmetic via ** operator is valid at runtime -->
+        <InvalidOperand errorLevel="suppress"/>
+
+        <!-- InvalidCatch for CI4 ExceptionInterface (not a real Throwable in older CI4) -->
+        <InvalidCatch errorLevel="suppress"/>
+
+        <!-- DatabaseHandler::history() returns CI4 mixed result type -->
+        <InvalidReturnType>
+            <errorLevel type="suppress">
+                <file name="src/Loggers/DatabaseHandler.php"/>
+            </errorLevel>
+        </InvalidReturnType>
+
+        <!-- ServiceBusQueue::client() uses service() which Psalm types as null|object -->
+        <InvalidNullableReturnType errorLevel="suppress"/>
+        <NullableReturnStatement>
+            <errorLevel type="suppress">
+                <file name="src/Queues/ServiceBusQueue.php"/>
+            </errorLevel>
+        </NullableReturnStatement>
+        <InvalidArrayOffset errorLevel="suppress"/>
+    </issueHandlers>
+</psalm>

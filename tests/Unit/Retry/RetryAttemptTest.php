@@ -25,7 +25,7 @@ final class RetryAttemptTest extends TestCase
         $job->named('retry_job');
         $now = new DateTimeImmutable('now');
         $job->scheduled(new DateTime($now->format('Y-m-d H:i:s')));
-        $original = $job->toObject()->schedule; // DateTime
+        $job->toObject()->schedule; // DateTime
 
         $job->addAttempt();
         $this->assertSame(1, $job->getAttempt());

@@ -25,7 +25,7 @@ interface WorkerInterface
     /**
      * Attempt to reserve / fetch next job from the given queue. Return backend job wrapper or null.
      */
-    public function watch(string $queue);
+    public function watch(string $queue): mixed;
 
     /**
      * Finalize the current job. If $recreate=true the job will be re-enqueued (incrementing attempts).

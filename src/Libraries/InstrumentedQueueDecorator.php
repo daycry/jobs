@@ -39,22 +39,18 @@ use Throwable;
  */
 class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
 {
-    private QueueInterface $decorated;
-    private MetricsCollectorInterface $metrics;
-    private string $backendName;
+    private readonly QueueInterface $decorated;
 
     public function __construct(
         QueueInterface $decorated,
-        MetricsCollectorInterface $metrics,
-        string $backendName,
+        private readonly MetricsCollectorInterface $metrics,
+        private readonly string $backendName,
     ) {
         // Validar que también implementa WorkerInterface
         if (! $decorated instanceof WorkerInterface) {
             throw new InvalidArgumentException('Decorated queue must implement WorkerInterface');
         }
         $this->decorated   = $decorated;
-        $this->metrics     = $metrics;
-        $this->backendName = $backendName;
     }
 
     public function enqueue(object $data): string
@@ -88,12 +84,11 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
         }
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         $start = microtime(true);
 
         try {
-            /** @var WorkerInterface $worker */
             $worker   = $this->decorated;
             $envelope = $worker->watch($queue);
 
@@ -121,7 +116,6 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
 
     public function removeJob(Job $job, bool $recreate = false): bool
     {
-        /** @var WorkerInterface $worker */
         $worker = $this->decorated;
         $result = $worker->removeJob($job, $recreate);
 

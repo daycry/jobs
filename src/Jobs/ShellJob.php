@@ -29,10 +29,21 @@ class ShellJob extends Job implements JobInterface
 
     public function handle(mixed $payload): mixed
     {
+        if (! is_string($payload)) {
+            throw JobException::validationError('ShellJob payload must be a string command.');
+        }
+
         $this->validateCommand($payload);
 
-        $payload = escapeshellcmd($payload);
-        exec($payload, $output);
+        // Use escapeshellcmd on the full command, then escapeshellarg on each argument
+        $parts   = preg_split('/\s+/', trim($payload));
+        $command = escapeshellarg(array_shift($parts));
+
+        foreach ($parts as $arg) {
+            $command .= ' ' . escapeshellarg($arg);
+        }
+
+        exec($command, $output);
 
         return $output;
     }
@@ -50,12 +61,12 @@ class ShellJob extends Job implements JobInterface
             return;
         }
 
-        // Extract command name (first token)
-        $parts   = preg_split('/\s+/', trim($command), 2);
-        $cmdName = $parts[0] ?? '';
+        // Extract command name (first token) and get basename to prevent path-based bypass
+        $parts   = preg_split('/\\s+/', trim($command), 2);
+        $cmdName = basename($parts[0] ?? '');
 
         // Normalize whitelist to lowercase for case-insensitive comparison
-        $allowedLower = array_map('strtolower', $allowed);
+        $allowedLower = array_map(strtolower(...), array_map(basename(...), $allowed));
 
         // Check if command is in whitelist (case-insensitive)
         if (! in_array(strtolower($cmdName), $allowedLower, true)) {

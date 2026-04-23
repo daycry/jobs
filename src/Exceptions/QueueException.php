@@ -21,17 +21,17 @@ use CodeIgniter\Exceptions\RuntimeException;
  */
 class QueueException extends RuntimeException
 {
-    public static function forInvalidWorker(string $worker)
+    public static function forInvalidWorker(string $worker): static
     {
         return new self(lang('Job.invalidWorker', [$worker]));
     }
 
-    public static function forInvalidQueue(string $queue)
+    public static function forInvalidQueue(string $queue): static
     {
         return new self(lang('Job.invalidQueue', [$queue]));
     }
 
-    public static function forInvalidConnection(string $error)
+    public static function forInvalidConnection(string $error): static
     {
         return new self($error);
     }

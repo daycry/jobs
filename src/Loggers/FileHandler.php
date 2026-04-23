@@ -28,13 +28,13 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
     private ?string $path = null;
     private string $name;
 
-    public function __construct(array $config = [])
+    public function __construct()
     {
         $configuration = config('Jobs');
-        $base          = rtrim($configuration->filePath, '/\\');
+        $base          = rtrim((string) $configuration->filePath, '/\\');
         $this->path    = $base;
         if ($this->path !== null && ! is_dir($this->path)) {
-            mkdir($this->path, 0755, true);
+            mkdir($this->path, 0700, true);
         }
     }
 
@@ -49,24 +49,20 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         /** @var JobsConfig config */
         $config = config('Jobs');
         // Intentar deducir nombre si no fue establecido aún vía setPath()
-        if (empty($this->name)) {
-            $decoded = json_decode($message, true);
+        if (!isset($this->name) || ($this->name === '' || $this->name === '0')) {
+            $decoded = json_decode((string) $message, true);
             if (is_array($decoded) && ! empty($decoded['name'])) {
                 $this->name = (string) $decoded['name'];
             }
         }
-        if (empty($this->name)) {
+        if (!isset($this->name) || ($this->name === '' || $this->name === '0')) {
             $this->name = 'unnamed'; // fallback definitivo
         }
         // Sanitizar nombre para uso de archivo (sin espacios raros / separadores peligrosos)
         $safeName = $this->sanitizeName($this->name);
         $fileName = rtrim($config->filePath, '/\\') . '/' . $safeName . '.json';
 
-        if (file_exists($fileName)) {
-            $logs = \json_decode(\file_get_contents($fileName));
-        } else {
-            $logs = [];
-        }
+        $logs = file_exists($fileName) ? \json_decode(\file_get_contents($fileName)) : [];
 
         // Make sure we have room for one more
         if ((is_countable($logs) ? count($logs) : 0) >= $config->maxLogsPerJob) {
@@ -74,7 +70,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         }
 
         // Add the log to the top of the array
-        array_unshift($logs, json_decode($message));
+        array_unshift($logs, json_decode((string) $message));
 
         file_put_contents(
             $fileName,
@@ -82,6 +78,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
                 $logs,
                 JSON_PRETTY_PRINT,
             ),
+            LOCK_EX,
         );
 
         return true;
@@ -104,7 +101,7 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         }
         $raw  = @file_get_contents($fileName);
         $logs = $raw ? json_decode($raw) : [];
-        if (! is_array($logs) || empty($logs) || ! isset($logs[0]->start_at)) {
+        if (! is_array($logs) || $logs === [] || ! isset($logs[0]->start_at)) {
             return '--';
         }
 

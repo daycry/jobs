@@ -30,9 +30,9 @@ class CircuitBreaker
     public const STATE_HALF_OPEN = 'half_open';
 
     public function __construct(
-        private string $name,
-        private int $failureThreshold = 5,
-        private int $cooldownSeconds = 60,
+        private readonly string $name,
+        private readonly int $failureThreshold = 5,
+        private readonly int $cooldownSeconds = 60,
     ) {
     }
 

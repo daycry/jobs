@@ -30,13 +30,11 @@ final class CallbackJobTest extends TestCase
         $parent = new Job(job: 'closure', payload: static fn () => 'PARENT_OK');
         $flag   = false;
         $parent->setCallbackJob(static function (Job $parent) use (&$flag) {
-            $child = new Job(job: 'closure', payload: static function () use (&$flag) {
+            return new Job(job: 'closure', payload: static function () use (&$flag) {
                 $flag = true;
 
                 return 'CHILD_OK';
-            });
-
-            return $child; // no queue => inline
+            }); // no queue => inline
         });
 
         $coordinator = new JobLifecycleCoordinator();

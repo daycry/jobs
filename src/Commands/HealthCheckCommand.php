@@ -69,10 +69,10 @@ class HealthCheckCommand extends BaseCommand
         ];
 
         // Get queue statistics
-        $queues = is_array($config->queues) ? $config->queues : explode(',', $config->queues);
+        $queues = is_array($config->queues) ? $config->queues : explode(',', (string) $config->queues);
 
         foreach ($queues as $queue) {
-            $queue = trim($queue);
+            $queue = trim((string) $queue);
 
             if ($specificQueue && $queue !== $specificQueue) {
                 continue;
@@ -113,10 +113,10 @@ class HealthCheckCommand extends BaseCommand
             $stats['last_24h'] = [
                 'total_executions' => $logModel->where('created_at >=', $yesterday)->countAllResults(false),
                 'successes'        => $logModel->where('created_at >=', $yesterday)
-                    ->where('error', null)
+                    ->where('error')
                     ->countAllResults(false),
                 'failures' => $logModel->where('created_at >=', $yesterday)
-                    ->where('error !=', null)
+                    ->where('error !=')
                     ->countAllResults(false),
             ];
 

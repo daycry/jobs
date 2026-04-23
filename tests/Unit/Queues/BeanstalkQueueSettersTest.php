@@ -25,7 +25,6 @@ final class BeanstalkQueueSettersTest extends TestCase
         // Initialize private properties manually
         foreach (['priority' => 0, 'ttr' => 3600, 'connection' => null] as $prop => $val) {
             $p = $ref->getProperty($prop);
-            $p->setAccessible(true);
             $p->setValue($queue, $val);
         }
         $this->assertSame($queue, $queue->setPriority(1024));

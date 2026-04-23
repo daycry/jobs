@@ -366,7 +366,7 @@ trait FrequenciesTrait
     {
         $cron = new CronExpression($this->expression);
 
-        if (! empty($time)) {
+        if (!in_array($time, [null, '', '0'], true)) {
             [$min, $hour] = $this->parseTime($time); // [min, hour]
             $overrides[0] = $min;   // force parsed minute
             $overrides[1] = $hour;  // force parsed hour

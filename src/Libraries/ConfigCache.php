@@ -26,7 +26,7 @@ class ConfigCache
     /**
      * Get cached config instance.
      */
-    public static function get(): Jobs
+    public static function get(): ?Jobs
     {
         return self::$instance ??= config('Jobs');
     }

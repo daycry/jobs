@@ -40,8 +40,12 @@ trait StateTrait
     public function saveRunningFlag(): bool
     {
         $cache = service('cache');
+        // Use finite TTL to prevent deadlock if the job crashes without clearing the flag.
+        // Default: job timeout + 60s buffer, or 600s if no timeout configured.
+        $timeout = method_exists($this, 'getTimeout') ? ($this->getTimeout() ?? 0) : 0;
+        $ttl     = $timeout > 0 ? $timeout + 60 : 600;
 
-        return $cache->save($this->runningCacheKey(), true, 0);
+        return $cache->save($this->runningCacheKey(), true, $ttl);
     }
 
     public function isRunning(): bool
@@ -113,10 +117,10 @@ trait StateTrait
 
         $content          = $result->success ? $result->output : $result->error;
         $normalizedOutput = null;
-        if (is_array($content) || is_object($content)) {
+        if (is_object($content)) {
             $normalizedOutput = json_encode($content);
         } elseif ($content !== null) {
-            $normalizedOutput = (string) $content;
+            $normalizedOutput = $content;
         }
 
         $email->setMailType('html');
@@ -124,11 +128,11 @@ trait StateTrait
         $email->setTo(config('Jobs')->to);
         $email->setSubject($parser->setData(['job' => $this->getName()])->renderString('Job {job} just finished running.'));
         $email->setMessage($parser->setData([
-            'name'     => $this->getName(),
-            'runStart' => null,
-            'duration' => null,
-            'output'   => ($result->success ? $normalizedOutput : null),
-            'error'    => ($result->success !== true) ? $normalizedOutput : null,
+            'name'     => esc($this->getName()),
+            'runStart' => '',
+            'duration' => '',
+            'output'   => esc($result->success ? ($normalizedOutput ?? '') : ''),
+            'error'    => esc($result->success ? ('') : $normalizedOutput ?? ''),
         ])->render(config('Jobs')->emailNotificationView));
 
         return $email->send();

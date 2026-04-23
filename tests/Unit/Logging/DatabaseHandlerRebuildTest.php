@@ -57,7 +57,7 @@ final class DatabaseHandlerRebuildTest extends TestCase
 
         $handler = new DatabaseHandler();
         $history = $handler->history('db_rebuild_test', 1);
-        if (empty($history)) {
+        if ($history === []) {
             $this->markTestSkipped('Sin filas de historial (posible falta de migraciones / DB)');
         }
         $row = $history[0];

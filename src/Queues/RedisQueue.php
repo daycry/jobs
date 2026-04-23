@@ -43,23 +43,23 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
     private $redis;
 
     private ?object $job = null; // decoded structure { id,time,delay,data }
-    private string $prefix;
+    private string $prefix = 'jobs:';
 
     public function __construct()
     {
-        $this->prefix = 'jobs:';
         if (! class_exists('Redis')) {
             return;
         }
 
         try {
-            $cacheConfig          = config(Cache::class);
+            $cacheConfig          = clone config(Cache::class);
             $cacheConfig->handler = 'redis';
             $handler              = new JobsRedisHandler($cacheConfig);
             $handler->initialize();
             $this->redis = $handler->getRedis();
-        } catch (Throwable) {
-            $this->redis = null; // swallow; enqueue/watch will handle absence
+        } catch (Throwable $e) {
+            log_message('warning', 'RedisQueue: connection failed — ' . $e->getMessage());
+            $this->redis = null;
         }
     }
 
@@ -89,7 +89,7 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         return $id;
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         if (! $this->redis) {
             return null;
@@ -155,13 +155,18 @@ LUA;
         try {
             $this->redis->eval($lua, [$this->delayedKey($queue), $this->waitingKey($queue), (string) $now], 2);
         } catch (Throwable) {
-            // Fallback: non-atomic promotion with zRem check
+            // Fallback: non-atomic promotion with zRem check.
+            // Each item is individually removed before pushing, preventing duplicates
+            // when multiple workers execute this path concurrently.
+            log_message('warning', 'Redis Lua eval failed for queue promotion; using non-atomic fallback for queue: ' . $queue);
+
             $items = $this->redis->zRangeByScore($this->delayedKey($queue), 0, $now, ['limit' => [0, 50]]);
             if (! $items) {
                 return;
             }
 
             foreach ($items as $raw) {
+                // zRem returns > 0 only for the first worker that removes this item
                 if ($this->redis->zRem($this->delayedKey($queue), $raw) > 0) {
                     $this->redis->lPush($this->waitingKey($queue), $raw);
                 }

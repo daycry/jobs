@@ -38,6 +38,28 @@ class RateLimiter
         $key   = "queue_rate_{$queue}";
         $cache = service('cache');
 
+        // Attempt atomic increment if the cache driver supports it (e.g. Redis, Memcached).
+        // This prevents race conditions between get() and save() calls.
+        if (method_exists($cache, 'increment')) {
+            $current = $cache->get($key);
+
+            if ($current === null) {
+                // First request in this window: initialize counter
+                $cache->save($key, 1, 60);
+
+                return true;
+            }
+
+            if ((int) $current >= $maxPerMinute) {
+                return false; // Throttled
+            }
+
+            $cache->increment($key, 1);
+
+            return true;
+        }
+
+        // Fallback for cache drivers without atomic increment
         $count = (int) ($cache->get($key) ?? 0);
 
         if ($count >= $maxPerMinute) {

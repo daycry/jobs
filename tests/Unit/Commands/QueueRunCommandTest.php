@@ -35,14 +35,11 @@ final class QueueRunCommandTest extends TestCase
             raw: (object) [],
         );
         $stubWorker = new class ($envelope) {
-            private ?JobEnvelope $env;
-
-            public function __construct($e)
+            public function __construct(private ?JobEnvelope $env)
             {
-                $this->env = $e;
             }
 
-            public function watch($queue)
+            public function watch(string $queue): mixed
             {
                 $e         = $this->env;
                 $this->env = null;
@@ -57,14 +54,12 @@ final class QueueRunCommandTest extends TestCase
         };
 
         $cmd = new class ($stubWorker) extends QueueRunCommand {
-            private $worker;
-
-            public function __construct($w)
+            /** @phpstan-ignore constructor.unusedParameter */
+            public function __construct(private readonly mixed $worker)
             {
-                $this->worker = $w;
             }
 
-            protected function getWorker()
+            protected function getWorker(): mixed
             {
                 return $this->worker;
             }
@@ -74,9 +69,8 @@ final class QueueRunCommandTest extends TestCase
         // Ejecutar proceso interno directamente (one-shot) simulando run([...,'--oneTime'])
         $ref = new ReflectionClass($cmd);
         $m   = $ref->getMethod('processQueue');
-        $m->setAccessible(true);
         $m->invoke($cmd, 'default');
-        $output = ob_get_clean();
+        ob_get_clean();
         $this->assertTrue(true, 'Command executed without throwing');
     }
 }

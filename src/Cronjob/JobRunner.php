@@ -147,7 +147,7 @@ class JobRunner
         // Calcular delay según estrategia
         $delay = match ($strategy) {
             'fixed'       => $base,
-            'exponential' => (int) round($base * ($multiplier ** ($attempt - 2))),
+            'exponential' => (int) round($base * (float) ($multiplier ** ($attempt - 2))),
             default       => $base,
         };
 
@@ -161,20 +161,6 @@ class JobRunner
         }
 
         return $delay;
-    }
-
-    /**
-     * Mark a job as running (single-instance guard).
-     */
-    private function markRunningJob(Job $job): void
-    {
-        if ($job->isRunning() && $job->isSingleInstance()) {
-            throw JobException::TaskAlreadyRunningException($job->getName());
-        }
-
-        if ($job->saveRunningFlag()) {
-            $this->cliWrite('Marked as running: ' . $job->getName(), 'yellow');
-        }
     }
 
     /**
@@ -198,8 +184,8 @@ class JobRunner
      */
     private function shouldSkipTask($job): bool
     {
-        return (! empty($this->only) && ! in_array($job->getName(), $this->only, true))
-               || (! $job->shouldRun($this->testTime) && empty($this->only));
+        return ($this->only !== [] && ! in_array($job->getName(), $this->only, true))
+               || (! $job->shouldRun($this->testTime) && $this->only === []);
     }
 
     /**

@@ -76,10 +76,10 @@ class ServiceBusHeaders
     public function getHeaders(): array
     {
         $headers = [];
-        if ($this->authorization) {
+        if ($this->authorization !== '' && $this->authorization !== '0') {
             $headers['Authorization'] = $this->authorization;
         }
-        if (! empty($this->brokerProperties)) {
+        if ($this->brokerProperties !== []) {
             $headers['BrokerProperties'] = json_encode($this->brokerProperties);
         }
 

@@ -35,7 +35,7 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
     private const DEFAULT_SCHEMA_VERSION = 1;
 
     public function __construct(
-        private ?int $schemaVersion = self::DEFAULT_SCHEMA_VERSION,
+        private readonly ?int $schemaVersion = self::DEFAULT_SCHEMA_VERSION,
     ) {
     }
 

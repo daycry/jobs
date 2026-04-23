@@ -1,0 +1,1702 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Only booleans are allowed in an if condition, mixed given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: src/Commands/BaseJobsCommand.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Commands\\BaseJobsCommand\:\:\$config \(Daycry\\Jobs\\Config\\Jobs\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Commands/BaseJobsCommand.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Commands/CronJobHistoryCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\CronJobHistoryCommand\:\:run\(\) should return int\|void but returns false\.$#'
+			identifier: return.type
+			count: 4
+			path: src/Commands/CronJobHistoryCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\CronJobHistoryCommand\:\:run\(\) should return int\|void but returns true\.$#'
+			identifier: return.type
+			count: 3
+			path: src/Commands/CronJobHistoryCommand.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, string\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: src/Commands/CronJobHistoryCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\CronJobListCommand\:\:run\(\) should return int\|void but returns false\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Commands/CronJobListCommand.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: src/Commands/CronJobListCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\CronJobRunCommand\:\:run\(\) should return int\|void but returns false\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Commands/CronJobRunCommand.php
+
+		-
+			message: '#^Parameter \#1 \$scheduler of method Daycry\\Jobs\\Config\\Jobs\:\:init\(\) expects Daycry\\Jobs\\Cronjob\\Scheduler, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Commands/CronJobRunCommand.php
+
+		-
+			message: '#^Call to an undefined method Daycry\\Jobs\\Models\\JobsLogModel\:\:get\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\HealthCheckCommand\:\:collectStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\HealthCheckCommand\:\:displayStats\(\) has parameter \$stats with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Only booleans are allowed in &&, Daycry\\Jobs\\Models\\JobsLogModel given on the right side\.$#'
+			identifier: booleanAnd.rightNotBoolean
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Only booleans are allowed in &&, string\|null given on the left side\.$#'
+			identifier: booleanAnd.leftNotBoolean
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: src/Commands/HealthCheckCommand.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Commands/PublishCommand.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Implicit array creation is not allowed \- variable \$response does not exist\.$#'
+			identifier: variable.implicitArray
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand\:\:getWorker\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand\:\:handleException\(\) has parameter \$e with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand\:\:handleException\(\) has parameter \$job with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand\:\:handleException\(\) has parameter \$worker with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand\:\:handleException\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Commands/QueueRunCommand.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$allowedShellCommands type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$beanstalk type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$database type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$jobs type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$loggers type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$queueRateLimits type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$queues type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$sensitiveKeys type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$serviceBus type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Jobs\:\:\$workers type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Jobs.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, \(callable\)\|null given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: src/Config/Services.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Validation\:\:\$command type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Validation.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Config\\Validation\:\:\$queueData type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Config/Validation.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 2
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Cronjob\\JobRunner\:\:markRunningJob\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Cronjob\\JobRunner\:\:only\(\) has parameter \$jobs with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Cronjob\\JobRunner\:\:\$config has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Cronjob\\JobRunner\:\:\$only type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Cronjob\\JobRunner\:\:\$scheduler \(Daycry\\Jobs\\Cronjob\\Scheduler\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 1
+			path: src/Cronjob/JobRunner.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Cronjob\\Scheduler\:\:event\(\) has parameter \$payload with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Cronjob/Scheduler.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Cronjob\\Scheduler\:\:url\(\) has parameter \$payload with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Cronjob/Scheduler.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Database\\Migrations\\JobsTables\:\:\$config \(Daycry\\Jobs\\Config\\Jobs\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Database/Migrations/2025-10-02-103415_JobsTables.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:forInvalidMethod\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:forInvalidPriority\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:forJobTimeout\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:forRateLimitExceeded\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:forShellCommandNotAllowed\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\JobException\:\:validationError\(\) should return static\(Daycry\\Jobs\\Exceptions\\JobException\) but returns Daycry\\Jobs\\Exceptions\\JobException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/JobException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\QueueException\:\:forInvalidConnection\(\) should return static\(Daycry\\Jobs\\Exceptions\\QueueException\) but returns Daycry\\Jobs\\Exceptions\\QueueException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/QueueException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\QueueException\:\:forInvalidQueue\(\) should return static\(Daycry\\Jobs\\Exceptions\\QueueException\) but returns Daycry\\Jobs\\Exceptions\\QueueException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/QueueException.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Exceptions\\QueueException\:\:forInvalidWorker\(\) should return static\(Daycry\\Jobs\\Exceptions\\QueueException\) but returns Daycry\\Jobs\\Exceptions\\QueueException\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Exceptions/QueueException.php
+
+		-
+			message: '#^Call to function config with Daycry\\Jobs\\Config\\Jobs\:\:class is discouraged\.$#'
+			identifier: codeigniter.factoriesClassConstFetch
+			count: 2
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Casting to int something that''s already int\.$#'
+			identifier: cast.useless
+			count: 2
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Dead catch \- Throwable is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 2
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Execution\\JobLifecycleCoordinator\:\:__construct\(\) has parameter \$sleeper with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, Daycry\\Jobs\\Loggers\\JobLogger\|null given\.$#'
+			identifier: if.condNotBoolean
+			count: 2
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^PHPDoc tag @var with type Daycry\\Jobs\\Interfaces\\JobInterface is not subtype of native type Daycry\\Jobs\\Job\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Execution\\JobLifecycleCoordinator\:\:\$sleeper has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-empty\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between Daycry\\Jobs\\Execution\\ExecutionResult and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 2
+			path: src/Execution/JobLifecycleCoordinator.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Execution\\LifecycleOutcome\:\:__construct\(\) has parameter \$attemptsMeta with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Execution/LifecycleOutcome.php
+
+		-
+			message: '#^Only booleans are allowed in a ternary operator condition, string\|null given\.$#'
+			identifier: ternary.condNotBoolean
+			count: 1
+			path: src/Generators/RandomIdGenerator.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Interfaces\\LoggerHandlerInterface\:\:handle\(\) has parameter \$level with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Interfaces/LoggerHandlerInterface.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Interfaces\\LoggerHandlerInterface\:\:handle\(\) has parameter \$message with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Interfaces/LoggerHandlerInterface.php
+
+		-
+			message: '#^Accessing offset ''CI_ENVIRONMENT'' directly on \$_SERVER is discouraged\.$#'
+			identifier: codeigniter.superglobalAccess
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Job.php
+
+		-
+			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Call to function is_object\(\) with string\|null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(Daycry\\Jobs\\Job\) and ''getSource'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(Daycry\\Jobs\\Job\) and ''getTimeout'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Call to function method_exists\(\) with \$this\(Daycry\\Jobs\\Job\) and ''source'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Casting to string something that''s already string\.$#'
+			identifier: cast.useless
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 4
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:__construct\(\) has parameter \$params with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:applyParts\(\) has parameter \$overrides with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:betweenHours\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:betweenMinutes\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:daily\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:days\(\) has parameter \$days with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:days\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:daysOfMonth\(\) has parameter \$days with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:daysOfMonth\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:dependsOn\(\) has parameter \$jobNames with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:environments\(\) has parameter \$environments with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:everyHour\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:everyMinute\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:getDependsOn\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:getEnvironments\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:hourly\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:hours\(\) has parameter \$hours with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:hours\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:minutes\(\) has parameter \$minutes with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:minutes\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:monthly\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:months\(\) has parameter \$months with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:months\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:parseTime\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:push\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:quarterly\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:scheduled\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:setCallbackJob\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:setDayOfWeek\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:weekdays\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:weekends\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Job\:\:yearly\(\) should return \$this\(Daycry\\Jobs\\Job\) but returns Daycry\\Jobs\\Job\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, Daycry\\Jobs\\Job\|null given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^PHPDoc tag @param has invalid value \(int\|string\|null When set, specifies that the job will be run every \$minute minutes\)\: Unexpected token "When", expected variable at offset 107 on line 4$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Parameter \#1 \$config of method Daycry\\Jobs\\Job\:\:resolveLoggerHandler\(\) expects object, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Job\:\:\$callbackDescriptor type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Job\:\:\$dependsOn type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Job\:\:\$environments type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: src/Job.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 4
+			path: src/Job.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Jobs/EventJob.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Jobs/ShellJob.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 2
+			path: src/Jobs/UrlJob.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: src/Libraries/CircuitBreaker.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\DeadLetterQueue\:\:getStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/DeadLetterQueue.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, string\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 2
+			path: src/Libraries/DeadLetterQueue.php
+
+		-
+			message: '#^PHPDoc tag @var with type Daycry\\Jobs\\Interfaces\\WorkerInterface is not subtype of native type Daycry\\Jobs\\Interfaces\\QueueInterface\.$#'
+			identifier: varTag.nativeType
+			count: 2
+			path: src/Libraries/InstrumentedQueueDecorator.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\JsonPayloadSerializer\:\:validate\(\) has parameter \$requiredFields with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/JsonPayloadSerializer.php
+
+		-
+			message: '#^Variable property access on object\.$#'
+			identifier: property.dynamicName
+			count: 1
+			path: src/Libraries/JsonPayloadSerializer.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Libraries/QueueManager.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\QueueManager\:\:available\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/QueueManager.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Libraries\\QueueManager\:\:\$instances type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/QueueManager.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Libraries\\QueueManager\:\:\$workers type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/QueueManager.php
+
+		-
+			message: '#^Call to function method_exists\(\) with CodeIgniter\\Cache\\CacheInterface and ''increment'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Libraries/RateLimiter.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Libraries/ServiceBusHeaders.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\ServiceBusHeaders\:\:getHeaders\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/ServiceBusHeaders.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, string given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: src/Libraries/ServiceBusHeaders.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Libraries\\ServiceBusHeaders\:\:\$brokerProperties type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/ServiceBusHeaders.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: src/Libraries/ServiceBusHeaders.php
+
+		-
+			message: '#^Call to function config with Daycry\\Jobs\\Config\\Validation\:\:class is discouraged\.$#'
+			identifier: codeigniter.factoriesClassConstFetch
+			count: 1
+			path: src/Libraries/Utils.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\Utils\:\:checkDataQueue\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/Utils.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\Utils\:\:objectToArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/Utils.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Libraries\\Utils\:\:parseConfigFile\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Libraries/Utils.php
+
+		-
+			message: '#^Only booleans are allowed in &&, mixed given on the left side\.$#'
+			identifier: booleanAnd.leftNotBoolean
+			count: 1
+			path: src/Libraries/Utils.php
+
+		-
+			message: '#^Call to function is_array\(\) with list\<stdClass\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 4
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Constructor of class Daycry\\Jobs\\Loggers\\DatabaseHandler has an unused parameter \$config\.$#'
+			identifier: constructor.unusedParameter
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Daycry\\Jobs\\Loggers\\DatabaseHandler\:\:__construct\(\) does not call parent constructor from CodeIgniter\\Log\\Handlers\\BaseHandler\.$#'
+			identifier: constructor.missingParentCall
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Only booleans are allowed in &&, int given on the left side\.$#'
+			identifier: booleanAnd.leftNotBoolean
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, list\<bool\|float\|int\|list\<mixed\>\|object\|string\|null\>\|null given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^PHPDoc tag @var with type Daycry\\Jobs\\Config\\Jobs is not subtype of type null\.$#'
+			identifier: varTag.type
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Loggers\\DatabaseHandler\:\:\$table has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Loggers\\DatabaseHandler\:\:\$table is unused\.$#'
+			identifier: property.unused
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Loggers/DatabaseHandler.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 4
+			path: src/Loggers/FileHandler.php
+
+		-
+			message: '#^Constructor of class Daycry\\Jobs\\Loggers\\FileHandler has an unused parameter \$config\.$#'
+			identifier: constructor.unusedParameter
+			count: 1
+			path: src/Loggers/FileHandler.php
+
+		-
+			message: '#^Daycry\\Jobs\\Loggers\\FileHandler\:\:__construct\(\) does not call parent constructor from CodeIgniter\\Log\\Handlers\\BaseHandler\.$#'
+			identifier: constructor.missingParentCall
+			count: 1
+			path: src/Loggers/FileHandler.php
+
+		-
+			message: '#^PHPDoc tag @var with type Daycry\\Jobs\\Config\\Jobs is not subtype of type null\.$#'
+			identifier: varTag.type
+			count: 1
+			path: src/Loggers/FileHandler.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Loggers/FileHandler.php
+
+		-
+			message: '#^Call to function method_exists\(\) with Daycry\\Jobs\\Job and ''getSource'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, CodeIgniter\\I18n\\Time\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 4
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, CodeIgniter\\Log\\Handlers\\BaseHandler\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, mixed given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Only booleans are allowed in a ternary operator condition, string\|null given\.$#'
+			identifier: ternary.condNotBoolean
+			count: 3
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Variable property access on object\.$#'
+			identifier: property.dynamicName
+			count: 3
+			path: src/Loggers/JobLogger.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:getSnapshot\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:increment\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:key\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:observe\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:\$counters type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Metrics\\InMemoryMetricsCollector\:\:\$histograms type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/InMemoryMetricsCollector.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\MetricsCollectorInterface\:\:getSnapshot\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/MetricsCollectorInterface.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\MetricsCollectorInterface\:\:increment\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/MetricsCollectorInterface.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Metrics\\MetricsCollectorInterface\:\:observe\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Metrics/MetricsCollectorInterface.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Models\\JobsLogModel\:\:__construct\(\) has parameter \$db with generic interface CodeIgniter\\Database\\ConnectionInterface but does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Models/JobsLogModel.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Models\\QueueModel\:\:__construct\(\) has parameter \$db with generic interface CodeIgniter\\Database\\ConnectionInterface but does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Models/QueueModel.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, stdClass\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 2
+			path: src/Models/QueueModel.php
+
+		-
+			message: '#^PHPDoc tag @var with type Daycry\\Jobs\\Entities\\Queue\|null is not subtype of type list\<Daycry\\Jobs\\Entities\\Queue\>\.$#'
+			identifier: varTag.type
+			count: 2
+			path: src/Models/QueueModel.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, Daycry\\Jobs\\Interfaces\\IdGeneratorInterface\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: src/Queues/BaseQueue.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, Daycry\\Jobs\\Interfaces\\PayloadSerializerInterface\|null given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: src/Queues/BaseQueue.php
+
+		-
+			message: '#^Call to method delete\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method getData\(\) on an unknown class Pheanstalk\\Values\\Job\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method getId\(\) on an unknown class Pheanstalk\\Values\\Job\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method ignore\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method listTubesWatched\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method put\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method reserveWithTimeout\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method useTube\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to method watch\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Call to static method create\(\) on an unknown class Pheanstalk\\Pheanstalk\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Instantiated class Pheanstalk\\Values\\TubeName not found\.$#'
+			identifier: class.notFound
+			count: 3
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\BeanstalkQueue\:\:\$connection has unknown class Pheanstalk\\Pheanstalk as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\BeanstalkQueue\:\:\$job has unknown class Pheanstalk\\Values\\Job as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 1
+			path: src/Queues/BeanstalkQueue.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\DatabaseQueue\:\:setPriority\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: src/Queues/DatabaseQueue.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:__construct\(\) has parameter \$meta with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:__construct\(\) has parameter \$payload with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:fromBackend\(\) has parameter \$extraMeta with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:fromBackend\(\) has parameter \$payload with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:fromDecoded\(\) has parameter \$decoded with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:fromDecoded\(\) has parameter \$meta with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\JobEnvelope\:\:fromJob\(\) has parameter \$meta with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/JobEnvelope.php
+
+		-
+			message: '#^Cannot call method getBody\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 3
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Parameter \#1 \$datetime of method Daycry\\Jobs\\Libraries\\ServiceBusHeaders\:\:schedule\(\) expects DateTime, DateTimeInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\ServiceBusQueue\:\:\$auth is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\ServiceBusQueue\:\:\$auth type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\ServiceBusQueue\:\:\$job type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 3
+			path: src/Queues/ServiceBusQueue.php
+
+		-
+			message: '#^Parameter \#1 \$config of static method Daycry\\Jobs\\Libraries\\ConfigCache\:\:set\(\) expects Daycry\\Jobs\\Config\\Jobs, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/Commands/CronJobHistoryExtendedCommandTest.php
+
+		-
+			message: '#^AnonymousClasscdaf861f933b6addab03c09bba024ebf\:\:__construct\(\) does not call parent constructor from CodeIgniter\\CLI\\BaseCommand\.$#'
+			identifier: constructor.missingParentCall
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true and ''Command executed…'' will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:59\:\:__construct\(\) has parameter \$w with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Commands\\QueueRunCommand@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:59\:\:getWorker\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:37\:\:__construct\(\) has parameter \$e with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:37\:\:removeJob\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:37\:\:watch\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:37\:\:watch\(\) has parameter \$queue with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Commands\\QueueRunCommand@anonymous/tests/Unit/Commands/QueueRunCommandTest\.php\:59\:\:\$worker has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: tests/Unit/Commands/QueueRunCommandTest.php
+
+		-
+			message: '#^Method _ExecutorTestArrayHandler\:\:handle\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Execution/JobInternalExecutionTest.php
+
+		-
+			message: '#^Method _ExecutorTestArrayHandler\:\:handle\(\) has parameter \$payload with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Execution/JobInternalExecutionTest.php
+
+		-
+			message: '#^Method _ExecutorTestExceptionHandler\:\:handle\(\) has parameter \$payload with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Execution/JobInternalExecutionTest.php
+
+		-
+			message: '#^Method _ExecutorTestSuccessHandler\:\:handle\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Execution/JobInternalExecutionTest.php
+
+		-
+			message: '#^Method _ExecutorTestSuccessHandler\:\:handle\(\) has parameter \$payload with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Execution/JobInternalExecutionTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertInstanceOf\(\) with ''DateTimeImmutable'' and DateTimeImmutable will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Helpers/DateTimeHelperTest.php
+
+		-
+			message: '#^Access to an undefined property array\|object\:\:\$foo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: tests/Unit/Jobs/JobEnvelopeTest.php
+
+		-
+			message: '''
+				#^Call to deprecated method fromDecoded\(\) of class Daycry\\Jobs\\Queues\\JobEnvelope\:
+				Use named parameters to avoid type ambiguity on \$name/\$attempts\.$#
+			'''
+			identifier: staticMethod.deprecated
+			count: 1
+			path: tests/Unit/Jobs/JobEnvelopeTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Jobs/JobEnvelopeTest.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: tests/Unit/Jobs/JobEnvelopeTest.php
+
+		-
+			message: '#^Method StubQueue\:\:watch\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Jobs/ServicesQueueJobTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertInstanceOf\(\) with ''Daycry\\\\Jobs\\\\Config\\\\Jobs'' and Daycry\\Jobs\\Config\\Jobs will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: tests/Unit/Libraries/ConfigCacheTest.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: tests/Unit/Logging/DatabaseHandlerHybridTest.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: tests/Unit/Logging/DatabaseHandlerRebuildTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueTest.php
+
+		-
+			message: '#^AnonymousClass3485ee24f80313a966c5df6dd97bc9a1\:\:__construct\(\) does not call parent constructor from Daycry\\Jobs\\Queues\\BeanstalkQueue\.$#'
+			identifier: constructor.missingParentCall
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueWatchTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueWatchTest.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\BeanstalkQueue@anonymous/tests/Unit/Queues/BeanstalkQueueWatchTest\.php\:26\:\:watch\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueWatchTest.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, array given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueWatchTest.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\BeanstalkQueue@anonymous/tests/Unit/Queues/BeanstalkQueueWatchTest\.php\:26\:\:\$stored type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/BeanstalkQueueWatchTest.php
+
+		-
+			message: '#^Method DatabaseQueueRemoveJobTest\:\:enqueueJob\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/DatabaseQueueRemoveJobTest.php
+
+		-
+			message: '#^Method InstrumentedQueueDecoratorTest\:\:buildMetricKey\(\) has parameter \$labels with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/InstrumentedQueueDecoratorTest.php
+
+		-
+			message: '#^Method MockQueue\:\:watch\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/InstrumentedQueueDecoratorTest.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, Throwable\|null given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: tests/Unit/Queues/InstrumentedQueueDecoratorTest.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: tests/Unit/Queues/RedisQueueCycleTest.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: tests/Unit/Queues/RedisQueueCycleTest.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: tests/Unit/Queues/RedisQueueDelayPromotionTest.php
+
+		-
+			message: '#^Only booleans are allowed in an if condition, mixed given\.$#'
+			identifier: if.condNotBoolean
+			count: 1
+			path: tests/Unit/Queues/RedisQueueDelayPromotionTest.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: tests/Unit/Queues/RedisQueueDelayPromotionTest.php
+
+		-
+			message: '#^Construct empty\(\) is not allowed\. Use more strict comparison\.$#'
+			identifier: empty.notAllowed
+			count: 1
+			path: tests/Unit/Queues/RedisQueueEnvelopeTest.php
+
+		-
+			message: '#^Only booleans are allowed in a negated boolean, mixed given\.$#'
+			identifier: booleanNot.exprNotBoolean
+			count: 2
+			path: tests/Unit/Queues/RedisQueueEnvelopeTest.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 4
+			path: tests/Unit/Queues/RedisQueueEnvelopeTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsString\(\) with string will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Queues/RedisQueueTest.php
+
+		-
+			message: '#^Short ternary operator is not allowed\. Use null coalesce operator if applicable or consider using long ternary\.$#'
+			identifier: ternary.shortNotAllowed
+			count: 2
+			path: tests/Unit/Queues/RedisQueueTest.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\ServiceBusQueue@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:27\:\:__construct\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method ServiceBusQueueTest\:\:makeQueue\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:115\:\:__construct\(\) has parameter \$b with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:115\:\:getBody\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:115\:\:getStatusCode\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:133\:\:getBody\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:133\:\:getStatusCode\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:__construct\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:delete\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:delete\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:pop\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:post\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:post\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:53\:\:getBody\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:53\:\:getStatusCode\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:82\:\:getBody\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:82\:\:getStatusCode\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:93\:\:getBody\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:93\:\:getStatusCode\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Property Daycry\\Jobs\\Queues\\ServiceBusQueue@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:27\:\:\$responses type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Property class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:115\:\:\$b has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Property class@anonymous/tests/Unit/Queues/ServiceBusQueueTest\.php\:43\:\:\$responses type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueTest.php
+
+		-
+			message: '#^Method Daycry\\Jobs\\Queues\\ServiceBusQueue@anonymous/tests/Unit/Queues/ServiceBusQueueWatchTest\.php\:37\:\:watch\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: tests/Unit/Queues/ServiceBusQueueWatchTest.php
+
+		-
+			message: '#^Property Tests\\Support\\Commands\\JobTestCommand\:\:\$aliases has no type specified\.$#'
+			identifier: missingType.property
+			count: 1
+			path: tests/_support/Commands/JobTestCommand.php
+
+		-
+			message: '#^Dynamic call to static method CodeIgniter\\Test\\CIUnitTestCase\:\:setPrivateProperty\(\)\.$#'
+			identifier: staticMethod.dynamicCall
+			count: 1
+			path: tests/_support/TestCase.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: tests/_support/TestCase.php
+
+		-
+			message: '#^Parameter \#1 \$obj of method CodeIgniter\\Test\\CIUnitTestCase\:\:setPrivateProperty\(\) expects object\|string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/_support/TestCase.php
+
+		-
+			message: '#^Parameter \#2 \$mock of static method CodeIgniter\\Config\\BaseService\:\:injectMock\(\) expects object, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/_support/TestCase.php

@@ -51,8 +51,7 @@ abstract class TestCase extends CIUnitTestCase
      */
     protected function jobsConfig(): Jobs
     {
-        /** @var Jobs $cfg */
-        return config('Jobs');
+        return config(Jobs::class) ?? new Jobs();
     }
 
     protected function hooksJobs(): void
@@ -69,10 +68,9 @@ abstract class TestCase extends CIUnitTestCase
             ->priority(5);
         $jobs[] = $job;
 
-        $job = (new Job(job: 'closure', payload: static function () {
+        $job = (new Job(job: 'closure', payload: 
             // Your closure code here
-            return 'Closure executed successfully!';
-        }))
+            static fn() => 'Closure executed successfully!'))
             ->everyMinute()
             ->named('closure_enabled')
             ->singleInstance()

@@ -60,7 +60,7 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
         return $this->connection->put($payload, $this->priority, $delay->seconds, $effectiveTtr)->getId();
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         $tube = new TubeName($queue);
 
@@ -84,7 +84,8 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             $this->job = $this->connection->reserveWithTimeout(5);
-            if ($this->job !== null) {
+            /** @phpstan-ignore class.notFound */
+            if ($this->job instanceof \Pheanstalk\Values\Job) {
                 break;
             }
             if ($attempt < $maxAttempts) {
@@ -93,7 +94,8 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
             }
         }
 
-        if (! $this->job) {
+        /** @phpstan-ignore class.notFound */
+        if (!$this->job instanceof \Pheanstalk\Values\Job) {
             return null;
         }
         $decoded = $this->getSerializer()->deserialize($this->job->getData() ?: '{}');
@@ -116,7 +118,8 @@ class BeanstalkQueue extends BaseQueue implements QueueInterface, WorkerInterfac
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
-        if ($this->job !== null) {
+        /** @phpstan-ignore class.notFound */
+        if ($this->job instanceof \Pheanstalk\Values\Job) {
             try {
                 $this->connection->delete($this->job);
             } catch (Throwable) { // ignore

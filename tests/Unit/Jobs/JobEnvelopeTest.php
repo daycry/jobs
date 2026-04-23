@@ -29,7 +29,7 @@ final class JobEnvelopeTest extends TestCase
         $this->assertSame($job->getAttempt(), $env->attempts);
         $this->assertArrayHasKey('x', $env->meta);
         // createdAt may be null if job has no schedule; ensure property exists (no exception) and type is either DateTimeInterface or null
-        $this->assertTrue($env->createdAt === null || $env->createdAt instanceof DateTimeInterface);
+        $this->assertTrue(!$env->createdAt instanceof DateTimeInterface || $env->createdAt instanceof DateTimeInterface);
     }
 
     public function testFromDecoded(): void

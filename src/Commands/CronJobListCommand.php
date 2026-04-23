@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
+use Throwable;
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Exceptions\ExceptionInterface;
 use CodeIgniter\I18n\Time;
 use Cron\CronExpression;
 
@@ -47,13 +47,13 @@ class CronJobListCommand extends BaseJobsCommand
     /**
      * Lists upcoming tasks
      */
-    public function run(array $params)
+    public function run(array $params): int
     {
         $this->getConfig();
         if (! $this->isActive()) {
             $this->tryToEnable();
 
-            return false;
+            return self::FAILURE;
         }
 
         $scheduler = service('scheduler');
@@ -68,7 +68,7 @@ class CronJobListCommand extends BaseJobsCommand
             if (class_exists($class)) {
                 try {
                     $handler = new $class();
-                } catch (ExceptionInterface $e) {
+                } catch (Throwable) {
                     $handler = null; // Falla silenciosa: seguimos sin last_run
                 }
             }
@@ -83,7 +83,7 @@ class CronJobListCommand extends BaseJobsCommand
                 try {
                     $lr           = $handler->lastRun($job->getName());
                     $lastRunValue = $lr instanceof Time ? $lr->format('Y-m-d H:i:s') : ($lr ?: '--');
-                } catch (ExceptionInterface $e) {
+                } catch (Throwable) {
                     // Ignorar errores al obtener el último run
                 }
             }
@@ -124,5 +124,7 @@ class CronJobListCommand extends BaseJobsCommand
                 'Next Run',
             ],
         );
+
+        return self::SUCCESS;
     }
 }

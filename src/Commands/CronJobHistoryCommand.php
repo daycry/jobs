@@ -37,13 +37,13 @@ class CronJobHistoryCommand extends BaseJobsCommand
         '--extended' => 'Include extra fields (attempt, source, outputLength, payloadHash)',
     ];
 
-    public function run(array $params)
+    public function run(array $params): int
     {
         $this->getConfig();
         if (! $this->isActive()) {
             $this->tryToEnable();
 
-            return false;
+            return self::FAILURE;
         }
 
         $jobName = $params[0] ?? null;
@@ -51,7 +51,7 @@ class CronJobHistoryCommand extends BaseJobsCommand
             CLI::error('You must provide a jobName');
             CLI::write('Usage: ' . $this->usage);
 
-            return false;
+            return self::FAILURE;
         }
 
         $limit = (int) (CLI::getOption('limit') ?? 5);
@@ -65,7 +65,7 @@ class CronJobHistoryCommand extends BaseJobsCommand
             if (! in_array($filterStatus, ['OK', 'ERROR'], true)) {
                 CLI::error('Invalid --status value. Use OK or ERROR');
 
-                return false;
+                return self::FAILURE;
             }
         }
 
@@ -104,14 +104,14 @@ class CronJobHistoryCommand extends BaseJobsCommand
         if (! $handler || ! method_exists($handler, 'history')) {
             CLI::error('Logging handler does not support history or is not configured.');
 
-            return false;
+            return self::FAILURE;
         }
 
         $history = $handler->history($jobName, $limit);
         if (empty($history)) {
             CLI::write('No history found for job: ' . $jobName);
 
-            return true;
+            return self::SUCCESS;
         }
 
         $rows = [];
@@ -158,7 +158,7 @@ class CronJobHistoryCommand extends BaseJobsCommand
                 'error'    => $short($error),
             ];
             if ($showPayload) {
-                $rowData['payload'] = $noTruncate ? $payload : ($payload && strlen($payload) > 60 ? substr($payload, 0, 57) . '...' : $payload);
+                $rowData['payload'] = $noTruncate ? $payload : ($payload && strlen((string) $payload) > 60 ? substr((string) $payload, 0, 57) . '...' : $payload);
             }
             if ($extendedMode) {
                 $rowData['attempt']      = $row->attempt ?? null;
@@ -174,7 +174,7 @@ class CronJobHistoryCommand extends BaseJobsCommand
             // For non-extended we preserve backward compatibility
             CLI::write(json_encode($rows, JSON_PRETTY_PRINT));
 
-            return true;
+            return self::SUCCESS;
         }
 
         $headers = [
@@ -205,6 +205,6 @@ class CronJobHistoryCommand extends BaseJobsCommand
 
         CLI::table($rows, $headers);
 
-        return true;
+        return self::SUCCESS;
     }
 }

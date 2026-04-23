@@ -35,25 +35,13 @@ final readonly class DelayResult
      */
     public static function fromSchedule(?DateTimeInterface $schedule): self
     {
-        if ($schedule === null) {
-            return new self(0, null);
+        if (!$schedule instanceof DateTimeInterface) {
+            return new self(0);
         }
 
         $now    = time();
         $target = $schedule->getTimestamp();
-        $delay  = $target - $now;
-
-        // Enforce minimum 1 second delay if target is in the future but rounding yields 0
-        if ($delay > 0 && $delay < 1) {
-            $delay = 1;
-        }
-
-        // Force deterministic promotion: if explicit schedule provided but delta=0, set 1 second
-        if ($delay === 0) {
-            $delay = 1;
-        }
-
-        $delay = max(0, $delay);
+        $delay  = max(0, $target - $now);
 
         return new self($delay, $schedule);
     }

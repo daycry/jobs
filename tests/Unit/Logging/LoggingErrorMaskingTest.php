@@ -60,7 +60,7 @@ final class LoggingErrorMaskingTest extends TestCase
         $this->assertNull($entry->output);
         $this->assertNotNull($entry->error);
         // Verify payload masking
-        $payloadObj = json_decode($entry->payload, true);
+        $payloadObj = json_decode((string) $entry->payload, true);
         $this->assertSame('***', $payloadObj['password']);
     }
 }

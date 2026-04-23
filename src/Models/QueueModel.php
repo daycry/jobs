@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Models;
 
+use Throwable;
 use CodeIgniter\Database\ConnectionInterface;
 use CodeIgniter\Model;
 use CodeIgniter\Validation\ValidationInterface;
@@ -46,7 +47,7 @@ class QueueModel extends Model
 
     public function __construct(?ConnectionInterface &$db = null, ?ValidationInterface $validation = null)
     {
-        if ($db === null) {
+        if (!$db instanceof ConnectionInterface) {
             $db            = Database::connect(config('Jobs')->database['group']);
             $this->DBGroup = config('Jobs')->database['group'];
         }
@@ -84,7 +85,7 @@ class QueueModel extends Model
         // Try atomic locking first (best for concurrency)
         if (self::$supportsSkipLocked !== false) {
             $result = $this->reserveJobSkipLocked($queue);
-            if ($result !== null || self::$supportsSkipLocked === true) {
+            if ($result instanceof Queue || self::$supportsSkipLocked === true) {
                 return $result;
             }
         }
@@ -130,11 +131,12 @@ class QueueModel extends Model
 
             self::$supportsSkipLocked = true;
 
+            /** @var Queue|null */
             return $this->find($row->id);
-        } catch (\Throwable $e) {
+        } catch (Throwable) {
             try {
                 $this->db->transRollback();
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
             // Database doesn't support SKIP LOCKED — fall back permanently
             self::$supportsSkipLocked = false;
@@ -173,6 +175,7 @@ class QueueModel extends Model
             $this->db->query($updateSql, [$now, $row->id]);
 
             if ($this->db->affectedRows() > 0) {
+                /** @var Queue|null */
                 return $this->find($row->id);
             }
 

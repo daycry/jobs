@@ -22,10 +22,10 @@ class RetryPolicyFixed implements RetryPolicy
 {
     public function __construct(
         private int $base = 5,
-        private string $strategy = 'fixed',
+        private readonly string $strategy = 'fixed',
         private float $multiplier = 2.0,
         private int $max = 300,
-        private bool $jitter = true,
+        private readonly bool $jitter = true,
     ) {
         $this->base       = max(0, $base);
         $this->multiplier = $multiplier > 0 ? $multiplier : 2.0;
@@ -49,16 +49,23 @@ class RetryPolicyFixed implements RetryPolicy
     {
         // attempt=2 => exponent 0
         $exponent = $attempt - 2;
-        $delay    = (int) round($this->base * ($this->multiplier ** $exponent));
-        $delay    = min($delay, $this->max);
+
+        // Guard against overflow with large exponents
+        if ($exponent > 30 || $this->multiplier ** $exponent > PHP_INT_MAX / max(1, $this->base)) {
+            $delay = $this->max;
+        } else {
+            $delay = (int) round($this->base * ($this->multiplier ** $exponent));
+        }
+
+        $delay = min($delay, $this->max);
 
         if ($this->jitter) {
-            $range = max(1, (int) round($delay * 0.15));
+            $range = max(1, (int) round((float) $delay * 0.15));
 
             try {
                 $delay = max(1, $delay + random_int(-$range, $range));
             } catch (Throwable) {
-                // Fallback sin jitter
+                log_message('warning', 'RetryPolicyFixed: random_int failed, jitter disabled for this attempt.');
             }
         }
 

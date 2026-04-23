@@ -26,7 +26,10 @@ class Services extends BaseServices
     public static function scheduler(bool $getShared = true): Scheduler
     {
         if ($getShared) {
-            return static::getSharedInstance('scheduler');
+            $shared = static::getSharedInstance('scheduler');
+            if ($shared instanceof Scheduler) {
+                return $shared;
+            }
         }
 
         return new Scheduler();
@@ -76,8 +79,10 @@ class Services extends BaseServices
         // Normalize scheduling time if provided
         if ($when !== null) {
             $dt = null;
-            if ($when instanceof DateTimeInterface) {
+            if ($when instanceof DateTime) {
                 $dt = $when;
+            } elseif ($when instanceof DateTimeInterface) {
+                $dt = DateTime::createFromInterface($when);
             } elseif ($when instanceof Time) {
                 $dt = $when->toDateTime();
             } elseif (is_int($when)) {
@@ -85,7 +90,7 @@ class Services extends BaseServices
             } elseif (is_string($when)) {
                 $dt = new DateTime($when);
             }
-            if ($dt) {
+            if ($dt instanceof DateTime) {
                 $instance->scheduled($dt);
             }
         }

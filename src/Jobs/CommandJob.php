@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Jobs;
 
+use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Traits\InteractsWithCurrentJob;
@@ -27,6 +28,10 @@ class CommandJob extends Job implements JobInterface
 
     public function handle(mixed $payload): mixed
     {
+        if (! is_string($payload) || $payload === '') {
+            throw JobException::validationError('CommandJob payload must be a non-empty string.');
+        }
+
         return command($payload);
     }
 }

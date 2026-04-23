@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
+use DateTimeInterface;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
@@ -34,10 +35,9 @@ use Throwable;
  */
 class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
-    private string $baseUrl;
-    private array $auth; // ['issuer' => '', 'secret' => '']
+    private readonly string $baseUrl; // ['issuer' => '', 'secret' => '']
     private ?array $job = null; // ['body' => object, 'headers' => [], 'status' => int]
-    private ServiceBusHeaders $headersBuilder;
+    private readonly ServiceBusHeaders $headersBuilder;
 
     public function __construct()
     {
@@ -46,8 +46,12 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
             'issuer' => getenv('SERVICEBUS_ISSUER') ?: '',
             'secret' => getenv('SERVICEBUS_SECRET') ?: '',
         ];
+
+        if (empty($cfg['url']) || empty($cfg['issuer']) || empty($cfg['secret'])) {
+            log_message('warning', 'ServiceBusQueue: incomplete configuration (url, issuer, or secret missing).');
+        }
+
         $this->baseUrl        = rtrim($cfg['url'] ?? '', '/') . '/';
-        $this->auth           = $cfg;
         $this->headersBuilder = (new ServiceBusHeaders())
             ->generateMessageId()
             ->generateSasToken($cfg['url'] ?? '', $cfg['issuer'] ?? '', $cfg['secret'] ?? '');
@@ -58,7 +62,7 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
         $queue = $data->queue ?? 'default';
         $delay = $this->calculateDelay($data);
         // BrokerProperties via ServiceBusHeaders
-        if (! $delay->isImmediate() && $delay->scheduledAt !== null) {
+        if (! $delay->isImmediate() && $delay->scheduledAt instanceof DateTimeInterface) {
             // schedule->getTimestamp ya es DateTime; usar schedule builder
             try {
                 $this->headersBuilder->schedule($delay->scheduledAt);
@@ -82,14 +86,18 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
             : '';
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         $resp = $this->client()->delete($this->baseUrl . $queue . '/messages/head', [
             'headers' => array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders()),
         ]);
         if (method_exists($resp, 'getStatusCode') && $resp->getStatusCode() === 200) {
-            $body = $this->getSerializer()->deserialize((string) $resp->getBody());
+            $rawBody = (string) $resp->getBody();
+            $body    = $this->getSerializer()->deserialize($rawBody);
             if (! $body) {
+                // Destructive read succeeded but deserialization failed — log to prevent silent data loss
+                log_message('error', 'ServiceBusQueue::watch deserialization failed after destructive read. Raw body: ' . mb_substr($rawBody, 0, 500));
+
                 return null;
             }
             $this->job = ['body' => $body, 'status' => 200, 'headers' => []];
@@ -123,10 +131,8 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
      * HTTP client accessor (overridable for tests).
      * Returns an object implementing post(string $url, array $options = []) and
      * delete(string $url, array $options = []) with ->getStatusCode() / ->getBody().
-     *
-     * @return object
      */
-    protected function client()
+    protected function client(): object
     {
         // Servicio por defecto; opciones globales deberían configurarse en Config\CURLRequest si se requiere.
         return service('curlrequest');

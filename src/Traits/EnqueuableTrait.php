@@ -56,7 +56,7 @@ trait EnqueuableTrait
         }
 
         // If still null, take the first available queue (if any)
-        if ($this->queue === null && count($queues) > 0) {
+        if ($this->queue === null && $queues !== []) {
             $this->queue = $queues[0];
         }
 

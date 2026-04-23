@@ -36,32 +36,32 @@ class JobException extends RuntimeException
         return new self('The log type is not valid.');
     }
 
-    public static function validationError($errors)
+    public static function validationError(mixed $errors): static
     {
         return new self($errors);
     }
 
-    public static function forInvalidMethod(string $method)
+    public static function forInvalidMethod(string $method): static
     {
         return new self(lang('HTTP.methodNotFound', [$method]));
     }
 
-    public static function forInvalidPriority(int $priority)
+    public static function forInvalidPriority(int $priority): static
     {
         return new self("The priority '{$priority}' is not valid. It must be between 0 and 10.");
     }
 
-    public static function forShellCommandNotAllowed(string $command)
+    public static function forShellCommandNotAllowed(string $command): static
     {
         return new self("Shell command '{$command}' is not in the whitelist of allowed commands.");
     }
 
-    public static function forJobTimeout(string $jobName, int $timeout)
+    public static function forJobTimeout(string $jobName, int $timeout): static
     {
         return new self("Job '{$jobName}' exceeded maximum execution time of {$timeout} seconds.");
     }
 
-    public static function forRateLimitExceeded(string $queue, int $limit)
+    public static function forRateLimitExceeded(string $queue, int $limit): static
     {
         return new self("Queue '{$queue}' has exceeded rate limit of {$limit} jobs per minute.");
     }

@@ -139,7 +139,7 @@ final class StubQueue implements QueueInterface, WorkerInterface
         return 'stub-123';
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         return null; // stub never returns jobs
     }

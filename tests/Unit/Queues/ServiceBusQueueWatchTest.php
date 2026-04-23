@@ -37,7 +37,7 @@ final class ServiceBusQueueWatchTest extends CIUnitTestCase
         $queue = new class () extends ServiceBusQueue {
             private int $calls = 0;
 
-            public function watch(string $queue)
+            public function watch(string $queue): mixed
             {
                 $this->calls++;
                 if ($this->calls === 1) {
@@ -62,10 +62,10 @@ final class ServiceBusQueueWatchTest extends CIUnitTestCase
         };
 
         $env = $queue->watch('testqueue');
-        if ($env) {
+        if ($env !== null) {
             $this->assertInstanceOf(JobEnvelope::class, $env);
             $this->assertSame('testqueue', $env->queue);
-            $this->assertNotNull($env->createdAt);
+            $this->assertInstanceOf(DateTimeInterface::class, $env->createdAt);
             $this->assertSame(200, $env->meta['status']);
         }
         $second = $queue->watch('testqueue');

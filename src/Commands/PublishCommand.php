@@ -90,7 +90,7 @@ class PublishCommand extends BaseJobsCommand
     {
         $this->sourcePath = realpath(__DIR__ . '/../');
 
-        if ($this->sourcePath === '/' || empty($this->sourcePath)) {
+        if ($this->sourcePath === '/' || in_array($this->sourcePath, ['', '0', false], true)) {
             CLI::error('Unable to determine the correct source directory. Bailing.');
 
             exit();

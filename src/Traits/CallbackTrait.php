@@ -67,7 +67,7 @@ trait CallbackTrait
      */
     public function chain(array $jobs): self
     {
-        if (empty($jobs)) {
+        if ($jobs === []) {
             return $this;
         }
 

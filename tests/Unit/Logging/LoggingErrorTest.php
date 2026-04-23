@@ -32,7 +32,7 @@ final class LoggingErrorTest extends TestCase
 
     private function cleanFile(string $name): void
     {
-        $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/' . $name . '.json';
+        $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/' . $name . '.json';
         if (file_exists($file)) {
             unlink($file);
         }
@@ -44,7 +44,7 @@ final class LoggingErrorTest extends TestCase
         $job->named('error_job');
         (new JobLifecycleCoordinator())->run($job);
 
-        $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/error_job.json';
+        $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/error_job.json';
         $this->assertFileExists($file);
         $json = json_decode(file_get_contents($file));
         $this->assertIsArray($json);
@@ -52,6 +52,6 @@ final class LoggingErrorTest extends TestCase
         $this->assertSame('error_job', $first->name);
         $this->assertNull($first->output, 'Output should be null when error');
         $this->assertNotNull($first->error, 'Error should be captured');
-        $this->assertStringContainsString('Boom', $first->error);
+        $this->assertStringContainsString('Boom', (string) $first->error);
     }
 }

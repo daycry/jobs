@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Database\Migrations;
 
+use Throwable;
 use CodeIgniter\Database\Migration;
 
 class AddMaxRetriesToQueue extends Migration
@@ -46,7 +47,7 @@ class AddMaxRetriesToQueue extends Migration
         // SQLite does not support DROP COLUMN in older versions — skip gracefully
         try {
             $this->forge->dropColumn($table, ['max_retries', 'attempts']);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Silently ignore if the database engine does not support dropping columns
         }
     }

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
+use Throwable;
 use DateTime;
 use DateTimeZone;
 use Daycry\Jobs\Entities\Queue as QueueEntity;
@@ -27,7 +28,6 @@ use Daycry\Jobs\Models\QueueModel;
  */
 class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
-    private int $priority = 0;
     private mixed $job    = null;
 
     public function enqueue(object $data): string
@@ -66,7 +66,7 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
         $this->job = $queueModel->reserveJob($queue);
 
-        if ($this->job !== null) {
+        if ($this->job instanceof QueueEntity) {
             $decoded = \json_decode($this->job->payload ?? '{}');
 
             return JobEnvelope::fromBackend(
@@ -90,21 +90,30 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
     {
         $queueModel = new QueueModel();
 
-        if ($recreate === true) {
-            // Update status only if we have a reserved job entity
+        if ($recreate) {
+            // Update status and re-enqueue. If re-enqueue fails, restore previous status.
+            $previousStatus = null;
             if ($this->job !== null) {
+                $previousStatus    = $this->job->status;
                 $this->job->status = 'failed';
                 $queueModel->update($this->job->id, $this->job);
             }
-            // Re-enqueue directly to this database backend instead of using push()
-            // which might use a different worker from QueueManager
-            $this->enqueue($job->toObject());
-        } else {
-            // Completion requires a reserved job to mark as completed
-            if ($this->job !== null) {
-                $this->job->status = 'completed';
-                $queueModel->update($this->job->id, $this->job);
+            try {
+                $this->enqueue($job->toObject());
+            } catch (Throwable $e) {
+                // Rollback status change if re-enqueue fails
+                if ($this->job !== null && $previousStatus !== null) {
+                    $this->job->status = $previousStatus;
+                    $queueModel->update($this->job->id, $this->job);
+                }
+                log_message('error', 'DatabaseQueue::removeJob re-enqueue failed: ' . $e->getMessage());
+
+                throw $e;
             }
+        } elseif ($this->job !== null) {
+            // Completion: mark as completed
+            $this->job->status = 'completed';
+            $queueModel->update($this->job->id, $this->job);
         }
 
         $this->job = null;
@@ -114,8 +123,6 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
     public function setPriority(int $priority)
     {
-        $this->priority = $priority;
-
         return $this;
     }
 }

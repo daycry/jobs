@@ -54,7 +54,7 @@ final class DatabaseHandlerHybridTest extends TestCase
 
         $handler = new DatabaseHandler();
         $history = $handler->history('db_hybrid_test', 1);
-        if (empty($history)) {
+        if ($history === []) {
             $this->markTestSkipped('No history rows (DB may not be set up)');
         }
         $row = $history[0];

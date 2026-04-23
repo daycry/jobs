@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
+use Throwable;
 use CodeIgniter\I18n\Time;
 use Cron\CronExpression;
 
@@ -68,8 +69,6 @@ trait ActivityTrait
 
     /**
      * Returns the date this was last ran, using the configured logger handler.
-     *
-     * @return string|Time
      */
     public function lastRun(): string|Time
     {
@@ -116,7 +115,7 @@ trait ActivityTrait
 
         try {
             $handler = new $class();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
 

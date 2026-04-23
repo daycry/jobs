@@ -33,7 +33,7 @@ final class LoggingTruncateTest extends TestCase
 
     private function cleanFile(string $name): void
     {
-        $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/' . $name . '.json';
+        $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/' . $name . '.json';
         if (file_exists($file)) {
             unlink($file);
         }
@@ -46,12 +46,12 @@ final class LoggingTruncateTest extends TestCase
         $job->named('truncate_job');
         (new JobLifecycleCoordinator())->run($job);
 
-        $file = rtrim(config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/truncate_job.json';
+        $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/truncate_job.json';
         $this->assertFileExists($file);
         $json = json_decode(file_get_contents($file));
         $this->assertIsArray($json);
         $first = $json[0];
-        $this->assertLessThan(strlen($payload), strlen($first->output));
-        $this->assertStringContainsString('[truncated', $first->output);
+        $this->assertLessThan(strlen($payload), strlen((string) $first->output));
+        $this->assertStringContainsString('[truncated', (string) $first->output);
     }
 }

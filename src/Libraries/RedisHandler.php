@@ -22,11 +22,6 @@ use Redis;
  */
 class RedisHandler extends CoreRedisHandler
 {
-    public function __construct(Cache $config)
-    {
-        parent::__construct($config);
-    }
-
     /**
      * Return underlying Redis instance (may be null if initialize() not called or connection failed).
      */

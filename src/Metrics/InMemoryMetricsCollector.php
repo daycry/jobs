@@ -43,6 +43,15 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
         ];
     }
 
+    /**
+     * Reset all collected metrics to free memory in long-running workers.
+     */
+    public function reset(): void
+    {
+        $this->counters   = [];
+        $this->histograms = [];
+    }
+
     private function key(string $name, array $labels): string
     {
         if ($labels === []) {

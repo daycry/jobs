@@ -39,14 +39,14 @@ final class BeanstalkQueueWatchTest extends TestCase
                 return $id;
             }
 
-            public function watch(string $queue)
+            public function watch(string $queue): mixed
             {
                 if (! $this->stored) {
                     return null;
                 } $id = array_key_first($this->stored);
                 $raw  = $this->stored[$id];
                 unset($this->stored[$id]);
-                $decoded = json_decode($raw);
+                $decoded = json_decode((string) $raw);
 
                 return new JobEnvelope(id: $id, queue: $queue, payload: $decoded, attempts: (int) ($decoded->attempts ?? 0), priority: 0, scheduledAt: null, availableAt: null, createdAt: new DateTimeImmutable($decoded->createdAt), meta: ['ttr' => 0], raw: (object) ['raw' => $raw]);
             }

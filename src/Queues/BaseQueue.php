@@ -38,7 +38,7 @@ abstract class BaseQueue
 
     protected function getDelayResult(): DelayResult
     {
-        return $this->delayResult ?? new DelayResult(0, null);
+        return $this->delayResult ?? new DelayResult(0);
     }
 
     public function setIdGenerator(IdGeneratorInterface $generator): self
@@ -50,7 +50,7 @@ abstract class BaseQueue
 
     protected function getIdGenerator(): IdGeneratorInterface
     {
-        if (! $this->idGenerator) {
+        if (!$this->idGenerator instanceof IdGeneratorInterface) {
             // Posible clase personalizada desde config en fases futuras
             $this->idGenerator = new UuidGenerator();
         }
@@ -72,7 +72,7 @@ abstract class BaseQueue
 
     protected function getSerializer(): PayloadSerializerInterface
     {
-        if (! $this->serializer) {
+        if (!$this->serializer instanceof PayloadSerializerInterface) {
             $this->serializer = new JsonPayloadSerializer();
         }
 

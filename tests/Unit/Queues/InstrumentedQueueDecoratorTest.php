@@ -204,14 +204,14 @@ final class MockQueue implements QueueInterface, WorkerInterface
 
     public function enqueue(object $data): string
     {
-        if ($this->enqueueException) {
+        if ($this->enqueueException instanceof Throwable) {
             throw $this->enqueueException;
         }
 
         return $this->enqueueResult ?? 'default-id';
     }
 
-    public function watch(string $queue)
+    public function watch(string $queue): mixed
     {
         return $this->watchResult;
     }

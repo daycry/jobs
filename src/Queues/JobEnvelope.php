@@ -33,25 +33,27 @@ use Daycry\Jobs\Libraries\DateTimeHelper;
  *  - meta: Metadatos arbitrarios extra (estado, headers, delays)
  *  - raw: Registro/objeto nativo para operaciones de bajo nivel
  */
-final class JobEnvelope
+final readonly class JobEnvelope
 {
     public function __construct(
-        public readonly string $id,
-        public readonly string $queue,
-        public readonly array|object|null $payload,
-        public readonly ?string $name = null,
-        public readonly int $attempts = 0,
-        public readonly ?int $priority = null,
-        public readonly ?DateTimeInterface $scheduledAt = null,
-        public readonly ?DateTimeInterface $availableAt = null,
-        public readonly ?DateTimeInterface $createdAt = null,
-        public readonly array $meta = [],
-        public readonly mixed $raw = null,
+        public string $id,
+        public string $queue,
+        public array|object|null $payload,
+        public ?string $name = null,
+        public int $attempts = 0,
+        public ?int $priority = null,
+        public ?DateTimeInterface $scheduledAt = null,
+        public ?DateTimeInterface $availableAt = null,
+        public ?DateTimeInterface $createdAt = null,
+        public array $meta = [],
+        public mixed $raw = null,
     ) {
     }
 
     /**
      * Create from a decoded backend payload plus raw reference.
+     *
+     * @deprecated Use named parameters to avoid type ambiguity on $name/$attempts.
      */
     public static function fromDecoded(
         string $id,
@@ -66,12 +68,13 @@ final class JobEnvelope
         array $meta = [],
         mixed $raw = null,
     ): self {
-        // Backwards compatibility: legacy signature (id, queue, decoded, attempts, priority, ...)
+        // Backwards compatibility: legacy callers may pass int as 4th arg (attempts)
         if (! is_string($name)) {
             if (is_int($name) && $attempts === 0) {
-                $attempts = $name; // shift
+                $attempts = $name;
+                log_message('debug', 'JobEnvelope::fromDecoded called with legacy positional signature; use named parameters instead.');
             }
-            $name = null; // no provided name in legacy form
+            $name = null;
         }
 
         return new self($id, $queue, $decoded, $name, $attempts, $priority, $scheduledAt, $availableAt, $createdAt, $meta, $raw);

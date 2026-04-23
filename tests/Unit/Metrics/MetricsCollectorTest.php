@@ -35,9 +35,9 @@ final class MetricsCollectorTest extends TestCase
         $this->assertSame(5, $snapshot['counters']['jobs_fetched|queue=alpha']);
         $histAlpha = $snapshot['histograms']['jobs_exec_seconds|queue=alpha'];
         $this->assertSame(2, $histAlpha['count']);
-        $this->assertSame(2.0, $histAlpha['sum']);
-        $this->assertSame(0.5, $histAlpha['min']);
-        $this->assertSame(1.5, $histAlpha['max']);
+        $this->assertEqualsWithDelta(2.0, $histAlpha['sum'], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(0.5, $histAlpha['min'], PHP_FLOAT_EPSILON);
+        $this->assertEqualsWithDelta(1.5, $histAlpha['max'], PHP_FLOAT_EPSILON);
         $this->assertSame(1, $snapshot['histograms']['jobs_exec_seconds|queue=beta']['count']);
     }
 }

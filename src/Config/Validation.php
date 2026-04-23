@@ -18,11 +18,12 @@ use Config\Validation as ConfigValidation;
 class Validation extends ConfigValidation
 {
     public array $queueData = [
-        'queue'            => 'required|string',
-        'job'              => 'required|string',
+        'queue'            => 'required|string|max_length[100]',
+        'job'              => 'required|string|max_length[100]',
         'payload'          => 'required',
+        'priority'         => 'if_exist|is_natural|less_than_equal_to[10]',
         'schedule'         => 'if_exist|permit_empty',
-        'attempts'         => 'if_exist|is_natural',
+        'attempts'         => 'if_exist|is_natural|less_than_equal_to[100]',
         'callback'         => 'if_exist|permit_empty',
         'callback.url'     => 'if_exist|required_with[callback]|valid_url_strict[https]',
         'callback.options' => 'if_exist|required_with[callback]',

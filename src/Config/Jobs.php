@@ -199,7 +199,7 @@ class Jobs extends BaseConfig
     public array $serviceBus = [
         'url'    => '', // e.g. https://<namespace>.servicebus.windows.net/<queue>
         'issuer' => '', // SAS key name
-        'secret' => '', // SAS key value
+        'secret' => '', // SAS key value — prefer env('SERVICEBUS_SECRET')
     ];
 
     public array $beanstalk = [

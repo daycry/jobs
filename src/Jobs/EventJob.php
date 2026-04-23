@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Jobs;
 
 use CodeIgniter\Events\Events;
+use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Traits\InteractsWithCurrentJob;
@@ -28,6 +29,10 @@ class EventJob extends Job implements JobInterface
 
     public function handle(mixed $payload): mixed
     {
+        if (! is_array($payload) || empty($payload['name']) || ! is_string($payload['name'])) {
+            throw JobException::validationError('EventJob payload must be an array with a string "name" key.');
+        }
+
         return Events::trigger($payload['name'], $payload['data'] ?? []);
     }
 }

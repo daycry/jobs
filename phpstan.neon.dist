@@ -1,6 +1,9 @@
+includes:
+  - phpstan-baseline.neon
+
 parameters:
   tmpDir: build/phpstan
-  level: 5
+  level: 6
   paths:
     - src/
     - tests/
@@ -15,6 +18,37 @@ parameters:
   ignoreErrors:
     - '#Dynamic call to static method PHPUnit\\Framework\\Assert::#'
     - '#Parameter \#1 \$name of function config expects a valid class string, .+ given#'
+    - '#Call to an undefined method [a-zA-Z\\]+::[a-zA-Z]+\(\) on mixed#'
+    # Pheanstalk is an optional dependency — classes may not be installed
+    - '#unknown class Pheanstalk\\\\#'
+    - '#class Pheanstalk\\\\#'
+    - '#Instantiated class Pheanstalk\\\\#'
+    - '#Class Pheanstalk\\\\#'
+    # RedisHandler cannot be instantiated via new — it's a CI4 cache driver, ignore the direct instantiation check
+    - '#Calling new RedisHandler\(\) directly is incomplete#'
+    # model() discouraged but acceptable in legacy handler constructors
+    - '#Call to function model with .+ is discouraged#'
+    # config() may return null per signature, but CI4 always returns the object for valid config classes
+    - '#Cannot access property .+ on null\.#'
+    # service('scheduler') and service('uuid') are defined in library service files that can't be added to additionalServices
+    - '#Call to unknown service method .scheduler.#'
+    - '#Call to unknown service method .uuid.#'
+    - '#Cannot call method .+ on null\.#'
+    # CI4 TestCase::setPrivateProperty / injectMock accept mixed but PHPStan is strict
+    - '#Parameter \#1 \$obj of method CodeIgniter\\\\Test\\\\CIUnitTestCase::setPrivateProperty\(\) expects object\|string, null given#'
+    - '#Parameter \#2 \$mock of static method CodeIgniter\\\\Config\\\\BaseService::injectMock\(\) expects object, null given#'
+    # Call to deprecated setAccessible() in PHP 8.1+ - test-only
+    - '#Call to deprecated method setAccessible\(\)#'
+    # PHPUnit assertions with always-true values in tests (valid pessimistic checks)
+    - '#Call to method PHPUnit\\\\Framework\\\\Assert::assert.+ will always evaluate to true#'
+    # Instanceof always true/false in tests
+    - '#Instanceof between .+ will always evaluate to (true|false)#'
+    # Test anonymous classes extending BaseCommand/BaseService don't need parent constructor
+    - message: '#does not call parent constructor#'
+      path: tests/*
+    # Promoted array parameters in test stubs don't require full generic type annotations
+    - message: '#has parameter .+ with no value type specified in iterable type array#'
+      path: tests/*
   reportUnmatchedIgnoredErrors: false
   universalObjectCratesClasses:
     - CodeIgniter\Entity

@@ -25,10 +25,9 @@ use Daycry\Jobs\Models\JobsLogModel;
  */
 class DatabaseHandler extends BaseHandler
 {
-    private $table;
     private string $name;
 
-    public function __construct(array $config = [])
+    public function __construct()
     {
     }
 
@@ -42,27 +41,25 @@ class DatabaseHandler extends BaseHandler
             return true; // ignore malformed
         }
         // Fallback de nombre si no se definió vía setPath
-        if (empty($this->name) && ! empty($decoded['name'])) {
+        if ((!isset($this->name) || ($this->name === '' || $this->name === '0')) && ! empty($decoded['name'])) {
             $this->name = (string) $decoded['name'];
         }
 
         // Pruning eficiente: contar y borrar excedente sin cargar todo
-        if ($config->maxLogsPerJob && ! empty($this->name)) {
+        if ($config->maxLogsPerJob && (isset($this->name) && ($this->name !== '' && $this->name !== '0'))) {
             $count = $logModel->where('name', $this->name)->countAllResults();
             if ($count >= $config->maxLogsPerJob) {
                 // Borrar los más antiguos dejando (maxLogsPerJob - 1) espacio para el nuevo
                 $excess = ($count - $config->maxLogsPerJob) + 1;
                 if ($excess > 0) {
-                    // Obtener IDs antiguos a eliminar
+                    // Batch delete oldest records
                     $oldIds = $logModel->select('id')
                         ->where('name', $this->name)
                         ->orderBy('id', 'ASC')
                         ->limit($excess)
                         ->findColumn('id');
                     if ($oldIds) {
-                        foreach ($oldIds as $oid) {
-                            $logModel->delete($oid);
-                        }
+                        $logModel->whereIn('id', $oldIds)->delete();
                     }
                 }
             }
@@ -116,7 +113,7 @@ class DatabaseHandler extends BaseHandler
     /**
      * Returns an array of recent executions for a job from database.
      *
-     * @return array<int, object>
+     * @return list<object>
      */
     public function history(string $name, int $limit = 10): array
     {

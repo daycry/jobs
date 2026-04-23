@@ -25,50 +25,44 @@ final class ServiceBusQueueTest extends TestCase
     {
         // Anonymous subclass overriding client() to return stub with queued responses
         return new class ($responses) extends ServiceBusQueue {
-            private array $responses;
-
-            public function __construct(array $responses)
+            /** @param array<int, object> $responses */
+            public function __construct(private array $responses)
             {
-                $this->responses = $responses;
                 parent::__construct();
             }
 
-            /**
-             * @return object
-             */
-            protected function client()
+            protected function client(): object
             {
                 $responses = &$this->responses;
 
                 return new class ($responses) {
-                    private array $responses;
-
-                    public function __construct(array &$responses)
+                    public function __construct(private array &$responses)
                     {
-                        $this->responses = $responses;
                     }
 
-                    private function pop()
+                    private function pop(): object
                     {
                         return array_shift($this->responses) ?? new class () {
-                            public function getStatusCode()
+                            public function getStatusCode(): int
                             {
                                 return 500;
                             }
 
-                            public function getBody()
+                            public function getBody(): string
                             {
                                 return '{}';
                             }
                         };
                     }
 
-                    public function post(string $url, array $options = [])
+                    /** @param array<string, mixed> $options */
+                    public function post(string $url, array $options = []): object
                     {
                         return $this->pop();
                     }
 
-                    public function delete(string $url, array $options = [])
+                    /** @param array<string, mixed> $options */
+                    public function delete(string $url, array $options = []): object
                     {
                         return $this->pop();
                     }
@@ -80,23 +74,23 @@ final class ServiceBusQueueTest extends TestCase
     public function testEnqueueSuccessAndFailure(): void
     {
         $successResp = new class () {
-            public function getStatusCode()
+            public function getStatusCode(): int
             {
                 return 201;
             }
 
-            public function getBody()
+            public function getBody(): string
             {
                 return '{}';
             }
         };
         $failResp = new class () {
-            public function getStatusCode()
+            public function getStatusCode(): int
             {
                 return 500;
             }
 
-            public function getBody()
+            public function getBody(): string
             {
                 return '{}';
             }
@@ -113,30 +107,27 @@ final class ServiceBusQueueTest extends TestCase
     {
         $bodyObj = (object) ['createdAt' => '2025-01-02 03:04:05', 'attempts' => 2, 'payload' => 'x'];
         $okResp  = new class ($bodyObj) {
-            private $b;
-
-            public function __construct($b)
+            public function __construct(private readonly object $b)
             {
-                $this->b = $b;
             }
 
-            public function getStatusCode()
+            public function getStatusCode(): int
             {
                 return 200;
             }
 
-            public function getBody()
+            public function getBody(): string
             {
-                return json_encode($this->b);
+                return (string) json_encode($this->b);
             }
         };
         $notFound = new class () {
-            public function getStatusCode()
+            public function getStatusCode(): int
             {
                 return 404;
             }
 
-            public function getBody()
+            public function getBody(): string
             {
                 return '';
             }
@@ -153,13 +144,10 @@ final class ServiceBusQueueTest extends TestCase
     {
         $q   = $this->makeQueue([]);
         $job = new class ('default') extends Job {
-            protected string $queueName;
-
-            public function __construct(string $queue)
+            public function __construct(protected string $queueName)
             {
                 parent::__construct();
-                $this->queueName = $queue;
-                $this->setQueue($queue);
+                $this->setQueue($this->queueName);
             }
         };
         $this->assertTrue($q->removeJob($job, true));

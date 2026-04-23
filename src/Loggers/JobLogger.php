@@ -29,7 +29,7 @@ class JobLogger
     private ?Time $start          = null;
     private ?Time $end            = null;
     private ?BaseHandler $handler = null;
-    private string $executionId;
+    private readonly string $executionId;
 
     public function __construct()
     {
@@ -84,10 +84,10 @@ class JobLogger
         if (! $config->logPerformance) {
             return; // logging disabled
         }
-        if (! $this->start) {
+        if (!$this->start instanceof Time) {
             $this->start = Time::createFromTimestamp((int) $result->startedAt);
         }
-        if (! $this->end) {
+        if (!$this->end instanceof Time) {
             $this->end = Time::createFromTimestamp((int) $result->endedAt);
         }
         $this->ensureHandler();
@@ -125,7 +125,7 @@ class JobLogger
         $error         = $this->sanitizeTokenPatterns($error);
         $payloadJson   = $this->normalize($maskedPayload);
 
-        $outputLength = $output !== null ? strlen($output) : 0;
+        $outputLength = $output !== null ? strlen((string) $output) : 0;
         $payloadHash  = $payloadJson ? hash('sha256', $payloadJson) : null;
 
         $data = [
@@ -166,7 +166,9 @@ class JobLogger
             return (string) $data;
         }
 
-        return json_encode($data);
+        $encoded = json_encode($data);
+
+        return $encoded !== false ? $encoded : null;
     }
 
     /**
@@ -178,7 +180,7 @@ class JobLogger
         if (! $config->log || ! array_key_exists($config->log, $config->loggers)) {
             throw JobException::forInvalidLogType();
         }
-        if (! $this->handler) {
+        if (!$this->handler instanceof BaseHandler) {
             $class         = $config->loggers[$config->log];
             $this->handler = new $class();
         }
@@ -195,20 +197,16 @@ class JobLogger
      */
     private function maskSensitive(mixed $value, array $keys): mixed
     {
-        if (! $value || empty($keys)) {
+        if (! $value || $keys === []) {
             return $value;
         }
-        $lowerKeys = array_map(static fn ($k) => strtolower($k), $keys);
+        $lowerKeys = array_map(strtolower(...), $keys);
         $mask      = static function ($v) use ($lowerKeys, &$mask) {
             if (is_array($v)) {
                 $out = [];
 
                 foreach ($v as $k => $val) {
-                    if (in_array(strtolower((string) $k), $lowerKeys, true)) {
-                        $out[$k] = '***';
-                    } else {
-                        $out[$k] = $mask($val);
-                    }
+                    $out[$k] = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val);
                 }
 
                 return $out;
@@ -217,11 +215,7 @@ class JobLogger
                 $o = clone $v;
 
                 foreach (get_object_vars($o) as $k => $val) {
-                    if (in_array(strtolower((string) $k), $lowerKeys, true)) {
-                        $o->{$k} = '***';
-                    } else {
-                        $o->{$k} = $mask($val);
-                    }
+                    $o->{$k} = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val);
                 }
 
                 return $o;
@@ -252,17 +246,17 @@ class JobLogger
             $value = preg_replace(
                 '/\b[A-Za-z0-9_-]{32,}\b/',
                 '***API_KEY***',
-                $value,
+                (string) $value,
             );
 
             // Mask Bearer tokens
             $value = preg_replace(
                 '/Bearer\s+[A-Za-z0-9_\-\.]+/i',
                 'Bearer ***TOKEN***',
-                $value,
+                (string) $value,
             );
         } elseif (is_array($value)) {
-            return array_map([$this, 'sanitizeTokenPatterns'], $value);
+            return array_map($this->sanitizeTokenPatterns(...), $value);
         } elseif (is_object($value)) {
             $clone = clone $value;
 

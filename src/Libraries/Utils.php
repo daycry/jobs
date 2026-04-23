@@ -47,10 +47,10 @@ class Utils
     public static function parseConfigFile($attr): array
     {
         if ($attr && ! is_array($attr)) {
-            $attr = explode(',', $attr);
+            $attr = explode(',', (string) $attr);
         }
 
-        return array_map('trim', $attr);
+        return array_map(trim(...), $attr);
     }
 
     private static function objectToArray(object $object): array
@@ -60,11 +60,7 @@ class Utils
         foreach (get_object_vars($object) as $k => $v) {
             if (is_object($v)) {
                 // Do not traverse closures
-                if ($v instanceof Closure) {
-                    $result[$k] = '__closure__';
-                } else {
-                    $result[$k] = self::objectToArray($v);
-                }
+                $result[$k] = $v instanceof Closure ? '__closure__' : self::objectToArray($v);
             } elseif (is_array($v)) {
                 $result[$k] = array_map(static function ($item) {
                     if (is_object($item)) {
