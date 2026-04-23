@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Models;
 
-use Throwable;
 use CodeIgniter\Database\ConnectionInterface;
 use CodeIgniter\Model;
 use CodeIgniter\Validation\ValidationInterface;
@@ -21,6 +20,7 @@ use Config\Database;
 use DateTime;
 use DateTimeZone;
 use Daycry\Jobs\Entities\Queue;
+use Throwable;
 
 /**
  * Model for interacting with queued job records (insertion, fetching next pending job).
@@ -40,14 +40,15 @@ class QueueModel extends Model
         'max_retries',
         'attempts',
     ];
-    protected $useTimestamps = true;
-    protected $createdField  = 'created_at';
-    protected $updatedField  = 'updated_at';
-    protected $deletedField  = 'deleted_at';
+    protected $useTimestamps                 = true;
+    protected $createdField                  = 'created_at';
+    protected $updatedField                  = 'updated_at';
+    protected $deletedField                  = 'deleted_at';
+    private static ?bool $supportsSkipLocked = null;
 
     public function __construct(?ConnectionInterface &$db = null, ?ValidationInterface $validation = null)
     {
-        if (!$db instanceof ConnectionInterface) {
+        if (! $db instanceof ConnectionInterface) {
             $db            = Database::connect(config('Jobs')->database['group']);
             $this->DBGroup = config('Jobs')->database['group'];
         }
@@ -92,8 +93,6 @@ class QueueModel extends Model
 
         return $this->reserveJobOptimistic($queue);
     }
-
-    private static ?bool $supportsSkipLocked = null;
 
     /**
      * Reserve using FOR UPDATE SKIP LOCKED (MySQL 8+, PostgreSQL 9.5+).

@@ -15,7 +15,9 @@ use CodeIgniter\CLI\Commands;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class CronJobListCommandTest extends TestCase
 {
     public function testListOutputsScheduledJobs(): void

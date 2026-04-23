@@ -13,9 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
-/**
- * Provides fluent helpers to build cron expressions for common scheduling patterns.
- */
+/** Provides fluent helpers to build cron expressions for common scheduling patterns. */
 
 use Cron\CronExpression;
 use RuntimeException;
@@ -366,7 +364,7 @@ trait FrequenciesTrait
     {
         $cron = new CronExpression($this->expression);
 
-        if (!in_array($time, [null, '', '0'], true)) {
+        if (! in_array($time, [null, '', '0'], true)) {
             [$min, $hour] = $this->parseTime($time); // [min, hour]
             $overrides[0] = $min;   // force parsed minute
             $overrides[1] = $hour;  // force parsed hour

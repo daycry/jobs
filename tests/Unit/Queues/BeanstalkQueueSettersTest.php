@@ -14,7 +14,9 @@ declare(strict_types=1);
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use PHPUnit\Framework\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class BeanstalkQueueSettersTest extends TestCase
 {
     public function testSetPriorityAndTtrFluent(): void

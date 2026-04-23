@@ -49,13 +49,13 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
         /** @var JobsConfig config */
         $config = config('Jobs');
         // Intentar deducir nombre si no fue establecido aún vía setPath()
-        if (!isset($this->name) || ($this->name === '' || $this->name === '0')) {
+        if (! isset($this->name) || ($this->name === '' || $this->name === '0')) {
             $decoded = json_decode((string) $message, true);
             if (is_array($decoded) && ! empty($decoded['name'])) {
                 $this->name = (string) $decoded['name'];
             }
         }
-        if (!isset($this->name) || ($this->name === '' || $this->name === '0')) {
+        if (! isset($this->name) || ($this->name === '' || $this->name === '0')) {
             $this->name = 'unnamed'; // fallback definitivo
         }
         // Sanitizar nombre para uso de archivo (sin espacios raros / separadores peligrosos)

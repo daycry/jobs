@@ -150,7 +150,8 @@ class Jobs extends BaseConfig
      * and skips attempts for $circuitBreakerCooldown seconds.
      */
     public int $circuitBreakerThreshold = 5;
-    public int $circuitBreakerCooldown  = 60;
+
+    public int $circuitBreakerCooldown = 60;
 
     /**
      * Backoff strategy for retries: 'none', 'fixed', 'exponential'

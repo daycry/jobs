@@ -17,7 +17,9 @@ use Daycry\Jobs\Loggers\FileHandler;
 use Daycry\Jobs\Loggers\JobLogger;
 use PHPUnit\Framework\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class LoggingUnifiedPathTest extends TestCase
 {
     public function testQueueAndCronShareJobNameFile(): void

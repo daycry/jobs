@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Database\Migrations;
 
-use Throwable;
 use CodeIgniter\Database\Migration;
+use Throwable;
 
 class AddMaxRetriesToQueue extends Migration
 {

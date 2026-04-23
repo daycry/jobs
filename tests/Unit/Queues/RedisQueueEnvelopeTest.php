@@ -16,7 +16,9 @@ use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Queues\RedisQueue;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class RedisQueueEnvelopeTest extends TestCase
 {
     protected function setUp(): void

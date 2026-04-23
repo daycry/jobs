@@ -15,7 +15,9 @@ use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class CallbackFilterTest extends TestCase
 {
     public function testCallbackRunsOnlyOnSuccess(): void

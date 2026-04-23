@@ -38,12 +38,12 @@ final class RequeueHelper
     public function finalize(Job $job, JobEnvelope $envelope, callable $removeFn, bool $success): void
     {
         // Lazy resolve metrics if not injected (Option B hybrid DI + facade fallback)
-        if (!$this->metrics instanceof MetricsCollectorInterface) {
+        if (! $this->metrics instanceof MetricsCollectorInterface) {
             $this->metrics = Metrics::get();
         }
 
         // Lazy resolve DLQ
-        if (!$this->dlq instanceof DeadLetterQueue) {
+        if (! $this->dlq instanceof DeadLetterQueue) {
             $this->dlq = new DeadLetterQueue();
         }
 

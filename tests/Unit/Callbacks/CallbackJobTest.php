@@ -16,7 +16,9 @@ use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\QueueManager;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class CallbackJobTest extends TestCase
 {
     protected function setUp(): void

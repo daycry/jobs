@@ -14,7 +14,9 @@ declare(strict_types=1);
 use Daycry\Jobs\Job;
 use PHPUnit\Framework\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class ActivityTraitTest extends TestCase
 {
     public function testMaxRetriesAndTimeoutAccessors(): void

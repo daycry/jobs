@@ -25,7 +25,9 @@ final class ServiceBusQueueTest extends TestCase
     {
         // Anonymous subclass overriding client() to return stub with queued responses
         return new class ($responses) extends ServiceBusQueue {
-            /** @param array<int, object> $responses */
+            /**
+             * @param array<int, object> $responses
+             */
             public function __construct(private array $responses)
             {
                 parent::__construct();
@@ -55,13 +57,17 @@ final class ServiceBusQueueTest extends TestCase
                         };
                     }
 
-                    /** @param array<string, mixed> $options */
+                    /**
+                     * @param array<string, mixed> $options
+                     */
                     public function post(string $url, array $options = []): object
                     {
                         return $this->pop();
                     }
 
-                    /** @param array<string, mixed> $options */
+                    /**
+                     * @param array<string, mixed> $options
+                     */
                     public function delete(string $url, array $options = []): object
                     {
                         return $this->pop();

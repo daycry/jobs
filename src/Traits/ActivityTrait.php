@@ -13,9 +13,9 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
-use Throwable;
 use CodeIgniter\I18n\Time;
 use Cron\CronExpression;
+use Throwable;
 
 /**
  * Adds retry/timeout metadata and schedule evaluation helpers to a Job.

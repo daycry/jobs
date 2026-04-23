@@ -10,13 +10,16 @@ declare(strict_types=1);
  * For the full copyright and license information, please view
  * the LICENSE file that was distributed with this source code.
  */
-use Daycry\Jobs\Job;
+
 use CodeIgniter\Exceptions\RuntimeException;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Daycry\Jobs\Exceptions\JobException;
+use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class SchedulerAdvancedTest extends TestCase
 {
     public function testFindAndClearJobs(): void

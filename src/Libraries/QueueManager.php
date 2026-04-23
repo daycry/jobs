@@ -54,7 +54,7 @@ class QueueManager
 
     public static function instance(): self
     {
-        if (!self::$instance instanceof \Daycry\Jobs\Libraries\QueueManager) {
+        if (! self::$instance instanceof QueueManager) {
             self::$instance = new self();
         }
 

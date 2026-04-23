@@ -84,10 +84,10 @@ class JobLogger
         if (! $config->logPerformance) {
             return; // logging disabled
         }
-        if (!$this->start instanceof Time) {
+        if (! $this->start instanceof Time) {
             $this->start = Time::createFromTimestamp((int) $result->startedAt);
         }
-        if (!$this->end instanceof Time) {
+        if (! $this->end instanceof Time) {
             $this->end = Time::createFromTimestamp((int) $result->endedAt);
         }
         $this->ensureHandler();
@@ -180,7 +180,7 @@ class JobLogger
         if (! $config->log || ! array_key_exists($config->log, $config->loggers)) {
             throw JobException::forInvalidLogType();
         }
-        if (!$this->handler instanceof BaseHandler) {
+        if (! $this->handler instanceof BaseHandler) {
             $class         = $config->loggers[$config->log];
             $this->handler = new $class();
         }

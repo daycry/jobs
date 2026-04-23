@@ -41,7 +41,7 @@ class DatabaseHandler extends BaseHandler
             return true; // ignore malformed
         }
         // Fallback de nombre si no se definió vía setPath
-        if ((!isset($this->name) || ($this->name === '' || $this->name === '0')) && ! empty($decoded['name'])) {
+        if ((! isset($this->name) || ($this->name === '' || $this->name === '0')) && ! empty($decoded['name'])) {
             $this->name = (string) $decoded['name'];
         }
 

@@ -68,9 +68,8 @@ abstract class TestCase extends CIUnitTestCase
             ->priority(5);
         $jobs[] = $job;
 
-        $job = (new Job(job: 'closure', payload: 
-            // Your closure code here
-            static fn() => 'Closure executed successfully!'))
+        $job = (new Job(job: 'closure', payload: // Your closure code here
+            static fn () => 'Closure executed successfully!'))
             ->everyMinute()
             ->named('closure_enabled')
             ->singleInstance()

@@ -18,7 +18,6 @@ use CodeIgniter\Events\Events;
 use CodeIgniter\I18n\Time;
 use DateTime;
 use Daycry\Jobs\Config\Jobs;
-use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;

@@ -50,7 +50,7 @@ abstract class BaseQueue
 
     protected function getIdGenerator(): IdGeneratorInterface
     {
-        if (!$this->idGenerator instanceof IdGeneratorInterface) {
+        if (! $this->idGenerator instanceof IdGeneratorInterface) {
             // Posible clase personalizada desde config en fases futuras
             $this->idGenerator = new UuidGenerator();
         }
@@ -72,7 +72,7 @@ abstract class BaseQueue
 
     protected function getSerializer(): PayloadSerializerInterface
     {
-        if (!$this->serializer instanceof PayloadSerializerInterface) {
+        if (! $this->serializer instanceof PayloadSerializerInterface) {
             $this->serializer = new JsonPayloadSerializer();
         }
 

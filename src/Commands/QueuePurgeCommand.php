@@ -42,7 +42,7 @@ class QueuePurgeCommand extends BaseCommand
         $queue  = CLI::getOption('queue');
         $before = CLI::getOption('before');
         $dryRun = CLI::getOption('dry-run') !== null || array_key_exists('dry-run', $params);
-        $force  = CLI::getOption('force') !== null || array_key_exists('force', $params);
+        $force  = CLI::getOption('force') !== null   || array_key_exists('force', $params);
 
         $validStatuses = ['completed', 'failed', 'all'];
         if (! in_array($status, $validStatuses, true)) {

@@ -35,7 +35,7 @@ final readonly class DelayResult
      */
     public static function fromSchedule(?DateTimeInterface $schedule): self
     {
-        if (!$schedule instanceof DateTimeInterface) {
+        if (! $schedule instanceof DateTimeInterface) {
             return new self(0);
         }
 

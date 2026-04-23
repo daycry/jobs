@@ -34,9 +34,7 @@ class JobLifecycleCoordinator
     private $sleeper;
 
     public function __construct(
-        /**
-         * @var callable(int):void
-         */
+        /** @var callable(int):void */
         $sleeper = null,
     ) {
         $this->sleeper = $sleeper ?? static function (int $seconds): void {

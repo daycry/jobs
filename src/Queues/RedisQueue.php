@@ -42,7 +42,7 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
      */
     private $redis;
 
-    private ?object $job = null; // decoded structure { id,time,delay,data }
+    private ?object $job   = null; // decoded structure { id,time,delay,data }
     private string $prefix = 'jobs:';
 
     public function __construct()
@@ -143,14 +143,14 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         // Atomic promotion via Lua script to prevent duplicate job execution
         // under concurrent workers. Falls back to non-atomic approach if eval fails.
         $lua = <<<'LUA'
-local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, 50)
-for _, item in ipairs(items) do
-    if redis.call('ZREM', KEYS[1], item) == 1 then
-        redis.call('LPUSH', KEYS[2], item)
-    end
-end
-return #items
-LUA;
+            local items = redis.call('ZRANGEBYSCORE', KEYS[1], 0, ARGV[1], 'LIMIT', 0, 50)
+            for _, item in ipairs(items) do
+                if redis.call('ZREM', KEYS[1], item) == 1 then
+                    redis.call('LPUSH', KEYS[2], item)
+                end
+            end
+            return #items
+            LUA;
 
         try {
             $this->redis->eval($lua, [$this->delayedKey($queue), $this->waitingKey($queue), (string) $now], 2);

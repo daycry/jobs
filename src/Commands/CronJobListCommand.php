@@ -13,10 +13,10 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
-use Throwable;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\I18n\Time;
 use Cron\CronExpression;
+use Throwable;
 
 /**
  * Lists currently scheduled cron jobs including last and next run times (if logging supports history).

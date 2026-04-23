@@ -16,7 +16,9 @@ use Daycry\Jobs\Job;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class QueueRunCommandTest extends TestCase
 {
     public function testOneTimeRunProcessesSingleEnvelope(): void
@@ -54,7 +56,9 @@ final class QueueRunCommandTest extends TestCase
         };
 
         $cmd = new class ($stubWorker) extends QueueRunCommand {
-            /** @phpstan-ignore constructor.unusedParameter */
+            /**
+             * @phpstan-ignore constructor.unusedParameter
+             */
             public function __construct(private readonly mixed $worker)
             {
             }

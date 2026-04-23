@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
-use Throwable;
 use CodeIgniter\CLI\CLI;
 use Config\Services;
 use DateTimeInterface;
@@ -26,6 +25,7 @@ use Daycry\Jobs\Libraries\RateLimiter;
 use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
+use Throwable;
 
 /**
  * Long-running (or one-shot) queue worker command.

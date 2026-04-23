@@ -44,7 +44,7 @@ class JobsLogModel extends Model
 
     public function __construct(?ConnectionInterface &$db = null, ?ValidationInterface $validation = null)
     {
-        if (!$db instanceof ConnectionInterface) {
+        if (! $db instanceof ConnectionInterface) {
             $this->DBGroup = config('Jobs')->databaseGroup;
             $db            = Database::connect($this->DBGroup);
         }

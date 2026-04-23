@@ -72,7 +72,7 @@ class Job
      * Middleware callables to wrap job execution.
      * Each middleware receives (Job $job, callable $next) and must call $next($job) to proceed.
      *
-     * @var array<callable>
+     * @var list<callable>
      */
     protected array $middleware = [];
 
@@ -176,7 +176,7 @@ class Job
     }
 
     /**
-     * @return array<callable>
+     * @return list<callable>
      */
     public function getMiddleware(): array
     {

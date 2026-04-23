@@ -20,9 +20,7 @@ class QueueTables extends Migration
 {
     public function up(): void
     {
-        /**
-         * Projects Modules
-         */
+        /** Projects Modules */
         $this->forge->addField([
             'id'         => ['type' => 'int', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'identifier' => ['type' => 'varchar', 'constraint' => 50, 'null' => false],

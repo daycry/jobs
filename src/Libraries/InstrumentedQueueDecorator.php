@@ -50,7 +50,7 @@ class InstrumentedQueueDecorator implements QueueInterface, WorkerInterface
         if (! $decorated instanceof WorkerInterface) {
             throw new InvalidArgumentException('Decorated queue must implement WorkerInterface');
         }
-        $this->decorated   = $decorated;
+        $this->decorated = $decorated;
     }
 
     public function enqueue(object $data): string

@@ -15,7 +15,9 @@ use Daycry\Jobs\Execution\JobLifecycleCoordinator;
 use Daycry\Jobs\Job;
 use Tests\Support\TestCase;
 
-/** @internal */
+/**
+ * @internal
+ */
 final class CallbackChainGuardTest extends TestCase
 {
     public function testChainStopsWithoutAllowChain(): void

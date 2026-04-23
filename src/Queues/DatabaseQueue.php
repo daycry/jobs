@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
-use Throwable;
 use DateTime;
 use DateTimeZone;
 use Daycry\Jobs\Entities\Queue as QueueEntity;
@@ -21,6 +20,7 @@ use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as QueuesJob;
 use Daycry\Jobs\Models\QueueModel;
+use Throwable;
 
 /**
  * Database-backed queue (persistent) implementing scheduling & status tracking.
@@ -28,7 +28,7 @@ use Daycry\Jobs\Models\QueueModel;
  */
 class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
-    private mixed $job    = null;
+    private mixed $job = null;
 
     public function enqueue(object $data): string
     {
@@ -98,6 +98,7 @@ class DatabaseQueue extends BaseQueue implements QueueInterface, WorkerInterface
                 $this->job->status = 'failed';
                 $queueModel->update($this->job->id, $this->job);
             }
+
             try {
                 $this->enqueue($job->toObject());
             } catch (Throwable $e) {
