@@ -49,7 +49,7 @@ final class QueueRunCommandTest extends TestCase
                 return $e;
             }
 
-            public function removeJob(Job $job, bool $recreate)
+            public function removeJob(Job $job, bool $recreate): bool
             {
                 return true;
             }
