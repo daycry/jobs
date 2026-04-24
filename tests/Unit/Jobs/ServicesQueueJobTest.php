@@ -11,6 +11,7 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
+use CodeIgniter\I18n\Time;
 use Daycry\Jobs\Config\Services as JobsServices;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\QueueInterface;
@@ -86,6 +87,33 @@ final class ServicesQueueJobTest extends TestCase
         $data = StubQueue::$lastData;
         $this->assertNotNull($data);
         $this->assertSame($dateStr, $data->schedule->format('Y-m-d H:i:s'));
+    }
+
+    public function testQueueJobWithWhenDateTime(): void
+    {
+        $dt = new DateTime('+2 hours');
+        JobsServices::queueJob('command', 'jobs:test', 'alpha', null, $dt);
+        $data = StubQueue::$lastData;
+        $this->assertNotNull($data);
+        $this->assertInstanceOf(DateTime::class, $data->schedule);
+    }
+
+    public function testQueueJobWithWhenDateTimeInterface(): void
+    {
+        $dt = new DateTimeImmutable('+2 hours'); // DateTimeInterface but not DateTime
+        JobsServices::queueJob('command', 'jobs:test', 'alpha', null, $dt);
+        $data = StubQueue::$lastData;
+        $this->assertNotNull($data);
+        $this->assertNotNull($data->schedule);
+    }
+
+    public function testQueueJobWithWhenTime(): void
+    {
+        $t = Time::now()->addHours(2);
+        JobsServices::queueJob('command', 'jobs:test', 'alpha', null, $t);
+        $data = StubQueue::$lastData;
+        $this->assertNotNull($data);
+        $this->assertNotNull($data->schedule);
     }
 
     public function testQueueJobInvalidHandlerThrows(): void

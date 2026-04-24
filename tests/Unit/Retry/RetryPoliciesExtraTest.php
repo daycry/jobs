@@ -47,4 +47,32 @@ final class RetryPoliciesExtraTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $val);
         $this->assertLessThanOrEqual(40, $val);
     }
+
+    public function testExponentialPolicyOverflowGuard(): void
+    {
+        // exponent > 30 triggers overflow guard → clamp to max
+        $p   = new RetryPolicyFixed(base: 1, strategy: 'exponential', multiplier: 2.0, max: 100, jitter: false);
+        $val = $p->computeDelay(35); // exponent = 33 > 30 → overflow guard
+        $this->assertSame(100, $val);
+    }
+
+    public function testNoneStrategyReturnsZero(): void
+    {
+        $p = new RetryPolicyFixed(base: 5, strategy: 'none');
+        $this->assertSame(0, $p->computeDelay(1));
+        $this->assertSame(0, $p->computeDelay(5));
+    }
+
+    public function testNegativeBaseClampedToZero(): void
+    {
+        $p = new RetryPolicyFixed(base: -10, strategy: 'fixed');
+        $this->assertSame(0, $p->computeDelay(2));
+    }
+
+    public function testBadMultiplierDefaultsToTwo(): void
+    {
+        $p   = new RetryPolicyFixed(base: 2, strategy: 'exponential', multiplier: 0, max: 100, jitter: false);
+        $val = $p->computeDelay(3); // exponent 1 => 2*(2^1) = 4
+        $this->assertSame(4, $val);
+    }
 }

@@ -68,4 +68,40 @@ final class SchedulerAdvancedTest extends TestCase
         $s->command('cmd:c')->named('C')->dependsOn('B'); // ciclo A->C->B->A
         $s->getExecutionOrder();
     }
+
+    public function testShellJobRegistered(): void
+    {
+        $s   = new Scheduler();
+        $job = $s->shell('ls -la');
+        $this->assertSame('shell', $job->getJob());
+        $this->assertCount(1, $s->getJobs());
+    }
+
+    public function testClosureJobRegistered(): void
+    {
+        $s   = new Scheduler();
+        $job = $s->closure(static fn () => 'result');
+        $this->assertSame('closure', $job->getJob());
+    }
+
+    public function testEventJobRegistered(): void
+    {
+        $s   = new Scheduler();
+        $job = $s->event('my_event', ['param' => 'value']);
+        $this->assertSame('event', $job->getJob());
+    }
+
+    public function testUrlJobRegistered(): void
+    {
+        $s   = new Scheduler();
+        $job = $s->url('GET', 'https://example.com/api');
+        $this->assertSame('url', $job->getJob());
+    }
+
+    public function testAddJobSetsSourceToCron(): void
+    {
+        $s   = new Scheduler();
+        $job = $s->command('jobs:test');
+        $this->assertSame('cron', $job->getSource());
+    }
 }

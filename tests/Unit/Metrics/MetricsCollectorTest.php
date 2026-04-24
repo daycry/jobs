@@ -40,4 +40,15 @@ final class MetricsCollectorTest extends TestCase
         $this->assertEqualsWithDelta(1.5, $histAlpha['max'], PHP_FLOAT_EPSILON);
         $this->assertSame(1, $snapshot['histograms']['jobs_exec_seconds|queue=beta']['count']);
     }
+
+    public function testReset(): void
+    {
+        $mc = new InMemoryMetricsCollector();
+        $mc->increment('counter', 5);
+        $mc->observe('metric', 1.0);
+        $mc->reset();
+        $snapshot = $mc->getSnapshot();
+        $this->assertSame([], $snapshot['counters']);
+        $this->assertSame([], $snapshot['histograms']);
+    }
 }

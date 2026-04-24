@@ -158,4 +158,68 @@ final class ServiceBusQueueTest extends TestCase
         };
         $this->assertTrue($q->removeJob($job, true));
     }
+
+    public function testEnqueueWithScheduledDelay(): void
+    {
+        $successResp = new class () {
+            public function getStatusCode(): int
+            {
+                return 201;
+            }
+
+            public function getBody(): string
+            {
+                return '{}';
+            }
+        };
+        $q   = $this->makeQueue([$successResp]);
+        $obj = (object) [
+            'queue'    => 'default',
+            'payload'  => 'x',
+            'schedule' => new DateTimeImmutable('+1 hour'), // triggers scheduled path
+        ];
+        $id = $q->enqueue($obj);
+        $this->assertNotSame('', $id);
+    }
+
+    public function testEnqueueWithLabel(): void
+    {
+        $successResp = new class () {
+            public function getStatusCode(): int
+            {
+                return 201;
+            }
+
+            public function getBody(): string
+            {
+                return '{}';
+            }
+        };
+        $q   = $this->makeQueue([$successResp]);
+        $obj = (object) [
+            'queue'   => 'default',
+            'payload' => 'x',
+            'label'   => 'my-label',
+        ];
+        $id = $q->enqueue($obj);
+        $this->assertNotSame('', $id);
+    }
+
+    public function testWatchDeserializationFailureReturnsNull(): void
+    {
+        $okRespInvalidBody = new class () {
+            public function getStatusCode(): int
+            {
+                return 200;
+            }
+
+            public function getBody(): string
+            {
+                return 'not-json';
+            }
+        };
+        $q   = $this->makeQueue([$okRespInvalidBody]);
+        $env = $q->watch('default');
+        $this->assertNull($env);
+    }
 }

@@ -14,6 +14,7 @@ declare(strict_types=1);
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Models\QueueModel;
 use Daycry\Jobs\Queues\DatabaseQueue;
+use Daycry\Jobs\Queues\JobEnvelope;
 use Tests\Support\DatabaseTestCase;
 
 /**
@@ -57,5 +58,28 @@ final class DatabaseQueueRemoveJobTest extends DatabaseTestCase
         $model  = new QueueModel();
         $record = $model->where('identifier', $env->id)->first();
         $this->assertSame('failed', $record->status);
+    }
+
+    public function testRemoveJobWithNoWatchedJob(): void
+    {
+        // When no job was watched, removeJob should still return true
+        $queue  = new DatabaseQueue();
+        $job    = new Job(job: 'command', payload: 'test');
+        $result = $queue->removeJob($job, false);
+        $this->assertTrue($result);
+    }
+
+    public function testSetPriorityReturnsSelf(): void
+    {
+        $queue  = new DatabaseQueue();
+        $result = $queue->setPriority(5);
+        $this->assertSame($queue, $result);
+    }
+
+    public function testWatchReturnsNullWhenNoJobsInQueue(): void
+    {
+        $queue  = new DatabaseQueue();
+        $result = $queue->watch('nonexistent_queue');
+        $this->assertNotInstanceOf(JobEnvelope::class, $result);
     }
 }

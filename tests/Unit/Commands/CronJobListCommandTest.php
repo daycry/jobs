@@ -15,6 +15,22 @@ use CodeIgniter\CLI\Commands;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Tests\Support\TestCase;
 
+final class _ThrowingCtorLoggerHandler
+{
+    public function __construct()
+    {
+        throw new RuntimeException('ctor failed');
+    }
+}
+
+final class _ThrowingLastRunLoggerHandler
+{
+    public function lastRun(): string
+    {
+        throw new RuntimeException('lastRun failed');
+    }
+}
+
 /**
  * @internal
  */
@@ -49,5 +65,90 @@ final class CronJobListCommandTest extends TestCase
         // Basic assertions: scheduler initialized and has at least one job defined by config init
         $this->assertGreaterThanOrEqual(1, count($scheduler->getJobs()));
         $this->assertNotNull($scheduler->findJobByName('enabled'));
+    }
+
+    public function testListWhenDisabledReturnsFailure(): void
+    {
+        service('cache')->delete('jobs_active');
+        $runner = new Commands();
+        $result = $runner->run('jobs:cronjob:list', []);
+        $this->assertSame(1, $result);
+        // Re-enable for other tests
+        service('cache')->save('jobs_active', (object) ['status' => 'enabled', 'updated_at' => new DateTime()], 0);
+    }
+
+    public function testListWithDatabaseLoggerHandler(): void
+    {
+        $cfg                 = config('Jobs');
+        $cfg->log            = 'database';
+        $cfg->logPerformance = true;
+        service('cache')->save('jobs_active', (object) ['status' => 'enabled', 'updated_at' => new DateTime()], 0);
+
+        $scheduler = service('scheduler');
+        $cfg->init($scheduler);
+
+        $runner = new Commands();
+        $result = $runner->run('jobs:cronjob:list', []);
+        $this->assertSame(0, $result);
+
+        $cfg->log            = 'file';
+        $cfg->logPerformance = false;
+    }
+
+    public function testListWithNoLoggerClass(): void
+    {
+        // Handler class doesn't exist - handler will be null
+        $cfg          = config('Jobs');
+        $cfg->log     = 'no_such_handler';
+        $cfg->loggers = ['no_such_handler' => 'NonExistentClass_XYZ999'];
+        service('cache')->save('jobs_active', (object) ['status' => 'enabled', 'updated_at' => new DateTime()], 0);
+
+        $scheduler = service('scheduler');
+        $cfg->init($scheduler);
+
+        $runner = new Commands();
+        $result = $runner->run('jobs:cronjob:list', []);
+        $this->assertSame(0, $result);
+
+        $cfg->log     = 'file';
+        $cfg->loggers = config('Jobs')->loggers; // restore
+    }
+
+    public function testListWithThrowingLoggerConstructor(): void
+    {
+        $cfg          = config('Jobs');
+        $original     = $cfg->loggers;
+        $cfg->log     = 'throwing_ctor';
+        $cfg->loggers = $original + ['throwing_ctor' => _ThrowingCtorLoggerHandler::class];
+        service('cache')->save('jobs_active', (object) ['status' => 'enabled', 'updated_at' => new DateTime()], 0);
+
+        $scheduler = service('scheduler');
+        $cfg->init($scheduler);
+
+        $runner = new Commands();
+        $result = $runner->run('jobs:cronjob:list', []);
+        $this->assertSame(0, $result);
+
+        $cfg->log     = 'file';
+        $cfg->loggers = $original;
+    }
+
+    public function testListWithLoggerLastRunThrowing(): void
+    {
+        $cfg          = config('Jobs');
+        $original     = $cfg->loggers;
+        $cfg->log     = 'throwing_last_run';
+        $cfg->loggers = $original + ['throwing_last_run' => _ThrowingLastRunLoggerHandler::class];
+        service('cache')->save('jobs_active', (object) ['status' => 'enabled', 'updated_at' => new DateTime()], 0);
+
+        $scheduler = service('scheduler');
+        $cfg->init($scheduler);
+
+        $runner = new Commands();
+        $result = $runner->run('jobs:cronjob:list', []);
+        $this->assertSame(0, $result);
+
+        $cfg->log     = 'file';
+        $cfg->loggers = $original;
     }
 }
