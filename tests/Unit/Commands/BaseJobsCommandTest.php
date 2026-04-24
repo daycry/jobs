@@ -93,6 +93,12 @@ final class BaseJobsCommandTest extends TestCase
 
     public function testCronJobDisableCommandRunsViaRunner(): void
     {
+        // Pre-enable so the disable command has something to change
+        $cache            = service('cache');
+        $settings         = new stdClass();
+        $settings->status = 'enabled';
+        $cache->save('jobs_active', $settings, 0);
+
         $runner = new Commands();
         ob_start();
 

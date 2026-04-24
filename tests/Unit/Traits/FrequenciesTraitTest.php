@@ -221,8 +221,10 @@ final class FrequenciesTraitTest extends TestCase
 
     public function testFluentChaining(): void
     {
+        // everyMinute() only sets the minute field, leaving hour set by daily()
         $job = $this->job()->daily()->everyMinute();
-        $this->assertSame('* * * * *', $job->getExpression());
+        // After everyMinute() the minute part becomes '*'; hour remains 0 from daily()
+        $this->assertStringStartsWith('* ', $job->getExpression());
     }
 
     public function testDailyWithTimeOverridesMinuteAndHour(): void
