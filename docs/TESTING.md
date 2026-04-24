@@ -10,16 +10,20 @@ Tests are organized under `tests/Unit/` by functional domain:
 tests/
 ├── Unit/
 │   ├── Callbacks/          - Callback chain, filters, callback jobs
-│   ├── Commands/           - CLI commands (cronjob, queue:run, test)
-│   ├── Execution/          - Job execution lifecycle, strategies
+│   ├── Commands/           - CLI commands (cronjob, queue:run, health)
+│   ├── Cronjob/            - JobRunner execution and scheduling
+│   ├── Exceptions/         - JobException / QueueException factory methods
+│   ├── Execution/          - Job execution lifecycle, coordinator, retries
 │   ├── Helpers/            - DateTime, Requeue helpers
-│   ├── Jobs/               - Job core, envelopes, enqueue operations
-│   ├── Logging/            - File/Database handlers, masking, rotation
-│   ├── Metrics/            - Metrics collector
-│   ├── Queues/             - Queue backends (Redis, Database, Beanstalk, ServiceBus)
-│   ├── Retry/              - Retry policies, backoff strategies
-│   ├── Scheduler/          - Cron scheduling
-│   └── Traits/             - Job traits (Activity, etc.)
+│   ├── Jobs/               - Job core, envelopes, enqueue, callbacks
+│   ├── Libraries/          - CircuitBreaker, RateLimiter, DeadLetterQueue, QueueManager, DateTimeHelper
+│   ├── Logging/            - File/Database handlers, masking, rotation, pruning
+│   ├── Metrics/            - Metrics collector and facade
+│   ├── Models/             - QueueModel database operations
+│   ├── Queues/             - Queue backends (Redis, Database, Beanstalk, ServiceBus, Sync)
+│   ├── Retry/              - Retry policies, backoff strategies, jitter
+│   ├── Scheduler/          - Cron scheduling, dependencies, advanced expressions
+│   └── Traits/             - Job traits (Identity, State, Activity, Frequencies, Environment, Callback)
 └── _support/               - Test helpers and base classes
 ```
 
@@ -164,26 +168,30 @@ public function testMetricsAreTracked(): void
 
 ## Current Test Statistics
 
-- **Total Tests**: 99
-- **Assertions**: ~310+
-- **Skipped**: 4-5 (backend dependencies)
+- **Total Tests**: 449
+- **Assertions**: ~812+
+- **Skipped**: 7 (backend dependencies: Redis, Beanstalk)
+- **Test Files**: 89
 - **Coverage**: Available in `build/coverage/html/`
 
 ## Test Categories Summary
 
 | Category | Tests | Focus Area |
 |----------|-------|------------|
-| Queues | 15 | Redis, Database, Beanstalk, ServiceBus backends |
-| Logging | 11 | File/DB handlers, masking, rotation, pruning |
-| Retry | 7 | Fixed, exponential, jitter policies |
-| Jobs | 6 | Job creation, envelopes, enqueue operations |
-| Commands | 5 | CLI command execution and output |
-| Execution | 4 | Job lifecycle, completion strategies |
-| Callbacks | 3 | Callback chains, filters, conditions |
-| Scheduler | 2 | Cron scheduling, dependencies |
-| Helpers | 2 | DateTime parsing, requeue logic |
-| Metrics | 1 | Metrics collection and export |
-| Traits | 1 | Activity trait functionality |
+| Queues | ~45 | Redis, Database, Beanstalk, ServiceBus, Sync backends |
+| Logging | ~35 | File/DB handlers, masking, rotation, pruning, extended fields |
+| Retry | ~20 | Fixed, exponential, jitter, boundary, none policies |
+| Jobs | ~25 | Job creation, envelopes, enqueue, callbacks, url/shell/closure |
+| Commands | ~30 | CLI command execution, cronjob, queue runner, health |
+| Execution | ~20 | Job lifecycle coordinator, retries, buffer, timeout |
+| Callbacks | ~15 | Callback chains, filters, conditions, chaining |
+| Scheduler | ~10 | Cron scheduling, dependencies, advanced expressions |
+| Libraries | ~30 | CircuitBreaker, RateLimiter, DLQ, QueueManager, DateTimeHelper |
+| Metrics | ~10 | Metrics collection and export |
+| Traits | ~25 | Activity, Identity, State, Frequencies, Environment, Callback |
+| Helpers | ~5 | DateTime parsing, requeue logic |
+| Models | ~10 | QueueModel atomic locking, optimistic fallback |
+| Exceptions | ~5 | JobException / QueueException factory methods |
 
 ## Continuous Integration
 

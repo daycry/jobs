@@ -5,11 +5,14 @@ Core building blocks and how they collaborate.
 ## Components
 | Component | Responsibility |
 |-----------|----------------|
-| Job | Domain representation: handler key + payload + metadata (name, queue, schedule, attempts). Uses 5 traits for organization. |
-| IdentityTrait | Job naming and dependencies (consolidated from NameableTrait + DependableTrait). |
+| Job | Domain representation: handler key + payload + metadata (name, queue, schedule, attempts). Uses 7 traits for organization. |
+| IdentityTrait | Job naming, job ID and dependencies (consolidated from NameableTrait + DependableTrait). |
 | StateTrait | Job state, notifications, and single-instance flags (consolidated from StatusTrait + NotificableTrait). |
 | EnqueuableTrait | Queue-centric behavior: push, attempts tracking, scheduling, worker lookup. |
-| CallbackTrait | Enhanced fluent chaining API: `then()`, `catch()`, `finally()`, `chain()` methods. |
+| ActivityTrait | `shouldRun()`, `lastRun()` and `getLastRunTime()` — scheduling activity helpers. |
+| FrequenciesTrait | Full cron expression builder: `daily()`, `everyMinute()`, `hourly()`, etc. |
+| EnvironmentTrait | Environment restriction API: `environments()`, `inEnvironment()`. |
+| CallbackTrait | Enhanced fluent chaining API: `then()`, `catch()`, `finally()`, `chain()`, `setCallbackJob()`. |
 | JobEnvelope | Transport snapshot consumed/produced by queue backends. Normalized with `fromBackend()` factory. |
 | QueueInterface + Implementations | Backend-specific enqueue / watch / remove operations (Redis, Database, Beanstalk, ServiceBus, Sync). |
 | QueueManager | Singleton registry/factory for queue backend instances with caching. |
@@ -78,8 +81,7 @@ Exceptions during execution should trigger failure path (increment attempt + pot
 Current counters (example): `jobs_succeeded`, `jobs_failed`, `jobs_requeued`. Extend collector to add timing/histogram support around durations or delay distributions.
 
 ## Future Enhancements (Ideas)
-- Distributed lock for singleton jobs.
-- Dead letter queue after max attempts exceeded.
-- Rate limiting / concurrency caps per queue.
-- Outbox integration for event dispatch.
+- Distributed lock for singleton jobs (beyond single-node cache lock).
+- Outbox integration for transactional event dispatch.
 - OpenTelemetry tracing spans around job execution.
+- Batch job processing (`$batchSize` config already reserved).

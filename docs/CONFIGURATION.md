@@ -31,7 +31,7 @@ The package reads its settings from `Daycry\Jobs\Config\Jobs` (you may publish /
 |----------|------|-------|
 | `$retryBackoffStrategy` | string | `none`, `fixed`, `exponential`. |
 | `$retryBackoffBase` | int | Base delay (seconds) for first retry. |
-| `$retryBackoffMultiplier` | float | Exponential factor `delay=base*multiplier^(attempt-1)` |
+| `$retryBackoffMultiplier` | float | Exponential factor: `delay = base * multiplier^(attempt-2)` (attempt=2 = first retry) |
 | `$retryBackoffMax` | int | Upper cap on any computed delay. |
 | `$retryBackoffJitter` | bool | Add +/- up to 15% random jitter. |
 
