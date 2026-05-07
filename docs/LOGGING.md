@@ -3,8 +3,8 @@
 The package provides structured execution logs capturing detailed metadata for each job run.
 
 ## Drivers
-- File: Each job name gets its own JSON lines file (one array stored per file or line-based depending on handler implementation).
-- Database: Each execution stored as a row in the jobs log table via `JobsLogModel`.
+- **File** (v1.1+): each job name gets its own NDJSON file (`<filePath>/<safe_name>.json`) — one JSON object per line, oldest at the top, newest at the bottom. Writes are atomic via `flock(LOCK_EX)`. `history()` and `lastRun()` transparently read both NDJSON and the legacy JSON-array format produced by pre-v1.1 versions; the first append after upgrade rewrites a legacy file as NDJSON in-place. Pruning is deterministic (`maxLogsPerJob` is a hard cap, last-N entries are kept).
+- **Database**: each execution is stored as a row in the jobs log table via `JobsLogModel`.
 
 Configured via `Jobs::$log` (`file` or `database`).
 
@@ -31,13 +31,15 @@ Configured via `Jobs::$log` (`file` or `database`).
 | data (DB only) | Full JSON dump for forward compatibility. |
 
 ## Sensitive Data Masking
-Sensitive keys are the union of defaults (`password`, `token`, `secret`, `authorization`, `api_key`) plus user configured keys. Recursively replaced with `***`.
+Sensitive keys are the union of defaults (`password`, `token`, `secret`, `authorization`, `api_key`) plus user configured keys. Recursively replaced with `***`. Recursion is bounded by `MAX_MASK_DEPTH = 10` (v1.0.3+); deeper structures are replaced by `[truncated:max-depth]` so adversarial deep payloads cannot trigger a stack overflow.
+
+Pattern-based detection (independent of key names) covers JWT tokens, Bearer tokens, and known API-key prefixes (Stripe, AWS, GitHub, Slack) plus opaque alphanumeric strings of 40+ characters. The previous "32+ chars" rule was tightened in v1.0.3 so 32-character UUIDs and SHA-1 hex digests are no longer false positives.
 
 ## Truncation
 If `maxOutputLength` is set, output & error strings longer than the limit are truncated with a suffix marker.
 
 ## Pruning
-`maxLogsPerJob` enforces a rolling window. Database handler deletes oldest rows beyond the limit. File handler may either append indefinitely or implement pruning (future enhancement).
+`maxLogsPerJob` enforces a rolling window. The database handler deletes oldest rows beyond the limit. The v1.1+ file handler also enforces it deterministically: after every append the file is rewritten with the last `maxLogsPerJob` entries when the cap is exceeded.
 
 ## Example (File JSON Entry)
 ```json
@@ -71,8 +73,12 @@ $logger->log($job, $result);
 ```
 
 ## Accessing History
-- File: read the job-specific JSON file under `filePath`.
-- Database: use `DatabaseHandler::history($name, $limit)` or query via model.
+Always prefer the handler API (`$handler->history($name, $limit)`) over reading the file directly — it returns entries newest-first regardless of the on-disk format (legacy JSON-array or NDJSON), so test code and operators do not need to care which version produced the file.
+
+- File: `(new FileHandler())->history($name, $limit)` (or read the file directly: NDJSON one object per line, oldest-first).
+- Database: `DatabaseHandler::history($name, $limit)` or query via the model.
+
+Tests in this repo use the `readJobLogFile()` helper on `Tests\Support\TestCase` which handles both formats transparently (added in v1.1).
 
 ## Extended Fields
 Additional fields (payloadHash, outputLength, retryStrategy) support observability and integrity checks.

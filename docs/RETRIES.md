@@ -69,4 +69,19 @@ if ($job->getAttempt() >= 5) {
 ```
 
 ## Metrics
-Track number of retries via `jobs_requeued` counter. You can export additional histograms for delay distribution.
+Track retries with the `jobs_requeued` counter. v1.0.3 added two more lifecycle counters worth alerting on:
+
+| Counter | Meaning |
+|---------|---------|
+| `jobs_failed` | Any failure attempt (including those that will be retried). |
+| `jobs_requeued` | Failure that resulted in a requeue. |
+| `jobs_failed_permanently` | Retries exhausted; the helper attempted to forward to the DLQ. |
+| `jobs_dlq_failed` | DLQ unconfigured or push to DLQ failed — silent-loss alert. |
+
+You can export additional histograms for delay distribution by wrapping `RetryPolicyFixed::computeDelay()` in your own decorator and observing the result before sleeping.
+
+## Backend integration (v1.1+)
+The Database backend honours retries via optimistic locking (10 attempts with exponential backoff + jitter, capped at 500ms). Redis preserves the original payload (and identifier) across requeues — the retry counter on the job advances, the message identity does not.
+
+## DLQ ordering (v1.0.3+)
+On permanent failure, `RequeueHelper::finalize()` calls `DeadLetterQueue::store()` **before** clearing the message from the origin queue. If `store()` returns `false` (DLQ unconfigured or push failed), the helper increments `jobs_dlq_failed` so operators can alert on it. Configure `Config\Jobs::$deadLetterQueue` to avoid this.

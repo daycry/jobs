@@ -22,6 +22,16 @@ You typically only read this in retry policy evaluators or logging.
 ## Requeue Flow
 Requeue logic is centralized in `RequeueHelper::finalize()` ensuring a single authoritative increment per cycle and preventing duplicate counting across queue backends.
 
+Order of operations (v1.0.3+):
+
+1. Compute the destination based on the cycle outcome (success / requeue / permanent failure).
+2. Run the destination operation:
+   - **Success** — `removeFn(false)`, then `addAttempt()`, then emit `jobs_succeeded`.
+   - **Requeue** — `addAttempt()` (so the requeued payload carries the new value), `removeFn(true)`, emit `jobs_failed` + `jobs_requeued`.
+   - **Permanent failure** — `DeadLetterQueue::store()` first; only after we know whether the DLQ accepted the message do we run `removeFn(false)` and emit `jobs_failed` + `jobs_failed_permanently` (plus `jobs_dlq_failed` if the DLQ rejected the message).
+
+This ordering eliminates the v1.0.2 race where a failure between the origin removal and the DLQ push silently lost the job.
+
 ## Custom Retry Constraints
 Implement a policy that decides max attempts:
 ```php

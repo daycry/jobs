@@ -53,12 +53,14 @@ Histograms store: `count`, `sum`, `min`, `max` per unique (name+labels) key.
 
 ### Job Lifecycle Metrics (`RequeueHelper`)
 
-| Counter Name       | When Incremented                                | Labels           |
-|--------------------|--------------------------------------------------|------------------|
-| `jobs_succeeded`   | A job finishes successfully                      | `queue`          |
-| `jobs_failed`      | A job attempt fails (final attempt included)     | `queue`          |
-| `jobs_requeued`    | A job fails and is placed back on the queue      | `queue`          |
-| `jobs_timed_out`   | (Reserved – implement when you add timeout hook) | `queue` (suggest) |
+| Counter Name              | When Incremented                                                                  | Labels       |
+|---------------------------|-----------------------------------------------------------------------------------|--------------|
+| `jobs_succeeded`          | A job finishes successfully                                                       | `queue`      |
+| `jobs_failed`             | A job attempt fails (final attempt included)                                      | `queue`      |
+| `jobs_requeued`           | A failed job is placed back on the queue for retry                                | `queue`      |
+| `jobs_failed_permanently` | A job exhausts retries and is forwarded to the DLQ (or removed when DLQ disabled) | `queue`      |
+| `jobs_dlq_failed`         | DLQ unconfigured or `DeadLetterQueue::store()` returned false (silent-loss alert) | `queue`      |
+| `jobs_timed_out`          | A job hit its timeout (`pcntl_alarm` or fallback path)                            | `job`,`queue`|
 
 ### Queue-Level Metrics (`InstrumentedQueueDecorator`)
 
@@ -130,11 +132,11 @@ If your collector needs dependencies, you have two options:
 
 ### 4.4 Worker Integration Points
 Current built‑in emission sites:
-| Location                    | Metric(s)                                    |
-|----------------------------|-----------------------------------------------|
-| `RequeueHelper::finalize`  | `jobs_succeeded`, `jobs_failed`, `jobs_requeued` |
-| `QueueRunCommand::process` | `jobs_fetched`, `jobs_age_seconds`, `jobs_exec_seconds` |
-| (Future timeout hook)      | `jobs_timed_out`                              |
+| Location                                          | Metric(s)                                                                                  |
+|---------------------------------------------------|--------------------------------------------------------------------------------------------|
+| `RequeueHelper::finalize`                         | `jobs_succeeded`, `jobs_failed`, `jobs_requeued`, `jobs_failed_permanently`, `jobs_dlq_failed` |
+| `JobLifecycleCoordinator::safeExecuteWithTimeout` | `jobs_timed_out` (both pcntl and fallback paths)                                           |
+| `QueueRunCommand::process`                        | `jobs_fetched`, `jobs_age_seconds`, `jobs_exec_seconds`                                    |
 
 You can safely add more in your own extended command or PRs.
 
@@ -186,9 +188,9 @@ if (is_array($data) && isset($data['imported'])) {
 ```
 
 ### 5.5 Timeout Counter
-When you detect a soft/hard timeout:
+`jobs_timed_out` is now emitted automatically by `JobLifecycleCoordinator::safeExecuteWithTimeout()` whenever the configured timeout fires (both `pcntl_alarm` path on POSIX and the post-execute time check fallback). The labels are `job` and `queue`. You only need to add an extra increment if you implement *additional* timeout enforcement outside the coordinator:
 ```php
-$metrics?->increment('jobs_timed_out', 1, [ 'queue' => $queueName ]);
+$metrics?->increment('jobs_timed_out', 1, ['job' => $jobName, 'queue' => $queueName]);
 ```
 
 ---
@@ -265,9 +267,10 @@ Avoid labels that can take unbounded values (timestamps, UUID per run) – that 
 | Issue                                  | Cause / Fix |
 |----------------------------------------|-------------|
 | Counters always zero                   | Collector not injected (null). Ensure service wiring. |
-| High memory usage with InMemory        | Long‑running worker + many unique label combos. Switch to streaming exporter. |
+| High memory usage with InMemory        | Long‑running worker + many unique label combos. v1.2 caps cardinality at 5 000 entries with FIFO eviction, but if you still see drift switch to a streaming exporter. |
 | Cardinality explosion                  | Too many distinct `job` or `attempt` labels. Trim labels. |
-| Missing `jobs_timed_out` increments    | Timeout hook not yet implemented – add where you enforce timeouts. |
+| Missing `jobs_timed_out` increments    | Job did not actually timeout, OR the timeout fired but a previous PHP version ignored SIGALRM during CPU-bound work. v1.2 enables `pcntl_async_signals(true)` so this should not occur on PHP 7.1+. |
+| `jobs_dlq_failed` increments           | DLQ unconfigured or push to DLQ failed. Configure `Config\Jobs::$deadLetterQueue` and verify the destination queue accepts pushes. |
 | Histogram buckets seem coarse          | Adjust bucket array in your custom collector implementation. |
 
 ---

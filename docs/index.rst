@@ -30,7 +30,15 @@ is enabled in your `conf.py` so the `.md` pages render correctly.
 	LOGGING
 	ATTEMPTS
 	RETRIES
+	EXCEPTIONS
 	COMMANDS
+	TESTING
+
+.. toctree::
+	:maxdepth: 2
+	:caption: v2 (opt-in)
+
+	V2_MIGRATION
 
 .. toctree::
 	:maxdepth: 1
@@ -38,6 +46,8 @@ is enabled in your `conf.py` so the `.md` pages render correctly.
 
 	dashboard
 	home
+	ENHANCEMENTS
+	QUEUE_SIMPLIFICATION
 	requirements <requirements>
 
 Indices and Tables

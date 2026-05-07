@@ -49,7 +49,9 @@ Will enable the task runner if it was previously disabled, allowing all tasks to
 ## Queues
 | Command | Description |
 |---------|-------------|
-| `jobs:queue:run [--queue=NAME] [--sleep=N]` | Run a worker consuming jobs from configured backend. |
+| `jobs:queue:run [--queue=NAME] [--oneTime] [--background]` | Run a worker consuming jobs from the configured backend. |
+| `jobs:queue:purge [--status=...] [--queue=...] [--before=...] [--dry-run] [--force]` | Purge completed/failed records from the database queue table. |
+| `jobs:redis:reap-stuck [--queue=NAME] [--timeout=SECONDS]` | Re-enqueue Redis jobs left in the processing list past the visibility timeout (v1.1+). |
 | `jobs:health [--json] [--queue=NAME]` | Display system health and queue statistics. |
 
 ### Queue Worker Details
@@ -106,7 +108,29 @@ If metrics are enabled, the worker tracks:
 - `jobs_fetched` - Total fetch attempts
 - `jobs_age_seconds` - Queue latency (enqueue → start)
 - `jobs_exec_seconds` - Execution duration
+- `jobs_succeeded` / `jobs_failed` / `jobs_requeued` / `jobs_failed_permanently`
+- `jobs_timed_out` (v1.0.3+, both pcntl and fallback paths)
+- `jobs_dlq_failed` (v1.0.3+, DLQ unavailable or push failed)
 - Plus queue-level metrics if using `InstrumentedQueueDecorator`
+
+**Worker maintenance (v1.2+)**:
+- Every 100 iterations the worker pings the database with `SELECT 1` and reconnects on failure (avoids `MySQL has gone away` after `wait_timeout`).
+- Every 1 000 iterations the in-memory metrics collector is reset and `gc_collect_cycles()` is invoked so workers running 24/7 keep memory bounded.
+- When `blockingFetch = true` and the active worker is `redis` or `beanstalk`, the `pollInterval` sleep is skipped because the fetch already blocked.
+
+## Redis reaper (v1.1+)
+
+`jobs:redis:reap-stuck` walks the Redis processing-meta hash and re-enqueues every item whose lease is older than the visibility timeout. Run it periodically via system cron when Redis is the active worker:
+
+```bash
+# every minute, default visibility timeout (Config\Jobs::$redisProcessingVisibilityTimeout, 300s)
+* * * * * php /path/to/spark jobs:redis:reap-stuck --queue=default
+
+# override the timeout from the CLI
+php spark jobs:redis:reap-stuck --queue=high --timeout=120
+```
+
+A worker that crashes after `watch()` but before `removeJob()` leaves its message in the processing list. Without the reaper that message is invisible to the rest of the workers; with it the message is restored to `waiting` after the configured timeout and retried.
 
 ## Health Monitoring
 

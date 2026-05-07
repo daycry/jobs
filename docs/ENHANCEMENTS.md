@@ -2,41 +2,41 @@
 
 This document describes the advanced security, performance, and operational features added to the Jobs system.
 
+> **Updated for v1.0.x → v2.0-alpha** — see [CHANGELOG](../CHANGELOG.md) for the per-release timeline. Features that gained significant changes in a specific release are tagged inline (e.g. *v1.1+*).
+
 ## Security Enhancements
 
-### 1. Shell Command Whitelisting
+### 1. Shell Command Whitelisting (*v1.1+ realpath*)
 
-**Problem**: `escapeshellcmd()` alone is vulnerable to argument injection attacks.
+**Problem**: `escapeshellarg()` neutralises shell metacharacters but the legacy basename-based whitelist allowed `/tmp/echo` to impersonate the `/usr/bin/echo` you actually trusted.
 
-**Solution**: Configurable whitelist of allowed shell commands.
+**Solution**: in v1.1+ entries with a path separator are matched against `realpath()` of the candidate so the resolved binary must match exactly. Bare-name entries continue to work via the legacy basename match with a deprecation log so existing installs do not break (this fallback will be removed in v2.0).
 
 **Configuration**:
 ```php
-// app/Config/Jobs.php
-public array $allowedShellCommands = ['ls', 'grep', 'cat', 'find'];
+// Recommended: absolute paths, matched via realpath()
+public array $allowedShellCommands = ['/usr/bin/ls', '/usr/bin/grep', '/usr/bin/cat'];
+
+// Legacy (still works, emits deprecation log)
+public array $allowedShellCommands = ['ls', 'grep', 'cat'];
 ```
 
 **Behavior**:
-- Empty array (default): All commands allowed (backward compatible)
-- Non-empty array: Only whitelisted commands can execute
-- Validation occurs before command execution
-- Throws `JobException::forShellCommandNotAllowed($command)` on violation
+- Empty array (default): all commands allowed (backward compatible)
+- Entries with `/` or `\` are resolved with `realpath()` and compared against the resolved candidate. `/tmp/echo` is rejected even if `/usr/bin/echo` is whitelisted.
+- Bare names use the legacy basename match and emit a `warning` log.
+- Throws `JobException::forShellCommandNotAllowed($command)` on violation.
 
 **Example**:
 ```php
 use Daycry\Jobs\Job;
 
-// Allowed if 'ls' is whitelisted
-$job = new Job('shell', 'ls -la');
+// Allowed when /usr/bin/ls is whitelisted
+$job = new Job('shell', '/usr/bin/ls -la');
 
-// Rejected if 'rm' not whitelisted
-$job = new Job('shell', 'rm -rf /tmp/*'); // throws JobException
+// Rejected: /tmp/ls is not the whitelisted /usr/bin/ls
+$job = new Job('shell', '/tmp/ls -la'); // throws JobException
 ```
-
-**Command Parsing**:
-The validator extracts the base command (first word) before arguments:
-- `ls -la /var` → validates `ls`
-- `grep -r "pattern" .` → validates `grep`
 
 ---
 
@@ -210,35 +210,39 @@ public ?string $deadLetterQueue = 'failed_jobs';
 | `dlq_attempts` | Total attempts before failure | 5 |
 | `original_queue` | Source queue name | "high_priority" |
 
-**API**:
+**API** (*v1.0.3+ — `store()` returns `bool`*):
 ```php
 use Daycry\Jobs\Libraries\DeadLetterQueue;
 
 $dlq = new DeadLetterQueue();
 
-// Store failed job (automatic in RequeueHelper)
-$dlq->store($job, 'Max retries exceeded', 5);
+// Store failed job (automatic in RequeueHelper). Returns true on success,
+// false when the DLQ is unconfigured or the underlying push failed.
+$stored = $dlq->store($job, 'Max retries exceeded', 5);
+
+if (! $stored) {
+    // RequeueHelper emits jobs_dlq_failed for you in this case.
+    log_message('alert', 'DLQ not available — investigate before more jobs exhaust retries.');
+}
 
 // Get statistics
 $stats = $dlq->getStats();
-/*
-[
-    'total' => 42,
-    'by_queue' => [
-        'default' => 30,
-        'high_priority' => 12
-    ]
-]
-*/
 ```
 
 **Integration**:
-`RequeueHelper` automatically routes on permanent failure:
+`RequeueHelper::finalize()` calls `store()` **before** clearing the origin queue (v1.0.3+ ordering) and emits `jobs_dlq_failed` if the DLQ rejected the message:
+
 ```php
 // In RequeueHelper::finalize()
-if (!$success && !$willRetry) {
-    $this->dlq->store($job, 'Max retries exceeded', $currentAttempt);
+if (! $success && ! $willRetry) {
+    $stored = $this->dlq->store($job, 'Max retries exceeded', $currentAttempt);
+
+    $removeFn($job, false);
+    $this->metrics?->increment('jobs_failed');
     $this->metrics?->increment('jobs_failed_permanently');
+    if (! $stored) {
+        $this->metrics?->increment('jobs_dlq_failed');
+    }
 }
 ```
 
@@ -264,14 +268,15 @@ public int $jobTimeout = 300; // 5 minutes
 
 **Behavior**:
 - 0 = disabled (backward compatible)
-- Uses `pcntl_alarm()` for signal-based timeout (hard kill)
-- Falls back to time check if `pcntl` extension unavailable
-- Throws `JobException::forJobTimeout($jobName, $timeout)`
+- Uses `pcntl_alarm()` for signal-based timeout (hard kill). v1.2 enables `pcntl_async_signals(true)` so SIGALRM interrupts CPU-bound code without waiting for a syscall, and restores the previous SIGALRM handler so successive jobs in the same worker process do not inherit our handler.
+- Falls back to a post-execute time check if `pcntl` is unavailable (Windows/FPM).
+- Emits the `jobs_timed_out` metric on either path (v1.0.3+).
+- Throws `JobException::forJobTimeout($jobName, $timeout)`.
 
 **Implementation Modes**:
 | Mode | Requirement | Enforcement |
 |------|-------------|-------------|
-| Hard Timeout | `pcntl` extension | Signal kills process after timeout |
+| Hard Timeout | `pcntl` extension | Signal kills process after timeout (works on CPU-bound code in v1.2+ thanks to async signals) |
 | Soft Timeout | Fallback (no `pcntl`) | Time check + warning log |
 
 **Example**:

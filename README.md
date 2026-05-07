@@ -56,15 +56,37 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 - Clean separation of concerns (JobEnvelope transport + Job domain object + RequeueHelper lifecycle).
 - Comprehensive test suite organized by domain (Queues, Logging, Retry, Jobs, Execution, Callbacks, Scheduler, Metrics, Helpers, Traits). See `docs/TESTING.md`.
 
-### New Security & Performance Features
-- **Shell Command Whitelisting**: Optional whitelist to restrict allowed shell commands, preventing command injection.
-- **Smart Token Detection**: Automatic detection and masking of JWT tokens, API keys, and Bearer tokens in logs.
-- **Rate Limiting**: Per-queue rate limits to prevent resource exhaustion (cache-based token bucket).
-- **Dead Letter Queue**: Automatic routing of permanently failed jobs to a dedicated queue for analysis.
-- **Job Timeout Protection**: Hard timeout enforcement with `pcntl_alarm` (fallback to time check if unavailable).
-- **Config Caching**: Singleton-based configuration caching to reduce overhead in high-throughput scenarios.
-- **Fluent Job Chaining**: Enhanced callback API with `then()`, `catch()`, `finally()`, and `chain()` methods.
-- **Health Monitoring**: Built-in `jobs:health` command with queue statistics, success rates, and JSON output.
+### Reliability (v1.0.x → v1.2)
+- **Fail-loud DLQ** (v1.0.3+): `DeadLetterQueue::store()` returns `bool`; `RequeueHelper` attempts the DLQ before clearing the origin queue and emits `jobs_dlq_failed` if anything goes wrong — no more silent loss.
+- **ServiceBus peek-lock** (v1.1+): `POST /messages/head` + `LockToken` settle/abandon flow. Worker crashes are recovered by broker redelivery.
+- **Redis reliable queue** (v1.1+): atomic `RPOPLPUSH` from waiting → processing + meta hash + `jobs:redis:reap-stuck` CLI for crash recovery.
+- **Optional blocking fetch** (v1.1+): `BRPOPLPUSH` (Redis) / `reserve_with_timeout` (Beanstalk) eliminate `pollInterval` latency.
+- **DB optimistic locking** (v1.1+): 10 attempts with exponential backoff + jitter, early bailout on empty queues.
+- **Heartbeat singleInstance lock** (v1.2+): long-running jobs no longer lose their lock prematurely.
+- **Worker maintenance** (v1.2+): DB ping/reconnect every 100 iterations and in-memory metrics reset every 1 000 iterations keep workers running 24/7 without drift.
+- **Reproducible CPU-bound timeout** (v1.2+): `pcntl_async_signals(true)` so SIGALRM interrupts even tight loops; signal handler is restored between jobs.
+
+### Security
+- **UrlJob hardening** (v1.1+): explicit `http`/`https` scheme whitelist; multi-IP DNS validation (`A` + `AAAA`) against private/reserved ranges including IPv6 literals.
+- **ShellJob realpath whitelist** (v1.1+): `/tmp/echo` cannot impersonate `/usr/bin/echo`. Bare-name entries continue to work with a deprecation warning.
+- **Smart Token Detection**: JWT, Bearer, and known API-key prefixes (`sk_…`, `pk_…`, `AKIA…`, `gh[pousr]_…`, `xox[abprs]-…`) plus opaque ≥40-char strings — UUIDs/SHA-1 are no longer false positives.
+- **Bounded recursion in masking** (v1.0.3+): `MAX_MASK_DEPTH = 10` prevents stack-overflow on adversarial deep payloads.
+
+### Performance & DX
+- **NDJSON file logging** (v1.1+): atomic appends, deterministic pruning, transparent legacy JSON-array read on `history()`.
+- **Cardinality-bounded metrics** (v1.2+): `InMemoryMetricsCollector` evicts FIFO past 5 000 keys.
+- **DI for notifications** (v1.2+): `Notifications\NotificationService` extracted from `StateTrait`; default factory at `Config\Services::jobsNotificationService()` keeps existing callers working.
+- **Rate limiting**: per-queue token-bucket via cache.
+- **Health monitoring**: built-in `jobs:health` command with queue statistics, success rates, and JSON output.
+- **Fluent job chaining**: `then()`, `catch()`, `finally()`, `chain()`.
+- **35 new FrequenciesTrait tests** (v1.2+) cover every cron helper.
+
+### Opt-in v2 API (v2.0-alpha)
+The new `Daycry\Jobs\V2\` namespace ships alongside the v1 API for incremental adoption — see [V2 Migration](docs/V2_MIGRATION.md):
+- `JobDefinition` immutable value object (`withXxx()` returns a copy; `fromLegacyJob()` bridges from the v1 builder).
+- `JobLease` + `QueueBackend` lease-based contract (`enqueue / fetch / ack / nack / abandon`) replacing the legacy `QueueInterface` + `WorkerInterface` split.
+- `LegacyWorkerAdapter` lets existing backends speak the new contract today.
+- `TypedJobHandler` rehydrates payloads to a declared DTO instead of receiving `mixed`.
 
 ### Queue-Level Metrics (Decorator)
 | Metric | Type | Labels |
@@ -83,7 +105,9 @@ Advanced job scheduling and queue processing for CodeIgniter 4. Combines cron-st
 | `jobs_succeeded` | Job completes successfully |
 | `jobs_failed` | Job attempt fails |
 | `jobs_requeued` | Failed job re-enqueued |
-| `jobs_timed_out` | (Reserved) timeout hook |
+| `jobs_failed_permanently` | Retries exhausted (job forwarded to DLQ if configured) |
+| `jobs_dlq_failed` | DLQ unconfigured or push to DLQ failed (silent-loss alert) |
+| `jobs_timed_out` | Hit `pcntl_alarm` or fallback timeout (labels: `job`, `queue`) |
 
 > Enable queue-level metrics by wrapping a backend with `InstrumentedQueueDecorator`.
 

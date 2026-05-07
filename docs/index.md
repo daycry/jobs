@@ -8,9 +8,10 @@ Welcome to the documentation for the CodeIgniter Job Scheduler. This index provi
 - [Defining Schedules](scheduling.md)
 - [Job Dependencies](dependencies.md)
 - [Advanced Features](advanced.md)
-- [**Enhanced Features (NEW)**](ENHANCEMENTS.md)
+- [Enhanced Features](ENHANCEMENTS.md)
 - [Metrics & Monitoring (Guide)](metrics-monitoring.md)
 - [Testing Guide](TESTING.md)
+- [**v2 Migration Guide**](V2_MIGRATION.md) — adoption path for the new opt-in `Daycry\Jobs\V2\` API.
 
 ---
 ## Core Configuration & Architecture
@@ -55,9 +56,10 @@ Images and diagrams used across pages are stored under [`images/`](images/).
 | LOGGING.md | Structured logging & masking |
 | ATTEMPTS.md | Attempt counting model |
 | RETRIES.md | Backoff strategies |
-| **EXCEPTIONS.md** | **Exception handling & resilience (NEW)** |
-| COMMANDS.md | CLI command reference |
+| EXCEPTIONS.md | Exception handling & resilience |
+| COMMANDS.md | CLI command reference (incl. `jobs:redis:reap-stuck`, v1.1+) |
 | TESTING.md | Test organization and running tests |
+| **V2_MIGRATION.md** | **Migration path for the v2.0-alpha opt-in API (JobDefinition, QueueBackend, JobLease, TypedJobHandler)** |
 | dashboard.md | Suggested dashboard ideas |
 | home.md | Alternate landing / legacy content |
 | requirements.txt | Python build deps (docs) |

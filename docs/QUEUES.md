@@ -10,24 +10,33 @@ Multiple backends share a unified abstraction via `QueueInterface` and transport
 | Remove (complete/fail) | `$queue->removeJob($job, $recreate)` |
 
 ## RedisQueue
-- Uses Redis lists / sorted sets for delayed jobs.
-- Promotes delayed jobs to ready list ensuring minimum positive delay.
-- Lightweight and fast; requires `ext-redis`.
+- Requires `ext-redis`.
+- **v1.1+ reliable-queue pattern.** Storage model per queue:
+  - `<prefix><queue>-waiting` — LIST of jobs ready to fetch.
+  - `<prefix><queue>-delayed` — ZSET of jobs scheduled for the future (score = unix timestamp).
+  - `<prefix><queue>-processing` — LIST of in-flight jobs picked up by a worker (atomic `RPOPLPUSH` from waiting).
+  - `<prefix><queue>-processing-meta` — HASH of `{ raw_payload => started_at_unix }` consumed by the reaper.
+- `watch()` atomically moves one item to processing and records the lease timestamp. `removeJob(false)` drops it; `removeJob(true)` moves it back to waiting via `MULTI`/`EXEC`.
+- A worker that crashes between `watch()` and `removeJob()` leaves the item in processing. Run `php spark jobs:redis:reap-stuck --queue=<name>` periodically (e.g. every minute via system cron) so jobs older than `redisProcessingVisibilityTimeout` are returned to the waiting list.
+- Set `blockingFetch = true` (config) to use `BRPOPLPUSH` and avoid the `pollInterval` sleep.
 
 ## DatabaseQueue
-- Stores jobs in relational table (configured group/table).
-- **Atomic Locking**: Uses `reserveJob` with optimistic locking to prevent race conditions in multi-worker environments.
-- **High Performance**: Optimized with composite indexes `(status, schedule, priority)` for O(1) fetch times independent of history size.
+- Stores jobs in a relational table (configured group/table).
+- **Atomic Locking** — uses `FOR UPDATE SKIP LOCKED` on MySQL 8+/PostgreSQL 9.5+ when available.
+- **Optimistic fallback** (SQLite, MySQL <8, etc.) — v1.1 raised `maxAttempts` from 3 to 10 with exponential backoff (10ms→500ms) plus ±20% jitter, and bails out early on empty queues so a quiet queue does not waste retry budget.
+- **High Performance**: composite indexes `(status, schedule, priority)` keep fetch latency independent of history size.
 - Enables inspection and manual intervention via SQL.
-- Stable for moderate workloads and ensures data integrity.
 
 ## BeanstalkQueue
 - Wraps Pheanstalk client for beanstalkd tube operations.
-- Good for simple work queue semantics.
+- `reserve_with_timeout` already blocks; combine with `blockingFetch = true` so the worker loop skips its own `pollInterval` sleep.
 
 ## ServiceBusQueue
-- Integrates with Azure Service Bus REST endpoints.
-- Suitable for cloud distributed producers/consumers.
+- **v1.1+ peek-lock**. `watch()` issues `POST /<queue>/messages/head?timeout=<serviceBusLockTimeout>` and parses `BrokerProperties` (`LockToken` + `MessageId`). The message stays locked at the broker until acked.
+- `removeJob(false)` settles via `DELETE /<queue>/messages/<messageId>/<lockToken>`.
+- `removeJob(true)` enqueues a fresh copy first, then settles the original — if the worker crashes between, the broker redelivers the original after the lock expires (no data loss).
+- Configure `serviceBusLockTimeout` ≥ the maximum expected job runtime; otherwise the broker may redeliver while the worker is still executing.
+- The SAS token is generated once per `ServiceBusQueue` instance (week-long lifetime); long-running workers should be restarted periodically until lock-renewal lands in v1.3.
 
 ## SyncQueue
 - Executes job immediately in the same process (no persistence) — useful for local development or fallback.
@@ -100,3 +109,29 @@ Tracks 7 metrics:
 
 ## Extending
 Implement `QueueInterface`, honor `JobEnvelope` structure, and register your worker in `$workers` map.
+
+## v2 (opt-in) — `QueueBackend`
+A new lease-oriented contract ships in `Daycry\Jobs\V2\Queues\QueueBackend` (still alongside the v1 split). It exposes `enqueue / fetch / ack / nack / abandon`, removing the per-instance hidden state in legacy backends.
+
+```php
+use Daycry\Jobs\Libraries\QueueManager;
+use Daycry\Jobs\V2\JobDefinition;
+use Daycry\Jobs\V2\Queues\LegacyWorkerAdapter;
+
+$legacy   = QueueManager::instance()->getDefault();
+$adapter  = new LegacyWorkerAdapter($legacy, 'redis', 300);
+
+$id    = $adapter->enqueue((new JobDefinition('command', 'jobs:test'))->withQueue('reports'));
+$lease = $adapter->fetch('reports');
+
+if ($lease !== null) {
+    try {
+        // ... process $lease->envelope->payload ...
+        $adapter->ack($lease);
+    } catch (\Throwable) {
+        $adapter->nack($lease);
+    }
+}
+```
+
+See [V2 Migration](V2_MIGRATION.md) for the full adoption path and timeline.

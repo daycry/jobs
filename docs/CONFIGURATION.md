@@ -17,14 +17,25 @@ The package reads its settings from `Daycry\Jobs\Config\Jobs` (you may publish /
 | `$sensitiveKeys` | array | List of payload/output/error keys (case-insensitive) to mask recursively. |
 | `$maxOutputLength` | ?int | Truncate output & error string length (null = unlimited). |
 
-## Security & Performance (New)
+## Security & Performance
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `$allowedShellCommands` | array | `[]` | Whitelist of allowed shell commands for `ShellJob`. Empty array = allow all (backward compatible). Non-empty = only listed commands permitted. |
-| `$queueRateLimits` | array | `[]` | Per-queue rate limits (jobs/minute). Format: `['queue_name' => max_per_minute]`. 0 or missing = no limit. Uses cache-based token bucket algorithm. |
-| `$deadLetterQueue` | ?string | `null` | Queue name for permanently failed jobs. When set, jobs exceeding max retries are moved here with metadata (reason, timestamp, attempts, original_queue). |
-| `$jobTimeout` | int | `300` | Maximum execution time per job in seconds. 0 = disabled. Uses `pcntl_alarm` if available, falls back to time check. |
+| `$allowedShellCommands` | array | `[]` | Whitelist for `ShellJob`. Empty array = allow all (backward compatible). Entries with a path separator are matched via `realpath()`; bare names use the legacy basename match with a deprecation warning (removal in v2.0). |
+| `$queueRateLimits` | array | `[]` | Per-queue rate limits (jobs/minute). Format: `['queue_name' => max_per_minute]`. 0 or missing = no limit. Cache-based token bucket; production deployments should use Redis/Memcached for atomic semantics. |
+| `$deadLetterQueue` | ?string | `null` | Queue name for permanently failed jobs. **When `null` and retries exhaust, the helper logs a `critical` and emits `jobs_dlq_failed`.** Configure a queue to avoid silent loss. Metadata appended: `dlq_reason`, `dlq_timestamp`, `dlq_attempts`, `original_queue`. |
+| `$jobTimeout` | int | `300` | Maximum execution time per job in seconds. 0 = disabled. Uses `pcntl_alarm` (with `pcntl_async_signals(true)` so CPU-bound jobs get interrupted), falls back to a post-execute time check on Windows/non-pcntl runtimes. Emits `jobs_timed_out` on either path. |
 | `$batchSize` | int | `1` | Reserved for future batch processing feature. Currently unused. |
+
+### Worker behaviour
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$pollInterval` | int | `5` | Seconds to sleep between polling cycles when no job is available. Skipped automatically when `$blockingFetch` is enabled and the active backend supports blocking reads. |
+| `$blockingFetch` | bool | `false` | Opt in to blocking fetch on backends that support it (Redis `BRPOPLPUSH`, Beanstalk `reserve_with_timeout`). Eliminates the polling sleep latency. |
+| `$blockingFetchTimeout` | int | `5` | Seconds to wait per blocking fetch (also acts as the upper bound for graceful shutdown latency). |
+| `$redisProcessingVisibilityTimeout` | int | `300` | Visibility timeout (seconds) used by `jobs:redis:reap-stuck` to decide when an in-flight job in the Redis processing list belongs to a crashed worker and must be requeued. |
+| `$serviceBusLockTimeout` | int | `60` | Lock timeout (seconds) requested when peek-locking Service Bus messages. Should be ≥ the maximum job runtime; otherwise the broker may redeliver mid-execution. |
+| `$circuitBreakerThreshold` | int | `5` | Consecutive backend failures before the circuit opens. |
+| `$circuitBreakerCooldown` | int | `60` | Seconds the circuit stays open before the worker retries the backend. |
 
 ## Retry / Backoff
 | Property | Type | Notes |
@@ -65,24 +76,33 @@ Relies on `ext-redis` and host/port taken from environment (e.g. `REDIS_HOST`, `
 ## Sensitive Data Masking
 The effective keys are the union of internal defaults (`password`, `token`, `secret`, `authorization`, `api_key`) plus any configured in `$sensitiveKeys` and those appended dynamically at runtime. Matching is case-insensitive and recursive across arrays/objects. Values are replaced with `***`.
 
-### Enhanced Token Pattern Detection
+### Enhanced Token Pattern Detection (v1.0.3+)
 In addition to key-based masking, the logger automatically detects and masks:
 - **JWT Tokens**: Format `xxx.yyy.zzz` → `***JWT_TOKEN***`
-- **API Keys**: Alphanumeric strings ≥32 characters → `***API_KEY***`
+- **API Keys**: known provider prefixes (`sk_(live|test)_…`, `pk_(live|test)_…`, `AKIA…` (AWS), `gh[pousr]_…` (GitHub PATs), `xox[abprs]-…` (Slack)) **or** opaque alphanumeric strings of 40 characters or more → `***API_KEY***`. The previous "32+ chars" rule was tightened in v1.0.3 so 32-character UUIDs and SHA-1 hex digests are no longer false positives.
 - **Bearer Tokens**: `Bearer <token>` → `Bearer ***TOKEN***`
+
+Recursion is bounded by `MAX_MASK_DEPTH = 10`; payloads nested deeper than that are replaced by `[truncated:max-depth]` so adversarial deep arrays/objects cannot cause a stack overflow.
 
 This pattern-based detection works independently of key names, providing defense-in-depth for leaked credentials.
 
 ## Security Features
 
 ### Shell Command Whitelisting
-Restrict which shell commands can be executed by `ShellJob`:
+Restrict which shell commands can be executed by `ShellJob`. **Recommended in v1.1+:** use absolute paths so `/tmp/echo` cannot impersonate a whitelisted `/usr/bin/echo`:
+
 ```php
-public array $allowedShellCommands = ['ls', 'grep', 'cat', 'find'];
+// Recommended (v1.1+): absolute paths matched via realpath()
+public array $allowedShellCommands = ['/usr/bin/ls', '/usr/bin/grep', '/usr/bin/cat'];
+
+// Legacy (deprecated, still works with a warning log)
+public array $allowedShellCommands = ['ls', 'grep', 'cat'];
 ```
-- Empty array (default): All commands allowed (backward compatible)
-- Non-empty: Only listed commands permitted
-- Throws `JobException::forShellCommandNotAllowed()` on violation
+
+- Empty array (default): All commands allowed (backward compatible).
+- Entries with a path separator (`/` or `\\`) are resolved with `realpath()` and compared against the resolved candidate. `/tmp/echo` is rejected even if the whitelist contains `/usr/bin/echo`.
+- Bare names fall back to the legacy `basename()` match and emit a deprecation warning. This mode is removed in v2.0.
+- Throws `JobException::forShellCommandNotAllowed()` on violation.
 
 ### Rate Limiting
 Prevents queue overload with per-queue limits:
@@ -104,15 +124,16 @@ Implementation:
   ```
 
 ### Dead Letter Queue (DLQ)
-Automatic routing of failed jobs for forensic analysis:
+Automatic routing of permanently failed jobs for forensic analysis:
 ```php
 public ?string $deadLetterQueue = 'failed_jobs';
 ```
-Behavior:
-- Jobs exceeding max retries are moved to DLQ
-- Metadata added: `dlq_reason`, `dlq_timestamp`, `dlq_attempts`, `original_queue`
-- Retrieve stats: `$dlq->getStats()` (total count, per-queue breakdown)
-- Disabled when `null` (default)
+Behavior (v1.0.3+):
+- Jobs exceeding max retries are moved to the DLQ **before** being cleared from the origin queue, so a DLQ failure does not lose the message.
+- `DeadLetterQueue::store()` returns `bool` — `false` means the DLQ was unconfigured or the underlying push failed; `RequeueHelper` then emits the `jobs_dlq_failed` metric so operators can alert on it.
+- Without `$deadLetterQueue`, permanently failed jobs are still removed from the origin (otherwise some backends — Redis processing list, ServiceBus settle — would loop forever) and a `critical` log entry is recorded.
+- Metadata added when stored: `dlq_reason`, `dlq_timestamp`, `dlq_attempts`, `original_queue`.
+- Retrieve stats: `$dlq->getStats()`.
 
 ### Job Timeout Protection
 Hard enforcement of maximum execution time:

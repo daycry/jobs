@@ -307,21 +307,20 @@ public function finalize(Job $job, JobEnvelope $envelope, callable $removeFn, bo
     
     if ($shouldRequeue) {
         // REQUEUE for retry
-        $removeFn($job, true); 
+        $removeFn($job, true);
         $this->metrics->increment('jobs_failed');
         $this->metrics->increment('jobs_requeued');
     } else {
-        // PERMANENT FAILURE
+        // PERMANENT FAILURE — v1.0.3+ ordering: DLQ first, then origin removal,
+        // and emit jobs_dlq_failed when the DLQ could not persist the message.
+        $stored = $this->dlq->store($job, 'Max retries exceeded', $currentAttempt);
+
         $removeFn($job, false);
         $this->metrics->increment('jobs_failed');
         $this->metrics->increment('jobs_failed_permanently');
-        
-        // Move to Dead Letter Queue
-        $this->dlq->store(
-            $job,
-            'Max retries exceeded',
-            $currentAttempt
-        );
+        if (! $stored) {
+            $this->metrics->increment('jobs_dlq_failed');
+        }
     }
 }
 ```
@@ -334,6 +333,8 @@ public function finalize(Job $job, JobEnvelope $envelope, callable $removeFn, bo
 | `jobs_failed` | Job attempt fails | `queue` |
 | `jobs_requeued` | Failed job retried | `queue` |
 | `jobs_failed_permanently` | Retries exhausted | `queue` |
+| `jobs_dlq_failed` | DLQ unconfigured or push to DLQ failed (silent-loss alert, v1.0.3+) | `queue` |
+| `jobs_timed_out` | Hit `pcntl_alarm` or fallback timeout in `JobLifecycleCoordinator` (v1.0.3+) | `job`, `queue` |
 
 ---
 
@@ -364,6 +365,11 @@ $envelope->payload['meta'] = [
 ];
 ```
 
+### Return value (v1.0.3+)
+`DeadLetterQueue::store()` returns `bool`:
+- `true` — the job was successfully pushed to the DLQ.
+- `false` — DLQ unconfigured (`Config\Jobs::$deadLetterQueue` is null) **or** the underlying push raised. Both cases are logged at `critical` severity and `RequeueHelper::finalize()` emits `jobs_dlq_failed` so operators can alert on it.
+
 ### Querying DLQ
 
 ```php
@@ -371,16 +377,6 @@ use Daycry\Jobs\Libraries\DeadLetterQueue;
 
 $dlq = new DeadLetterQueue();
 $stats = $dlq->getStats();
-
-/*
-[
-    'total' => 42,
-    'by_queue' => [
-        'default' => 30,
-        'high_priority' => 12
-    ]
-]
-*/
 ```
 
 ---

@@ -15,6 +15,7 @@ tests/
 │   ├── Exceptions/         - JobException / QueueException factory methods
 │   ├── Execution/          - Job execution lifecycle, coordinator, retries
 │   ├── Helpers/            - DateTime, Requeue helpers
+│   ├── Hotfixes/           - v1.0.3 fix coverage (DLQ fail-loud, RequeueHelper ordering, masking bounds)
 │   ├── Jobs/               - Job core, envelopes, enqueue, callbacks
 │   ├── Libraries/          - CircuitBreaker, RateLimiter, DeadLetterQueue, QueueManager, DateTimeHelper
 │   ├── Logging/            - File/Database handlers, masking, rotation, pruning
@@ -22,10 +23,15 @@ tests/
 │   ├── Models/             - QueueModel database operations
 │   ├── Queues/             - Queue backends (Redis, Database, Beanstalk, ServiceBus, Sync)
 │   ├── Retry/              - Retry policies, backoff strategies, jitter
-│   ├── Scheduler/          - Cron scheduling, dependencies, advanced expressions
-│   └── Traits/             - Job traits (Identity, State, Activity, Frequencies, Environment, Callback)
-└── _support/               - Test helpers and base classes
+│   ├── Scheduler/          - Cron scheduling, dependencies, advanced expressions, FrequenciesTrait coverage
+│   ├── Traits/             - Job traits (Identity, State, Activity, Frequencies, Environment, Callback)
+│   ├── V1_1/               - v1.1 reliability + security tests (UrlJob hardening, ShellJob realpath, FileHandler NDJSON, Redis reliable queue)
+│   └── V2/                 - v2.0-alpha opt-in API tests (JobDefinition, JobLease, LegacyWorkerAdapter, TypedJobHandler)
+└── _support/               - Test helpers and base classes (TestCase, DatabaseTestCase, Commands)
 ```
+
+**Helpers worth knowing:**
+- `Tests\Support\TestCase::readJobLogFile($path)` reads either NDJSON or legacy JSON-array log files and returns entries newest-first. Use this in tests instead of decoding the file by hand so the same assertions work across format versions.
 
 ## Running Tests
 
@@ -73,8 +79,9 @@ Beanstalk tests require beanstalkd running:
 If unavailable, tests are skipped.
 
 ### Database Tests
-Database tests use CodeIgniter's test database configuration.
-Migrations are run automatically via test setup.
+Database tests use CodeIgniter's test database configuration. Migrations are run automatically via test setup.
+
+**v1.1+ CI matrix**: the GitHub Actions workflow now spins up a MySQL 8 service alongside the existing Redis 7 service so `DatabaseQueue` and the `FOR UPDATE SKIP LOCKED` reservation path are exercised against a real engine. Locally the tests fall back to SQLite if no MySQL is configured (look for `markTestSkipped` calls).
 
 ## Writing Tests
 
