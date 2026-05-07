@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
+use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 use CodeIgniter\CLI\CLI;
 use Config\Database;
 use Config\Services;
@@ -148,7 +149,7 @@ class QueueRunCommand extends BaseJobsCommand
 
         if ($this->iterationCount % 1000 === 0) {
             $metrics = Metrics::get();
-            if ($metrics !== null && method_exists($metrics, 'reset')) {
+            if ($metrics instanceof MetricsCollectorInterface && method_exists($metrics, 'reset')) {
                 $metrics->reset();
             }
             if (function_exists('gc_collect_cycles')) {

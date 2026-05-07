@@ -116,7 +116,7 @@ final class LegacyWorkerAdapter implements QueueBackend
      */
     private function finalize(JobLease $lease, bool $recreate): bool
     {
-        if ($this->currentEnvelope === null || $this->currentEnvelope->id !== $lease->token) {
+        if (!$this->currentEnvelope instanceof JobEnvelope || $this->currentEnvelope->id !== $lease->token) {
             // The lease was not issued by this adapter (or it has already been finalised).
             return false;
         }

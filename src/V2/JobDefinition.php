@@ -36,7 +36,7 @@ use ReflectionProperty;
  * either input via {@see fromLegacyJob()} until the legacy API is removed in a future
  * major release.
  */
-final class JobDefinition
+final readonly class JobDefinition
 {
     /**
      * @param string                 $handler        Handler key (must exist in Config\Jobs::$jobs).
@@ -54,19 +54,19 @@ final class JobDefinition
      * @param array<string, mixed>   $meta           Free-form metadata propagated to the envelope.
      */
     public function __construct(
-        public readonly string $handler,
-        public readonly mixed $payload,
-        public readonly ?string $name = null,
-        public readonly ?string $queue = null,
-        public readonly int $priority = 5,
-        public readonly ?int $maxRetries = 0,
-        public readonly ?int $timeout = null,
-        public readonly ?DateTimeImmutable $scheduledAt = null,
-        public readonly bool $singleInstance = false,
-        public readonly array $environments = [],
-        public readonly array $dependsOn = [],
-        public readonly string $cronExpression = '* * * * *',
-        public readonly array $meta = [],
+        public string $handler,
+        public mixed $payload,
+        public ?string $name = null,
+        public ?string $queue = null,
+        public int $priority = 5,
+        public ?int $maxRetries = 0,
+        public ?int $timeout = null,
+        public ?DateTimeImmutable $scheduledAt = null,
+        public bool $singleInstance = false,
+        public array $environments = [],
+        public array $dependsOn = [],
+        public string $cronExpression = '* * * * *',
+        public array $meta = [],
     ) {
     }
 

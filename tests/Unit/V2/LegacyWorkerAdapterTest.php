@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\V2;
 
+use Daycry\Jobs\V2\Queues\JobLease;
 use DateTimeImmutable;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
@@ -98,7 +99,7 @@ final class LegacyWorkerAdapterTest extends TestCase
 
         $lease = $adapter->fetch('default');
 
-        $this->assertNotNull($lease);
+        $this->assertInstanceOf(JobLease::class, $lease);
         $this->assertSame('fake', $lease->backend);
         $this->assertSame('id-1', $lease->token);
         $this->assertSame($payload, $lease->envelope->payload);
@@ -109,7 +110,7 @@ final class LegacyWorkerAdapterTest extends TestCase
         $worker  = $this->makeWorker();
         $adapter = new LegacyWorkerAdapter($worker, 'fake');
 
-        $this->assertNull($adapter->fetch('default'));
+        $this->assertNotInstanceOf(JobLease::class, $adapter->fetch('default'));
     }
 
     public function testAckCallsRemoveJobWithoutRecreate(): void
@@ -118,6 +119,7 @@ final class LegacyWorkerAdapterTest extends TestCase
         $adapter = new LegacyWorkerAdapter($worker, 'fake');
 
         $lease = $adapter->fetch('default');
+        $this->assertInstanceOf(JobLease::class, $lease);
         $this->assertTrue($adapter->ack($lease));
         $this->assertFalse($worker->lastRecreate);
     }
@@ -128,6 +130,7 @@ final class LegacyWorkerAdapterTest extends TestCase
         $adapter = new LegacyWorkerAdapter($worker, 'fake');
 
         $lease = $adapter->fetch('default');
+        $this->assertInstanceOf(JobLease::class, $lease);
         $this->assertTrue($adapter->nack($lease));
         $this->assertTrue($worker->lastRecreate);
     }
@@ -138,6 +141,7 @@ final class LegacyWorkerAdapterTest extends TestCase
         $adapter = new LegacyWorkerAdapter($worker, 'fake');
 
         $lease = $adapter->fetch('default');
+        $this->assertInstanceOf(JobLease::class, $lease);
         $this->assertTrue($adapter->ack($lease));
         $this->assertFalse(
             $adapter->ack($lease),

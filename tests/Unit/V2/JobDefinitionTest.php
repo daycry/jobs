@@ -77,8 +77,8 @@ final class JobDefinitionTest extends TestCase
         $def     = (new JobDefinition('command', 'p'))->withScheduledAt(new DateTimeImmutable('+1 hour'));
         $cleared = $def->withScheduledAt(null);
 
-        $this->assertNotNull($def->scheduledAt);
-        $this->assertNull($cleared->scheduledAt);
+        $this->assertInstanceOf(DateTimeImmutable::class, $def->scheduledAt);
+        $this->assertNotInstanceOf(DateTimeImmutable::class, $cleared->scheduledAt);
     }
 
     public function testFromLegacyJobCopiesCoreFields(): void

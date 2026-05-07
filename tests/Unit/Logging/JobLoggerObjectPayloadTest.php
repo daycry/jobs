@@ -66,7 +66,7 @@ final class JobLoggerObjectPayloadTest extends TestCase
         $this->assertNotEmpty($data);
         $entry = $data[0];
         // Payload should have sensitive key masked
-        $payloadDecoded = json_decode($entry->payload);
+        $payloadDecoded = json_decode((string) $entry->payload);
         $this->assertSame('***', $payloadDecoded->secret ?? null);
     }
 

@@ -127,7 +127,7 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
             );
         }
 
-        if ($raw === false || $raw === null || $raw === '') {
+        if (in_array($raw, [false, null, ''], true)) {
             return null;
         }
 

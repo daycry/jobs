@@ -30,16 +30,14 @@ class JobLogger
 
     private ?Time $start          = null;
     private ?Time $end            = null;
-    private ?BaseHandler $handler = null;
     private readonly string $executionId;
 
     /**
      * @param BaseHandler|null $handler     Optional pre-built handler (skips ensureHandler() resolution).
      * @param string|null      $executionId Optional pre-computed execution ID; defaults to a UUIDv7.
      */
-    public function __construct(?BaseHandler $handler = null, ?string $executionId = null)
+    public function __construct(private ?BaseHandler $handler = null, ?string $executionId = null)
     {
-        $this->handler     = $handler;
         $this->executionId = $executionId ?? (string) service('uuid')->uuid7()->toRfc4122();
     }
 

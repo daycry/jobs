@@ -182,7 +182,7 @@ class JobLifecycleCoordinator
     {
         $timeout = $job->getTimeout() ?? $cfg->defaultTimeout ?? 0;
 
-        return max(120, ((int) $timeout) + 60);
+        return max(120, ($timeout) + 60);
     }
 
     private function executeJobInternal(Job $job): ExecutionResult

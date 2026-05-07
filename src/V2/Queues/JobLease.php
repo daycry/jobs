@@ -28,7 +28,7 @@ use Daycry\Jobs\Queues\JobEnvelope;
  * crashes before acking the lease lets it expire so another worker can pick it up; a
  * worker that explicitly nacks asks the backend to redeliver immediately.
  */
-final class JobLease
+final readonly class JobLease
 {
     /**
      * @param JobEnvelope       $envelope  The message payload + metadata extracted from the backend.
@@ -37,10 +37,10 @@ final class JobLease
      * @param string            $backend   Backend name ('redis', 'database', 'servicebus', 'beanstalk', 'sync').
      */
     public function __construct(
-        public readonly JobEnvelope $envelope,
-        public readonly string $token,
-        public readonly DateTimeImmutable $expiresAt,
-        public readonly string $backend,
+        public JobEnvelope $envelope,
+        public string $token,
+        public DateTimeImmutable $expiresAt,
+        public string $backend,
     ) {
     }
 

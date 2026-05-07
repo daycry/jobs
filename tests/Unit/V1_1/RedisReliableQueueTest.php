@@ -80,7 +80,6 @@ final class RedisReliableQueueTest extends TestCase
     {
         $ref  = new ReflectionClass(RedisQueue::class);
         $prop = $ref->getProperty('redis');
-        $prop->setAccessible(true);
         $val = $prop->getValue($this->queue);
 
         return is_object($val) ? $val : null;
