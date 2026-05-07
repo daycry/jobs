@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Commands;
 
-use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 use CodeIgniter\CLI\CLI;
 use Config\Database;
 use Config\Services;
@@ -25,6 +24,7 @@ use Daycry\Jobs\Libraries\CircuitBreaker;
 use Daycry\Jobs\Libraries\QueueManager;
 use Daycry\Jobs\Libraries\RateLimiter;
 use Daycry\Jobs\Metrics\Metrics;
+use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
 use RuntimeException;

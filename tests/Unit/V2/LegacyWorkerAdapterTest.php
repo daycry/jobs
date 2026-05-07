@@ -13,13 +13,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\V2;
 
-use Daycry\Jobs\V2\Queues\JobLease;
 use DateTimeImmutable;
 use Daycry\Jobs\Interfaces\QueueInterface;
 use Daycry\Jobs\Interfaces\WorkerInterface;
 use Daycry\Jobs\Job as LegacyJob;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\V2\JobDefinition;
+use Daycry\Jobs\V2\Queues\JobLease;
 use Daycry\Jobs\V2\Queues\LegacyWorkerAdapter;
 use Tests\Support\TestCase;
 

@@ -28,8 +28,8 @@ class JobLogger
 {
     private const MAX_MASK_DEPTH = 10;
 
-    private ?Time $start          = null;
-    private ?Time $end            = null;
+    private ?Time $start = null;
+    private ?Time $end   = null;
     private readonly string $executionId;
 
     /**
