@@ -4,6 +4,11 @@ includes:
 parameters:
   tmpDir: build/phpstan
   level: 6
+  # Pin the analysis target to the project's minimum PHP version so the matrix
+  # (8.2 / 8.3 / 8.4 / 8.5) all infer types identically. Without this, type
+  # narrowing varies between runtimes (e.g. native readonly props, never-null
+  # promoted constructor inference), producing false positives on some workers.
+  phpVersion: 80200
   paths:
     - src/
     - tests/
