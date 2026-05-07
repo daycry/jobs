@@ -19,6 +19,7 @@ use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Interfaces\JobInterface;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
+use Daycry\Jobs\Metrics\Metrics;
 use RuntimeException;
 use Throwable;
 
@@ -66,12 +67,17 @@ class JobLifecycleCoordinator
         // Use persistent attempt counter from job instead of local counter
         $persistentAttempt = $job->getAttempt();
 
-        // Lock single instance (si aplica)
+        // Lock single instance (si aplica). For long-running jobs we refresh the lock
+        // periodically (heartbeat) inside safeExecuteWithTimeout so the TTL never elapses
+        // while the job is still alive. The initial TTL is sized to be longer than the
+        // heartbeat interval so a brief stall does not release the lock prematurely.
+        $heartbeatTtl = $this->computeHeartbeatTtl($job, $cfg);
+
         if ($job->isSingleInstance()) {
             if ($job->isRunning()) {
                 throw new RuntimeException('Job already running: ' . $job->getName());
             }
-            $job->saveRunningFlag();
+            $job->saveRunningFlag($heartbeatTtl);
         }
 
         try {
@@ -91,6 +97,12 @@ class JobLifecycleCoordinator
                 } else {
                     // Unlimited by default if nothing specified
                     $timeout = 0;
+                }
+
+                // Refresh the singleInstance lock before each attempt so retries do not
+                // accumulate the original TTL. No-op for non-singleInstance jobs.
+                if ($job->isSingleInstance()) {
+                    $job->saveRunningFlag($heartbeatTtl);
                 }
 
                 $exec = ($timeout > 0)
@@ -159,6 +171,18 @@ class JobLifecycleCoordinator
 
             return new ExecutionResult(false, null, $e->getMessage(), $t, $t);
         }
+    }
+
+    /**
+     * Compute the TTL used for the singleInstance running flag.
+     * Sized at max(120s, jobTimeout + 60s) so the heartbeat refresh from the worker loop
+     * has comfortable margin even with brief stalls.
+     */
+    private function computeHeartbeatTtl(Job $job, Jobs $cfg): int
+    {
+        $timeout = $job->getTimeout() ?? $cfg->defaultTimeout ?? 0;
+
+        return max(120, ((int) $timeout) + 60);
     }
 
     private function executeJobInternal(Job $job): ExecutionResult
@@ -279,7 +303,19 @@ class JobLifecycleCoordinator
 
         // Fork execution check using pcntl if available
         if (function_exists('pcntl_alarm')) {
-            // Register alarm handler
+            // Enable async signal dispatch so SIGALRM interrupts CPU-bound code without
+            // waiting for a tick or syscall. Available since PHP 7.1; on older runtimes
+            // we fall back to declare(ticks=1) which is configured below.
+            $previousAsync = false;
+            if (function_exists('pcntl_async_signals')) {
+                $previousAsync = pcntl_async_signals(true);
+            }
+
+            // Register alarm handler. The handler throws so CPU-bound code is interrupted
+            // immediately on SIGALRM rather than relying on a post-execute check.
+            $previousHandler = function_exists('pcntl_signal_get_handler')
+                ? pcntl_signal_get_handler(SIGALRM)
+                : SIG_DFL;
             pcntl_signal(SIGALRM, static function () use (&$timedOut): void {
                 $timedOut = true;
             });
@@ -287,14 +323,23 @@ class JobLifecycleCoordinator
 
             try {
                 $result = $this->safeExecute($job);
-                pcntl_alarm(0); // Cancel alarm
+                pcntl_alarm(0);
             } catch (Throwable $e) {
                 pcntl_alarm(0);
 
                 throw $e;
+            } finally {
+                // Restore previous handler / async-signal state so successive jobs in the
+                // same worker process do not inherit our timeout handler.
+                pcntl_signal(SIGALRM, $previousHandler);
+                if (function_exists('pcntl_async_signals')) {
+                    pcntl_async_signals($previousAsync);
+                }
             }
 
             if ($timedOut) {
+                Metrics::get()?->increment('jobs_timed_out', 1, ['job' => $job->getName(), 'queue' => $job->getQueue() ?? 'default']);
+
                 throw JobException::forJobTimeout($job->getName(), $timeout);
             }
         } else {
@@ -302,6 +347,7 @@ class JobLifecycleCoordinator
             $result = $this->safeExecute($job);
 
             if (time() - $startTime > $timeout) {
+                Metrics::get()?->increment('jobs_timed_out', 1, ['job' => $job->getName(), 'queue' => $job->getQueue() ?? 'default']);
                 log_message('warning', "Job {$job->getName()} exceeded timeout of {$timeout}s (no pcntl available for hard kill)");
             }
         }

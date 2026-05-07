@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\CLI;
+use Config\Database;
 use Config\Services;
 use DateTimeInterface;
 use Daycry\Jobs\Exceptions\JobException;
@@ -25,6 +26,7 @@ use Daycry\Jobs\Libraries\RateLimiter;
 use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\RequeueHelper;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -42,6 +44,7 @@ class QueueRunCommand extends BaseJobsCommand
     protected bool $locked                = false;
     private ?RequeueHelper $requeueHelper = null;
     private bool $shouldStop              = false;
+    private int $iterationCount           = 0;
 
     protected function earlyChecks(Job $job): void
     {
@@ -123,14 +126,84 @@ class QueueRunCommand extends BaseJobsCommand
 
             if ($this->conditionalChecks()) {
                 $this->processQueue($queue);
+                $this->maintenanceTick();
 
                 if ($oneTime) {
                     return;
                 }
 
-                sleep(config('Jobs')->pollInterval);
+                $this->idleSleep();
             }
         }
+    }
+
+    /**
+     * Periodic worker-loop maintenance:
+     *  - Reset in-memory metrics every 1 000 iterations to bound memory growth (F19).
+     *  - Ping the database connection every 100 iterations and reconnect if needed (F23).
+     */
+    private function maintenanceTick(): void
+    {
+        $this->iterationCount++;
+
+        if ($this->iterationCount % 1000 === 0) {
+            $metrics = Metrics::get();
+            if ($metrics !== null && method_exists($metrics, 'reset')) {
+                $metrics->reset();
+            }
+            if (function_exists('gc_collect_cycles')) {
+                gc_collect_cycles();
+            }
+        }
+
+        if ($this->iterationCount % 100 === 0) {
+            $this->ensureDatabaseConnection();
+        }
+    }
+
+    /**
+     * Cheap SELECT 1 against the configured DB connection. On failure the connection is
+     * reset so the next query reconnects. Important for long-lived workers behind MySQL
+     * wait_timeout / connection idle eviction.
+     */
+    private function ensureDatabaseConnection(): void
+    {
+        try {
+            $cfg   = config('Jobs');
+            $group = $cfg->database['group'] ?? null;
+            $db    = Database::connect($group);
+            // simpleQuery returns a resource on success and false on failure across drivers.
+            $result = $db->simpleQuery('SELECT 1');
+            if ($result === false) {
+                throw new RuntimeException('SELECT 1 failed (driver returned false).');
+            }
+        } catch (Throwable $e) {
+            log_message('warning', 'QueueRunCommand: DB ping failed, reconnecting — ' . $e->getMessage());
+
+            try {
+                $cfg   = config('Jobs');
+                $group = $cfg->database['group'] ?? null;
+                Database::connect($group, false)->reconnect();
+            } catch (Throwable $reconnect) {
+                log_message('error', 'QueueRunCommand: DB reconnect failed — ' . $reconnect->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Sleep between polling cycles, unless the active backend uses blocking
+     * fetch semantics (Redis BRPOPLPUSH, Beanstalk reserve_with_timeout) in
+     * which case watch() already absorbed the wait.
+     */
+    private function idleSleep(): void
+    {
+        $cfg = config('Jobs');
+
+        if (($cfg->blockingFetch ?? false) === true && in_array($cfg->worker, ['redis', 'beanstalk'], true)) {
+            return;
+        }
+
+        sleep($cfg->pollInterval);
     }
 
     protected function processQueue(string $queue): void

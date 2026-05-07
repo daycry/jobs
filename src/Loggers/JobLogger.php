@@ -26,14 +26,21 @@ use Daycry\Jobs\Job;
  */
 class JobLogger
 {
+    private const MAX_MASK_DEPTH = 10;
+
     private ?Time $start          = null;
     private ?Time $end            = null;
     private ?BaseHandler $handler = null;
     private readonly string $executionId;
 
-    public function __construct()
+    /**
+     * @param BaseHandler|null $handler     Optional pre-built handler (skips ensureHandler() resolution).
+     * @param string|null      $executionId Optional pre-computed execution ID; defaults to a UUIDv7.
+     */
+    public function __construct(?BaseHandler $handler = null, ?string $executionId = null)
     {
-        $this->executionId = (string) service('uuid')->uuid7()->toRfc4122();
+        $this->handler     = $handler;
+        $this->executionId = $executionId ?? (string) service('uuid')->uuid7()->toRfc4122();
     }
 
     /**
@@ -192,6 +199,7 @@ class JobLogger
 
     /**
      * Recursively mask sensitive keys in arrays/objects.
+     * Bounded by MAX_MASK_DEPTH to prevent stack overflow on adversarial deep payloads.
      *
      * @param list<string> $keys
      */
@@ -201,12 +209,15 @@ class JobLogger
             return $value;
         }
         $lowerKeys = array_map(strtolower(...), $keys);
-        $mask      = static function ($v) use ($lowerKeys, &$mask) {
+        $mask      = static function ($v, int $depth) use ($lowerKeys, &$mask) {
+            if ($depth >= self::MAX_MASK_DEPTH) {
+                return '[truncated:max-depth]';
+            }
             if (is_array($v)) {
                 $out = [];
 
                 foreach ($v as $k => $val) {
-                    $out[$k] = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val);
+                    $out[$k] = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val, $depth + 1);
                 }
 
                 return $out;
@@ -215,7 +226,7 @@ class JobLogger
                 $o = clone $v;
 
                 foreach (get_object_vars($o) as $k => $val) {
-                    $o->{$k} = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val);
+                    $o->{$k} = in_array(strtolower((string) $k), $lowerKeys, true) ? '***' : $mask($val, $depth + 1);
                 }
 
                 return $o;
@@ -224,15 +235,20 @@ class JobLogger
             return $v;
         };
 
-        return $mask($value);
+        return $mask($value, 0);
     }
 
     /**
      * Sanitize token-like patterns (API keys, JWTs, etc.) from strings.
      * Detects common patterns and masks them automatically.
+     * Bounded by MAX_MASK_DEPTH on recursive structures.
      */
-    private function sanitizeTokenPatterns(mixed $value): mixed
+    private function sanitizeTokenPatterns(mixed $value, int $depth = 0): mixed
     {
+        if ($depth >= self::MAX_MASK_DEPTH) {
+            return '[truncated:max-depth]';
+        }
+
         if (is_string($value)) {
             // Mask JWT tokens (format: xxx.yyy.zzz where parts are base64)
             $value = preg_replace(
@@ -241,27 +257,44 @@ class JobLogger
                 $value,
             );
 
-            // Mask long alphanumeric strings (likely API keys/tokens)
-            // At least 32 chars, mostly alphanumeric
+            // Mask known API-key shapes:
+            //  - Stripe: sk_live_/sk_test_/pk_live_/pk_test_ + 16+ chars
+            //  - AWS access key: AKIA + 16 uppercase alphanums
+            //  - GitHub PAT: ghp_/gho_/ghu_/ghs_/ghr_ + 30+ chars
+            //  - Slack: xox[abp]- + 24+ chars
+            //  - Generic: opaque token of >=40 chars (avoids false positives on UUIDs/SHA-1)
             $value = preg_replace(
-                '/\b[A-Za-z0-9_-]{32,}\b/',
+                '/\b(?:'
+                . 'sk_(?:live|test)_[A-Za-z0-9]{16,}'
+                . '|pk_(?:live|test)_[A-Za-z0-9]{16,}'
+                . '|AKIA[0-9A-Z]{16}'
+                . '|gh[pousr]_[A-Za-z0-9]{30,}'
+                . '|xox[abprs]-[A-Za-z0-9-]{20,}'
+                . '|[A-Za-z0-9_-]{40,}'
+                . ')\b/',
                 '***API_KEY***',
                 (string) $value,
             );
 
             // Mask Bearer tokens
             $value = preg_replace(
-                '/Bearer\s+[A-Za-z0-9_\-\.]+/i',
+                '/Bearer\s+[A-Za-z0-9_\-\.=]+/i',
                 'Bearer ***TOKEN***',
                 (string) $value,
             );
         } elseif (is_array($value)) {
-            return array_map($this->sanitizeTokenPatterns(...), $value);
+            $out = [];
+
+            foreach ($value as $k => $v) {
+                $out[$k] = $this->sanitizeTokenPatterns($v, $depth + 1);
+            }
+
+            return $out;
         } elseif (is_object($value)) {
             $clone = clone $value;
 
             foreach (get_object_vars($clone) as $k => $v) {
-                $clone->{$k} = $this->sanitizeTokenPatterns($v);
+                $clone->{$k} = $this->sanitizeTokenPatterns($v, $depth + 1);
             }
 
             return $clone;

@@ -20,6 +20,7 @@ use DateTimeInterface;
 use Daycry\Jobs\Cronjob\Scheduler;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Notifications\NotificationService;
 
 class Services extends BaseServices
 {
@@ -33,6 +34,33 @@ class Services extends BaseServices
         }
 
         return new Scheduler();
+    }
+
+    /**
+     * Build the default NotificationService backed by the CodeIgniter email + parser services.
+     * Tests should construct NotificationService directly with mocks instead of going through
+     * this factory so they avoid container-level coupling.
+     */
+    public static function jobsNotificationService(bool $getShared = true): NotificationService
+    {
+        if ($getShared) {
+            $shared = static::getSharedInstance('jobsNotificationService');
+            if ($shared instanceof NotificationService) {
+                return $shared;
+            }
+        }
+
+        $cfg = config('Jobs');
+
+        return new NotificationService(
+            email: service('email'),
+            parser: service('parser'),
+            from: $cfg->from,
+            fromName: $cfg->fromName,
+            to: $cfg->to,
+            view: $cfg->emailNotificationView,
+            timezone: config('App')->appTimezone,
+        );
     }
 
     /**

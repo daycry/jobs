@@ -13,8 +13,10 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Traits;
 
+use Daycry\Jobs\Config\Services;
 use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
+use Daycry\Jobs\Notifications\NotificationService;
 
 /**
  * Unified trait for job state management and notifications.
@@ -37,13 +39,18 @@ trait StateTrait
         return 'job_running_' . $this->getName();
     }
 
-    public function saveRunningFlag(): bool
+    public function saveRunningFlag(?int $ttl = null): bool
     {
         $cache = service('cache');
-        // Use finite TTL to prevent deadlock if the job crashes without clearing the flag.
-        // Default: job timeout + 60s buffer, or 600s if no timeout configured.
-        $timeout = method_exists($this, 'getTimeout') ? ($this->getTimeout() ?? 0) : 0;
-        $ttl     = $timeout > 0 ? $timeout + 60 : 600;
+
+        if ($ttl === null) {
+            // Use finite TTL to prevent deadlock if the job crashes without clearing the flag.
+            // Default: job timeout + 60s buffer, or 600s if no timeout configured.
+            // Long-running jobs that exceed the default 600s should be refreshed periodically
+            // via JobLifecycleCoordinator's heartbeat (see saveRunningFlag(int $ttl) callers).
+            $timeout = method_exists($this, 'getTimeout') ? ($this->getTimeout() ?? 0) : 0;
+            $ttl     = $timeout > 0 ? $timeout + 60 : 600;
+        }
 
         return $cache->save($this->runningCacheKey(), true, $ttl);
     }
@@ -110,31 +117,13 @@ trait StateTrait
         return $this;
     }
 
-    public function notify(ExecutionResult $result): bool
+    public function notify(ExecutionResult $result, ?NotificationService $service = null): bool
     {
-        $email  = service('email');
-        $parser = service('parser');
+        // v1.2 introduces NotificationService for DI/testability. Falls back to the
+        // shared service-locator factory so existing callers keep working unchanged.
+        $service ??= Services::jobsNotificationService();
 
-        $content          = $result->success ? $result->output : $result->error;
-        $normalizedOutput = null;
-        if (is_object($content)) {
-            $normalizedOutput = json_encode($content);
-        } elseif ($content !== null) {
-            $normalizedOutput = $content;
-        }
-
-        $email->setMailType('html');
-        $email->setFrom(config('Jobs')->from, config('Jobs')->fromName);
-        $email->setTo(config('Jobs')->to);
-        $email->setSubject($parser->setData(['job' => $this->getName()])->renderString('Job {job} just finished running.'));
-        $email->setMessage($parser->setData([
-            'name'     => esc($this->getName()),
-            'runStart' => '',
-            'duration' => '',
-            'output'   => esc($result->success ? ($normalizedOutput ?? '') : ''),
-            'error'    => esc($result->success ? ('') : $normalizedOutput ?? ''),
-        ])->render(config('Jobs')->emailNotificationView));
-
-        return $email->send();
+        /** @var NotificationService $service */
+        return $service->send($this, $result);
     }
 }
