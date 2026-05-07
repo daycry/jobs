@@ -15,7 +15,7 @@
 [![Security](https://github.com/daycry/jobs/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/security.yml)
 [![Coverage status](https://coveralls.io/repos/github/daycry/jobs/badge.svg?branch=master)](https://coveralls.io/github/daycry/jobs?branch=master)
 [![Downloads](https://poser.pugx.org/daycry/jobs/downloads)](https://packagist.org/packages/daycry/jobs)
-[![Monthly Downloads](https://img.shields.io/packagist/dm/daycry/jobs?label=downloads%2Fmonth)](https://packagist.org/packages/daycry/jobs)
+[![Monthly Downloads](https://img.shields.io/packagist/dm/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
 [![GitHub stars](https://img.shields.io/github/stars/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
 [![GitHub license](https://img.shields.io/github/license/daycry/jobs)](https://github.com/daycry/jobs/blob/master/LICENSE)
