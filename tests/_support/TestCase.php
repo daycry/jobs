@@ -54,6 +54,62 @@ abstract class TestCase extends CIUnitTestCase
         return config(Jobs::class) ?? new Jobs();
     }
 
+    /**
+     * Read a FileHandler log file as a list of stdClass entries, newest first.
+     *
+     * Supports both layouts the FileHandler can produce:
+     *  - Legacy JSON-array (pre-v1.1): `[{...},{...}]` newest-first.
+     *  - NDJSON (v1.1+): one JSON object per line, oldest-first on disk.
+     *
+     * @return array<int, object>
+     */
+    protected function readJobLogFile(string $file): array
+    {
+        if (! file_exists($file)) {
+            return [];
+        }
+
+        $fp = fopen($file, 'rb');
+        if ($fp === false) {
+            return [];
+        }
+
+        $first = '';
+
+        while (! feof($fp) && ($c = fgetc($fp)) !== false) {
+            if (! ctype_space($c)) {
+                $first = $c;
+                break;
+            }
+        }
+        rewind($fp);
+
+        if ($first === '[') {
+            $raw = stream_get_contents($fp);
+            fclose($fp);
+            $decoded = is_string($raw) ? json_decode($raw) : null;
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        $entries = [];
+
+        while (($line = fgets($fp)) !== false) {
+            $trimmed = rtrim($line, "\r\n");
+            if ($trimmed === '') {
+                continue;
+            }
+            $obj = json_decode($trimmed);
+            if ($obj !== null) {
+                $entries[] = $obj;
+            }
+        }
+        fclose($fp);
+
+        // NDJSON is oldest-first on disk; tests expect newest-first ordering.
+        return array_reverse($entries);
+    }
+
     protected function hooksJobs(): void
     {
         $jobs = [];

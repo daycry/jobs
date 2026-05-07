@@ -146,14 +146,16 @@ class QueueModel extends Model
 
     /**
      * Reserve using optimistic locking (fallback for older databases).
+     * Uses exponential backoff with jitter to scale under contention.
      */
     private function reserveJobOptimistic(string $queue): ?Queue
     {
         $table       = $this->db->prefixTable($this->table);
-        $attempts    = 0;
-        $maxAttempts = 3;
+        $maxAttempts = 10;
+        $baseDelayUs = 10_000;  // 10ms inicial
+        $maxDelayUs  = 500_000; // 500ms cap por intento
 
-        while ($attempts < $maxAttempts) {
+        for ($attempts = 0; $attempts < $maxAttempts; $attempts++) {
             $now = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
 
             $sql = "SELECT id FROM {$table}
@@ -164,6 +166,7 @@ class QueueModel extends Model
             $row   = $query->getRow();
 
             if (! $row) {
+                // Queue empty for this worker; no point retrying.
                 return null;
             }
 
@@ -178,8 +181,10 @@ class QueueModel extends Model
                 return $this->find($row->id);
             }
 
-            $attempts++;
-            usleep(10000); // 10ms wait
+            // Lost the race: exponential backoff with ±20% jitter, capped.
+            $expDelay = min($maxDelayUs, $baseDelayUs * (2 ** $attempts));
+            $jitter   = (int) ($expDelay * (random_int(-200, 200) / 1000));
+            usleep(max(1_000, $expDelay + $jitter));
         }
 
         return null;

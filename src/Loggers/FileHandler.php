@@ -20,8 +20,10 @@ use Daycry\Jobs\Interfaces\LoggerHandlerInterface;
 
 /**
  * File-based job execution history handler.
- * Stores a JSON array per job (<name>.json) with newest entries first.
- * Enforces maxLogsPerJob by trimming oldest entries.
+ *
+ * v1.1+ writes entries in NDJSON (one JSON object per line, newest at the bottom).
+ * Reads transparently support both NDJSON and the legacy JSON-array layout
+ * (newest first) so older log files keep working without manual migration.
  */
 class FileHandler extends BaseHandler implements LoggerHandlerInterface
 {
@@ -46,9 +48,8 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
      */
     public function handle($level, $message): bool
     {
-        /** @var JobsConfig config */
+        /** @var JobsConfig $config */
         $config = config('Jobs');
-        // Intentar deducir nombre si no fue establecido aún vía setPath()
         if (! isset($this->name) || ($this->name === '' || $this->name === '0')) {
             $decoded = json_decode((string) $message, true);
             if (is_array($decoded) && ! empty($decoded['name'])) {
@@ -56,37 +57,48 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
             }
         }
         if (! isset($this->name) || ($this->name === '' || $this->name === '0')) {
-            $this->name = 'unnamed'; // fallback definitivo
+            $this->name = 'unnamed';
         }
-        // Sanitizar nombre para uso de archivo (sin espacios raros / separadores peligrosos)
+
         $safeName = $this->sanitizeName($this->name);
         $fileName = rtrim($config->filePath, '/\\') . '/' . $safeName . '.json';
 
-        $logs = file_exists($fileName) ? \json_decode(\file_get_contents($fileName)) : [];
+        // First-write migration: if a legacy JSON-array file exists, rewrite it as
+        // NDJSON in-place before appending so the on-disk format stays consistent.
+        $this->migrateLegacyIfNeeded($fileName);
 
-        // Make sure we have room for one more
-        if ((is_countable($logs) ? count($logs) : 0) >= $config->maxLogsPerJob) {
-            array_pop($logs);
+        // NDJSON append: one record per line, atomic via flock(LOCK_EX).
+        $line = (string) $message;
+        // Defensive normalisation: collapse any embedded newlines so each entry stays on one line.
+        $line = str_replace(["\r\n", "\r", "\n"], ' ', $line);
+        $line .= "\n";
+
+        $fp = @fopen($fileName, 'ab');
+        if ($fp === false) {
+            return false;
         }
 
-        // Add the log to the top of the array
-        array_unshift($logs, json_decode((string) $message));
+        try {
+            flock($fp, LOCK_EX);
+            fwrite($fp, $line);
+            flock($fp, LOCK_UN);
+        } finally {
+            fclose($fp);
+        }
 
-        file_put_contents(
-            $fileName,
-            json_encode(
-                $logs,
-                JSON_PRETTY_PRINT,
-            ),
-            LOCK_EX,
-        );
+        // Deterministic pruning so maxLogsPerJob remains a hard cap (matches legacy semantics).
+        // The cost is O(n) line-count + optional rewrite, comparable to the legacy
+        // read/decode/slice/write loop while keeping atomic appends in the hot path.
+        $max = $config->maxLogsPerJob;
+        if ($max > 0) {
+            $this->pruneIfNeeded($fileName, $max);
+        }
 
         return true;
     }
 
     public function setPath(string $name): static
     {
-        // Guardar el nombre crudo; la sanitización se hace al persistir
         $this->name = $name;
 
         return $this;
@@ -94,41 +106,284 @@ class FileHandler extends BaseHandler implements LoggerHandlerInterface
 
     public function lastRun(string $name): string|Time
     {
-        $safeName = $this->sanitizeName($name);
-        $fileName = $this->path . '/' . $safeName . '.json';
-        if (! file_exists($fileName)) {
-            return '--';
-        }
-        $raw  = @file_get_contents($fileName);
-        $logs = $raw ? json_decode($raw) : [];
-        if (! is_array($logs) || $logs === [] || ! isset($logs[0]->start_at)) {
+        $entries = $this->history($name, 1);
+        if ($entries === [] || ! isset($entries[0]->start_at)) {
             return '--';
         }
 
-        return Time::parse($logs[0]->start_at);
+        return Time::parse($entries[0]->start_at);
     }
 
     /**
-     * Returns an array of recent executions for a job.
-     * Each element is a stdClass decoded from stored JSON (already contains
-     * name, job, payload, environment, start_at, end_at, duration, output, error, test_time).
-     * The file stores newest first, so we slice directly.
+     * Returns an array of recent executions for a job, newest first.
+     *
+     * Reads transparently from either NDJSON (v1.1+ format) or the legacy
+     * JSON-array file produced by previous versions.
      *
      * @return array<int, object>
      */
     public function history(string $name, int $limit = 10): array
     {
         $safeName = $this->sanitizeName($name);
-        $fileName = $this->path . '/' . $safeName . '.json';
+        $fileName = ($this->path ?? '') . '/' . $safeName . '.json';
         if (! file_exists($fileName)) {
             return [];
         }
-        $logs = json_decode(file_get_contents($fileName));
-        if (! is_array($logs)) {
+
+        return $this->readEntries($fileName, $limit);
+    }
+
+    /**
+     * Detect the on-disk format and dispatch to the appropriate reader.
+     *
+     * Legacy files start with `[` (single JSON array, newest first).
+     * NDJSON files start with `{` (one JSON object per line, newest at the bottom).
+     *
+     * @return array<int, object>
+     */
+    private function readEntries(string $fileName, int $limit): array
+    {
+        $fp = @fopen($fileName, 'rb');
+        if ($fp === false) {
             return [];
         }
 
-        return array_slice($logs, 0, $limit);
+        flock($fp, LOCK_SH);
+
+        $first = '';
+
+        while (! feof($fp) && ($c = fgetc($fp)) !== false) {
+            if (! ctype_space($c)) {
+                $first = $c;
+                break;
+            }
+        }
+        rewind($fp);
+
+        if ($first === '[') {
+            $raw = stream_get_contents($fp);
+            flock($fp, LOCK_UN);
+            fclose($fp);
+
+            if ($raw === false) {
+                return [];
+            }
+            $logs = json_decode($raw);
+
+            return is_array($logs) ? array_slice($logs, 0, $limit) : [];
+        }
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        return $this->tailNdjson($fileName, $limit);
+    }
+
+    /**
+     * Stream the file keeping only the last $limit lines in memory, then return
+     * them decoded with the newest entry at index 0.
+     *
+     * @return array<int, object>
+     */
+    private function tailNdjson(string $fileName, int $limit): array
+    {
+        $fp = @fopen($fileName, 'rb');
+        if ($fp === false) {
+            return [];
+        }
+
+        $buffer = [];
+
+        while (($line = fgets($fp)) !== false) {
+            $line = rtrim($line, "\r\n");
+            if ($line === '') {
+                continue;
+            }
+            $buffer[] = $line;
+            if (count($buffer) > $limit) {
+                array_shift($buffer);
+            }
+        }
+        fclose($fp);
+
+        $entries = [];
+
+        foreach (array_reverse($buffer) as $line) {
+            $obj = json_decode($line);
+            if ($obj !== null) {
+                $entries[] = $obj;
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * If $fileName is a legacy JSON-array file, rewrite it as NDJSON
+     * (oldest→newest) so subsequent appends keep the file consistent.
+     */
+    private function migrateLegacyIfNeeded(string $fileName): void
+    {
+        if (! file_exists($fileName)) {
+            return;
+        }
+
+        $fp = @fopen($fileName, 'rb');
+        if ($fp === false) {
+            return;
+        }
+
+        $first = '';
+
+        while (! feof($fp) && ($c = fgetc($fp)) !== false) {
+            if (! ctype_space($c)) {
+                $first = $c;
+                break;
+            }
+        }
+
+        if ($first !== '[') {
+            fclose($fp);
+
+            return;
+        }
+
+        rewind($fp);
+        $raw = stream_get_contents($fp);
+        fclose($fp);
+
+        $logs = is_string($raw) ? json_decode($raw) : null;
+        if (! is_array($logs)) {
+            return;
+        }
+
+        // Legacy format stores newest-first; on disk we want oldest-first NDJSON
+        // so the natural append at the bottom keeps the chronological order.
+        $entries = array_reverse($logs);
+
+        $tmp = $fileName . '.tmp';
+        $out = @fopen($tmp, 'wb');
+        if ($out === false) {
+            return;
+        }
+
+        foreach ($entries as $entry) {
+            $encoded = json_encode($entry);
+            if ($encoded === false) {
+                continue;
+            }
+            $encoded = str_replace(["\r\n", "\r", "\n"], ' ', $encoded);
+            fwrite($out, $encoded . "\n");
+        }
+        fclose($out);
+        rename($tmp, $fileName);
+    }
+
+    /**
+     * Trim the file to the last $max entries.
+     *
+     * Handles both legacy JSON-array layouts (rewriting them as NDJSON in the
+     * process so subsequent appends stay consistent) and NDJSON.
+     */
+    private function pruneIfNeeded(string $fileName, int $max): void
+    {
+        if ($max <= 0 || ! file_exists($fileName)) {
+            return;
+        }
+
+        $fp = @fopen($fileName, 'rb');
+        if ($fp === false) {
+            return;
+        }
+
+        $first = '';
+
+        while (! feof($fp) && ($c = fgetc($fp)) !== false) {
+            if (! ctype_space($c)) {
+                $first = $c;
+                break;
+            }
+        }
+
+        if ($first === '[') {
+            // Legacy JSON-array on disk. Decode, slice newest $max (already newest-first
+            // in legacy layout), then rewrite as NDJSON (oldest→newest order on disk).
+            rewind($fp);
+            $raw = stream_get_contents($fp);
+            fclose($fp);
+            $logs = is_string($raw) ? json_decode($raw) : null;
+            if (! is_array($logs)) {
+                return;
+            }
+
+            $kept = array_reverse(array_slice($logs, 0, $max));
+
+            $tmp = $fileName . '.tmp';
+            $out = @fopen($tmp, 'wb');
+            if ($out === false) {
+                return;
+            }
+
+            foreach ($kept as $entry) {
+                $encoded = json_encode($entry);
+                if ($encoded === false) {
+                    continue;
+                }
+                $encoded = str_replace(["\r\n", "\r", "\n"], ' ', $encoded);
+                fwrite($out, $encoded . "\n");
+            }
+            fclose($out);
+            rename($tmp, $fileName);
+
+            return;
+        }
+
+        // NDJSON: count cheaply; rewrite only when we exceed the cap.
+        rewind($fp);
+        $count = 0;
+
+        while (! feof($fp)) {
+            $line = fgets($fp);
+            if ($line === false) {
+                continue;
+            }
+            if (rtrim($line, "\r\n") === '') {
+                continue;
+            }
+            $count++;
+        }
+
+        if ($count <= $max) {
+            fclose($fp);
+
+            return;
+        }
+
+        rewind($fp);
+        $tail = [];
+
+        while (($line = fgets($fp)) !== false) {
+            if (rtrim($line, "\r\n") === '') {
+                continue;
+            }
+            $tail[] = $line;
+            if (count($tail) > $max) {
+                array_shift($tail);
+            }
+        }
+        fclose($fp);
+
+        $tmp = $fileName . '.tmp';
+        $out = @fopen($tmp, 'wb');
+        if ($out === false) {
+            return;
+        }
+
+        foreach ($tail as $line) {
+            fwrite($out, $line);
+        }
+        fclose($out);
+        rename($tmp, $fileName);
     }
 
     /**

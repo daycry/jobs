@@ -14,7 +14,7 @@ declare(strict_types=1);
 use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal
@@ -53,7 +53,7 @@ final class LoggingErrorMaskingTest extends TestCase
 
         $file = config('Jobs')->filePath . 'error_mask.json';
         $this->assertFileExists($file);
-        $data = json_decode(file_get_contents($file));
+        $data = $this->readJobLogFile($file);
         $this->assertNotEmpty($data);
         $entry = $data[0];
         $this->assertSame('queue', $entry->source);

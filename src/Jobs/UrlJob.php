@@ -28,6 +28,7 @@ class UrlJob extends Job implements JobInterface
     use InteractsWithCurrentJob;
 
     private const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+    private const ALLOWED_SCHEMES = ['http', 'https'];
 
     public function handle(mixed $payload): mixed
     {
@@ -68,20 +69,68 @@ class UrlJob extends Job implements JobInterface
     }
 
     /**
-     * Prevent Server-Side Request Forgery (SSRF) by blocking requests to internal/private IPs.
+     * Prevent Server-Side Request Forgery (SSRF) by enforcing scheme whitelist
+     * and rejecting requests targeting internal/private IPv4 or IPv6 addresses.
+     *
+     * Note: this validates resolved IPs at enqueue/execute time. DNS rebinding
+     * (different IP at cURL time) is documented as a residual risk; full mitigation
+     * requires CURLOPT_RESOLVE which is not exposed by the CI4 curlrequest wrapper.
      */
     private function blockInternalUrls(string $url): void
     {
-        $host = parse_url($url, PHP_URL_HOST);
-        if ($host === null || $host === false) {
+        $parts = parse_url($url);
+        if ($parts === false) {
+            throw JobException::validationError('UrlJob could not parse URL.');
+        }
+
+        $scheme = strtolower($parts['scheme'] ?? '');
+        if (! in_array($scheme, self::ALLOWED_SCHEMES, true)) {
+            throw JobException::validationError("UrlJob scheme '{$scheme}' is not allowed (only http/https).");
+        }
+
+        $host = $parts['host'] ?? null;
+        if (! is_string($host) || $host === '') {
             throw JobException::validationError('UrlJob could not parse host from URL.');
         }
 
-        // Resolve hostname to IP (catches DNS rebinding for common cases)
-        $ip = gethostbyname($host);
+        // IPv6 literal hosts arrive enclosed in brackets per RFC 3986: http://[::1]/
+        $literal = trim($host, '[]');
+        if (filter_var($literal, FILTER_VALIDATE_IP)) {
+            $this->validatePublicIp($literal);
 
+            return;
+        }
+
+        // Hostname: resolve all A and AAAA records and reject if ANY points internal.
+        $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+
+        if (! is_array($records) || $records === []) {
+            // Fallback to gethostbyname (returns input on failure) for edge cases
+            // where dns_get_record fails (e.g. local resolver issues).
+            $ip = gethostbyname($host);
+            if ($ip === $host || ! filter_var($ip, FILTER_VALIDATE_IP)) {
+                throw JobException::validationError("UrlJob could not resolve host '{$host}'.");
+            }
+            $this->validatePublicIp($ip);
+
+            return;
+        }
+
+        foreach ($records as $rec) {
+            $ip = $rec['ip'] ?? $rec['ipv6'] ?? null;
+            if (is_string($ip) && $ip !== '') {
+                $this->validatePublicIp($ip);
+            }
+        }
+    }
+
+    /**
+     * Validate that an IP is not in a private or reserved range (IPv4 or IPv6).
+     */
+    private function validatePublicIp(string $ip): void
+    {
         if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            throw JobException::validationError('UrlJob does not allow requests to private or reserved IP ranges.');
+            throw JobException::validationError("UrlJob does not allow requests to internal IP '{$ip}'.");
         }
     }
 }

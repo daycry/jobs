@@ -23,17 +23,22 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Redis-backed queue implementation.
+ * Redis-backed queue implementation with reliable-queue semantics.
  *
- * Storage model:
- *  - Immediate jobs: LPUSH into {prefix}{queue}-waiting, consumed via RPOP (FIFO semantics).
- *  - Delayed jobs: stored in a sorted set {prefix}{queue}-delayed with score = due timestamp, then promoted.
- *  - (Future) Failed jobs key reserved {prefix}{queue}-failed (not yet persisted here).
+ * Storage model (one set of keys per queue):
+ *  - {prefix}{queue}-waiting          LIST  jobs ready to fetch (LPUSH at tail, RPOPLPUSH at head).
+ *  - {prefix}{queue}-delayed          ZSET  jobs scheduled for the future (score = due timestamp).
+ *  - {prefix}{queue}-processing       LIST  in-flight jobs picked up by a worker (atomic via RPOPLPUSH).
+ *  - {prefix}{queue}-processing-meta  HASH  raw payload → unix timestamp when fetched (used by the reaper).
  *
  * Contract notes:
  *  - enqueue(): returns a string job identifier (timestamp-randhex).
- *  - watch(): promotes due delayed jobs then pops one waiting job; returns decoded stdClass or null.
- *  - removeJob(): if $recreate true it re-dispatches through Job::enqueue preserving retry semantics.
+ *  - watch(): promotes due delayed jobs then atomically moves one item from waiting to processing.
+ *             When config('Jobs')->blockingFetch is true, uses BRPOPLPUSH with blockingFetchTimeout.
+ *  - removeJob(): ack (recreate=false) drops the item from processing; nack (recreate=true) moves it
+ *                 back to the tail of waiting so it gets retried.
+ *  - reapStuckJobs(): inspects processing-meta and re-enqueues items whose lease exceeded the
+ *                      visibility timeout. Should be invoked periodically (e.g. via jobs:redis:reap-stuck).
  */
 class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
@@ -42,8 +47,9 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
      */
     private $redis;
 
-    private ?object $job   = null; // decoded structure { id,time,delay,data }
-    private string $prefix = 'jobs:';
+    private ?object $job    = null; // decoded structure { id,time,delay,data }
+    private ?string $rawJob = null; // raw serialised payload kept for ack/nack
+    private string $prefix  = 'jobs:';
 
     public function __construct()
     {
@@ -95,14 +101,50 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
             return null;
         }
         $this->promoteDelayed($queue);
-        $raw = $this->redis->rPop($this->waitingKey($queue));
-        if (! $raw) {
+
+        $cfg = config('Jobs');
+        $raw = null;
+
+        if (($cfg->blockingFetch ?? false) === true && method_exists($this->redis, 'brpoplpush')) {
+            $timeout = max(0, (int) ($cfg->blockingFetchTimeout ?? 5));
+
+            try {
+                $raw = $this->redis->brpoplpush(
+                    $this->waitingKey($queue),
+                    $this->processingKey($queue),
+                    $timeout,
+                );
+            } catch (Throwable $e) {
+                log_message('warning', 'RedisQueue: brpoplpush failed, falling back to rpoplpush: ' . $e->getMessage());
+                $raw = null;
+            }
+        }
+
+        if ($raw === null || $raw === false) {
+            $raw = $this->redis->rpoplpush(
+                $this->waitingKey($queue),
+                $this->processingKey($queue),
+            );
+        }
+
+        if ($raw === false || $raw === null || $raw === '') {
             return null;
         }
-        $this->job = $this->getSerializer()->deserialize($raw);
-        if (! $this->job) {
+
+        // Track when the item entered processing so the reaper can rescue stuck jobs.
+        $this->redis->hSet($this->processingMetaKey($queue), $raw, (string) time());
+
+        $decoded = $this->getSerializer()->deserialize($raw);
+        if (! $decoded) {
+            // Corrupt entry: remove from processing so the reaper does not get stuck on it.
+            $this->dropFromProcessing($queue, $raw);
+
             return null;
         }
+
+        $this->job    = $decoded;
+        $this->rawJob = $raw;
+
         $decodedPayload = $this->job->data ?? null;
         if ($decodedPayload) {
             return JobEnvelope::fromBackend(
@@ -123,14 +165,87 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
-        if ($recreate) {
-            // Re-enqueue directly to this redis backend instead of using push()
-            // which might use a different worker from QueueManager
-            $this->enqueue($job->toObject());
+        if (! $this->redis) {
+            return false;
         }
-        $this->job = null;
+
+        $queue = $job->getQueue() ?? 'default';
+        $raw   = $this->rawJob;
+
+        if ($raw === null) {
+            // No tracked in-flight item: keep legacy behaviour for callers that
+            // construct a fresh worker just to push a recreate.
+            if ($recreate) {
+                $this->enqueue($job->toObject());
+            }
+            $this->job = null;
+
+            return true;
+        }
+
+        if ($recreate) {
+            $this->redis->multi()
+                ->lRem($this->processingKey($queue), $raw, 1)
+                ->lPush($this->waitingKey($queue), $raw)
+                ->hDel($this->processingMetaKey($queue), $raw)
+                ->exec();
+        } else {
+            $this->dropFromProcessing($queue, $raw);
+        }
+
+        $this->job    = null;
+        $this->rawJob = null;
 
         return true;
+    }
+
+    /**
+     * Reclaim items left in the processing list whose visibility timeout has expired.
+     *
+     * Returns the number of items moved back to the waiting list. Intended to be invoked
+     * periodically (e.g. via the jobs:redis:reap-stuck command) so jobs left behind by a
+     * crashed worker are eventually retried.
+     */
+    public function reapStuckJobs(string $queue, ?int $visibilityTimeoutSeconds = null): int
+    {
+        if (! $this->redis) {
+            return 0;
+        }
+
+        $cfg     = config('Jobs');
+        $timeout = $visibilityTimeoutSeconds ?? (int) ($cfg->redisProcessingVisibilityTimeout ?? 300);
+        $now     = time();
+        $reaped  = 0;
+
+        $entries = $this->redis->hGetAll($this->processingMetaKey($queue));
+        if (! is_array($entries)) {
+            return 0;
+        }
+
+        foreach ($entries as $raw => $startedAt) {
+            $age = $now - (int) $startedAt;
+            if ($age <= $timeout) {
+                continue;
+            }
+
+            $this->redis->multi()
+                ->lRem($this->processingKey($queue), (string) $raw, 1)
+                ->lPush($this->waitingKey($queue), (string) $raw)
+                ->hDel($this->processingMetaKey($queue), (string) $raw)
+                ->exec();
+            $reaped++;
+            log_message('warning', "RedisQueue::reapStuckJobs: requeued stuck job in queue '{$queue}' (age={$age}s)");
+        }
+
+        return $reaped;
+    }
+
+    private function dropFromProcessing(string $queue, string $raw): void
+    {
+        $this->redis->multi()
+            ->lRem($this->processingKey($queue), $raw, 1)
+            ->hDel($this->processingMetaKey($queue), $raw)
+            ->exec();
     }
 
     private function promoteDelayed(string $queue): void
@@ -184,5 +299,13 @@ class RedisQueue extends BaseQueue implements QueueInterface, WorkerInterface
         return $this->prefix . $queue . '-delayed';
     }
 
-    // Método failedKey eliminado por no uso; se gestionará almacenamiento de fallos en implementación futura.
+    private function processingKey(string $queue): string
+    {
+        return $this->prefix . $queue . '-processing';
+    }
+
+    private function processingMetaKey(string $queue): string
+    {
+        return $this->prefix . $queue . '-processing-meta';
+    }
 }

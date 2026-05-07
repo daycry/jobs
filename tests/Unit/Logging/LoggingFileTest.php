@@ -51,8 +51,7 @@ final class LoggingFileTest extends TestCase
 
         $file = $this->logDir . '/log_closure.json';
         $this->assertFileExists($file, 'Log file not created');
-        $json = json_decode(file_get_contents($file));
-        $this->assertIsArray($json);
+        $json = $this->readJobLogFile($file);
         $this->assertNotEmpty($json);
         $first = $json[0];
         $this->assertSame('log_closure', $first->name);

@@ -62,9 +62,9 @@ final class JobLoggerObjectPayloadTest extends TestCase
 
         $file = $this->tmpDir . 'test_obj_mask.json';
         $this->assertFileExists($file);
-        $data  = json_decode(file_get_contents($file));
+        $data = $this->readJobLogFile($file);
+        $this->assertNotEmpty($data);
         $entry = $data[0];
-        $this->assertIsObject($entry);
         // Payload should have sensitive key masked
         $payloadDecoded = json_decode($entry->payload);
         $this->assertSame('***', $payloadDecoded->secret ?? null);
@@ -85,7 +85,7 @@ final class JobLoggerObjectPayloadTest extends TestCase
 
         $file = $this->tmpDir . 'test_token_mask.json';
         $this->assertFileExists($file);
-        $data  = json_decode(file_get_contents($file));
+        $data  = $this->readJobLogFile($file);
         $entry = $data[0];
         $this->assertStringContainsString('***', (string) ($entry->output ?? ''));
     }

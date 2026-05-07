@@ -14,7 +14,7 @@ declare(strict_types=1);
 use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal
@@ -60,8 +60,8 @@ final class LoggingCustomSensitiveKeysTest extends TestCase
 
         $file = config('Jobs')->filePath . 'custom_sensitive.json';
         $this->assertFileExists($file);
-        $entries = json_decode(file_get_contents($file));
-        $this->assertIsArray($entries);
+        $entries = $this->readJobLogFile($file);
+        $this->assertNotEmpty($entries);
         $entry = $entries[0];
         $this->assertNotNull($entry->payload);
         $decoded = json_decode($entry->payload, true);

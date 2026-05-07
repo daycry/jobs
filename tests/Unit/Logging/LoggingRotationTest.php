@@ -50,8 +50,9 @@ final class LoggingRotationTest extends TestCase
         }
         $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/rotation_job.json';
         $this->assertFileExists($file);
-        $json = json_decode(file_get_contents($file));
+        $json = $this->readJobLogFile($file);
         $this->assertCount(3, $json, 'Should only keep 3 log entries');
+        $this->assertNotEmpty($json);
         $this->assertStringContainsString('Run 5', (string) $json[0]->output); // más reciente
         $this->assertStringContainsString('Run 3', (string) $json[2]->output); // más antiguo retenido
     }

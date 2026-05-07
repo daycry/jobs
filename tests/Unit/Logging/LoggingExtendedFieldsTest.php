@@ -14,7 +14,7 @@ declare(strict_types=1);
 use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\JobLogger;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal
@@ -57,8 +57,7 @@ final class LoggingExtendedFieldsTest extends TestCase
 
         $file = config('Jobs')->filePath . 'ext_log.json';
         $this->assertFileExists($file, 'Log file should exist');
-        $decoded = json_decode(file_get_contents($file));
-        $this->assertIsArray($decoded);
+        $decoded = $this->readJobLogFile($file);
         $this->assertNotEmpty($decoded);
         $entry = $decoded[0];
 

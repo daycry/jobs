@@ -50,6 +50,13 @@ class ShellJob extends Job implements JobInterface
 
     /**
      * Validate command against whitelist if configured.
+     *
+     * Resolution rules:
+     *  - If a whitelist entry contains a path separator (or resolves via realpath),
+     *    we compare absolute paths (strongest mode — rejects /tmp/echo if only /usr/bin/echo is allowed).
+     *  - If a whitelist entry is a bare name (e.g. 'ls'), we fall back to legacy
+     *    case-insensitive basename matching with a deprecation warning. This mode
+     *    is preserved to avoid breaking existing installs and will be removed in v2.0.
      */
     private function validateCommand(string $command): void
     {
@@ -61,16 +68,64 @@ class ShellJob extends Job implements JobInterface
             return;
         }
 
-        // Extract command name (first token) and get basename to prevent path-based bypass
-        $parts   = preg_split('/\\s+/', trim($command), 2);
-        $cmdName = basename($parts[0] ?? '');
+        $parts  = preg_split('/\\s+/', trim($command), 2);
+        $rawCmd = $parts[0] ?? '';
 
-        // Normalize whitelist to lowercase for case-insensitive comparison
-        $allowedLower = array_map(strtolower(...), array_map(basename(...), $allowed));
+        $candidate       = $this->resolveBinary($rawCmd);
+        $allowedResolved = [];
+        $hasLegacyEntry  = false;
 
-        // Check if command is in whitelist (case-insensitive)
-        if (! in_array(strtolower($cmdName), $allowedLower, true)) {
-            throw JobException::forShellCommandNotAllowed($cmdName);
+        foreach ($allowed as $entry) {
+            $resolved = $this->resolveBinary((string) $entry);
+            if ($resolved !== null) {
+                $allowedResolved[] = $resolved;
+            } else {
+                $hasLegacyEntry = true;
+            }
         }
+
+        // Strongest match: candidate path resolved AND in whitelist of resolved paths
+        if ($candidate !== null && in_array($candidate, $allowedResolved, true)) {
+            return;
+        }
+
+        // Legacy fallback: only if at least one whitelist entry was a bare name
+        if ($hasLegacyEntry) {
+            $cmdBase     = strtolower(basename($rawCmd));
+            $allowedBase = array_map(strtolower(...), array_map(basename(...), $allowed));
+            if (in_array($cmdBase, $allowedBase, true)) {
+                log_message(
+                    'warning',
+                    "ShellJob: matched '{$rawCmd}' against legacy basename whitelist. "
+                    . "Configure 'allowedShellCommands' with absolute paths to avoid this fallback (deprecated, removed in v2.0).",
+                );
+
+                return;
+            }
+        }
+
+        throw JobException::forShellCommandNotAllowed($rawCmd);
+    }
+
+    /**
+     * Resolve a command path to its absolute realpath, when possible.
+     * Returns null when the input is a bare command name (no separator) and cannot be resolved,
+     * signalling the caller that legacy basename matching should be used for that entry.
+     */
+    private function resolveBinary(string $cmd): ?string
+    {
+        if ($cmd === '') {
+            return null;
+        }
+
+        // Treat as path only if it carries a separator. Otherwise it's a bare name
+        // (we don't trust PATH lookup at this layer to keep the behaviour predictable).
+        if (str_contains($cmd, '/') || str_contains($cmd, '\\')) {
+            $resolved = realpath($cmd);
+
+            return $resolved !== false ? $resolved : null;
+        }
+
+        return null;
     }
 }

@@ -15,7 +15,7 @@ use Daycry\Jobs\Execution\ExecutionResult;
 use Daycry\Jobs\Job;
 use Daycry\Jobs\Loggers\FileHandler;
 use Daycry\Jobs\Loggers\JobLogger;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal
@@ -43,8 +43,7 @@ final class LoggingUnifiedPathTest extends TestCase
 
         $file = $cfg->filePath . '/unified_name.json';
         $this->assertFileExists($file);
-        $contents = json_decode(file_get_contents($file));
-        $this->assertIsArray($contents);
+        $contents = $this->readJobLogFile($file);
         $this->assertNotEmpty($contents);
         $this->assertSame('unified_name', $contents[0]->name);
 

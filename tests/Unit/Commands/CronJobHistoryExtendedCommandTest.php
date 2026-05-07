@@ -16,7 +16,7 @@ use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\ConfigCache;
 use Daycry\Jobs\Loggers\FileHandler;
 use Daycry\Jobs\Loggers\JobLogger;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal

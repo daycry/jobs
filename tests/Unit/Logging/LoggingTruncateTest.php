@@ -48,8 +48,8 @@ final class LoggingTruncateTest extends TestCase
 
         $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/truncate_job.json';
         $this->assertFileExists($file);
-        $json = json_decode(file_get_contents($file));
-        $this->assertIsArray($json);
+        $json = $this->readJobLogFile($file);
+        $this->assertNotEmpty($json);
         $first = $json[0];
         $this->assertLessThan(strlen($payload), strlen((string) $first->output));
         $this->assertStringContainsString('[truncated', (string) $first->output);

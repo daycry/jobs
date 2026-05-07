@@ -129,8 +129,43 @@ class Jobs extends BaseConfig
      * Poll Interval
      * --------------------------------------------------------------------------
      * Seconds to sleep between queue polling cycles when no job is available.
+     * Ignored when blockingFetch is enabled and the active backend supports
+     * blocking reads (Redis BRPOPLPUSH or Beanstalk reserve_with_timeout).
      */
     public int $pollInterval = 5;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Blocking Fetch (opt-in)
+     * --------------------------------------------------------------------------
+     * When true the worker uses blocking reads on backends that support them
+     * (Redis BRPOPLPUSH; Beanstalk reserve_with_timeout) instead of polling.
+     * The blockingFetchTimeout is the seconds to wait per fetch (also acts as
+     * the upper bound for graceful shutdown latency).
+     */
+    public bool $blockingFetch = false;
+
+    public int $blockingFetchTimeout = 5;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Redis Reliable Queue
+     * --------------------------------------------------------------------------
+     * Visibility timeout (seconds) used by jobs:redis:reap-stuck to decide when
+     * an in-flight job left in the processing list belongs to a crashed worker
+     * and must be returned to the waiting list for retry.
+     */
+    public int $redisProcessingVisibilityTimeout = 300;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Service Bus
+     * --------------------------------------------------------------------------
+     * Lock timeout (seconds) requested when peek-locking messages.
+     * Must be >= the maximum job runtime, otherwise the broker may redeliver
+     * the message to another worker mid-execution.
+     */
+    public int $serviceBusLockTimeout = 60;
 
     /**
      * --------------------------------------------------------------------------

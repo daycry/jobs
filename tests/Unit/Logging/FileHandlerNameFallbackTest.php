@@ -12,7 +12,7 @@ declare(strict_types=1);
  */
 
 use Daycry\Jobs\Loggers\FileHandler;
-use PHPUnit\Framework\TestCase;
+use Tests\Support\TestCase;
 
 /**
  * @internal
@@ -42,8 +42,8 @@ final class FileHandlerNameFallbackTest extends TestCase
         if (! file_exists($file)) {
             $this->markTestSkipped('File not created (environment permissions?)');
         }
-        $decoded = json_decode(file_get_contents($file));
-        $this->assertIsArray($decoded);
+        $decoded = $this->readJobLogFile($file);
+        $this->assertNotEmpty($decoded);
         $this->assertSame('uuid-test', $decoded[0]->executionId ?? null);
     }
 
@@ -65,7 +65,7 @@ final class FileHandlerNameFallbackTest extends TestCase
         $handler->handle('info', json_encode($payload));
         $file = rtrim($cfg->filePath, '/\\') . '/unnamed.json';
         $this->assertFileExists($file);
-        $decoded = json_decode(file_get_contents($file));
+        $decoded = $this->readJobLogFile($file);
         $this->assertSame('uuid-test-2', $decoded[0]->executionId ?? null);
     }
 }

@@ -211,7 +211,8 @@ final class QueueModelTest extends DatabaseTestCase
         $result = $model->reserveJob('default');
 
         $this->assertNotInstanceOf(Queue::class, $result);
-        $this->assertSame(3, $fakeDb->attemptedUpdates);
+        // v1.1 raised maxAttempts from 3 to 10 to scale optimistic locking under contention.
+        $this->assertSame(10, $fakeDb->attemptedUpdates);
 
         $supportsProp->setValue(null, null);
     }

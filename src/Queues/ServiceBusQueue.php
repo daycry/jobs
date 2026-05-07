@@ -23,20 +23,38 @@ use Throwable;
 /**
  * Azure Service Bus queue (simplified HTTP interface using CodeIgniter curlrequest).
  *
- * Contract notes:
- *  - enqueue(): sends a message, returns generated MessageId string or empty string on failure.
- *  - watch(): retrieves (and deletes) the head message (destructive read) and returns JobEnvelope or null.
- *  - removeJob(): optionally re-enqueues the original Job (no lock renewal / settlement implemented).
+ * v1.1+ uses **peek-lock** semantics so a worker crash does not lose messages:
+ *  - watch(): POST /<queue>/messages/head?timeout=<lockTimeout> → 201 Created with
+ *             BrokerProperties header containing LockToken + MessageId. Body is the payload.
+ *  - removeJob(recreate=false): DELETE /<queue>/messages/<MessageId>/<LockToken> (settle).
+ *  - removeJob(recreate=true):  enqueue a fresh copy first, then settle the original
+ *                                so the message is never lost between calls.
  *
- * Limitations / TODO:
- *  - Real SAS token lifetime / caching not implemented (token built per instance).
- *  - Proper peek-lock flow (receive + settle) not implemented; current watch() is destructive (DELETE head).
- *  - Scheduling uses x-ms-scheduled-enqueue-time only if provided.
+ * If a worker dies before settling the lock, Azure Service Bus will redeliver the
+ * message to another worker once the lock expires (LockedUntilUtc), giving us
+ * crash-recovery semantics for free at the broker layer.
+ *
+ * Limitations:
+ *  - SAS token expires (~1 week per generation); long-running workers may need to
+ *    rebuild the headers builder. Documented; full lifecycle handling deferred to v2.0.
+ *  - Lock renewal for very long jobs is not implemented; configure
+ *    `serviceBusLockTimeout` >= the maximum expected job runtime.
  */
 class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterface
 {
     private readonly string $baseUrl; // ['issuer' => '', 'secret' => '']
-    private ?array $job = null; // ['body' => object, 'headers' => [], 'status' => int]
+
+    /**
+     * In-flight lease for the currently watched message. Keys:
+     *  - lockToken: string|null
+     *  - messageId: string|null
+     *  - queue:     string
+     *  - body:      object decoded payload
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $job = null;
+
     private readonly ServiceBusHeaders $headersBuilder;
 
     public function __construct()
@@ -88,43 +106,149 @@ class ServiceBusQueue extends BaseQueue implements QueueInterface, WorkerInterfa
 
     public function watch(string $queue): mixed
     {
-        $resp = $this->client()->delete($this->baseUrl . $queue . '/messages/head', [
-            'headers' => array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders()),
-        ]);
-        if (method_exists($resp, 'getStatusCode') && $resp->getStatusCode() === 200) {
-            $rawBody = (string) $resp->getBody();
-            $body    = $this->getSerializer()->deserialize($rawBody);
-            if (! $body) {
-                // Destructive read succeeded but deserialization failed — log to prevent silent data loss
-                log_message('error', 'ServiceBusQueue::watch deserialization failed after destructive read. Raw body: ' . mb_substr($rawBody, 0, 500));
+        $cfg         = config('Jobs');
+        $lockTimeout = max(1, (int) ($cfg->serviceBusLockTimeout ?? 60));
 
-                return null;
-            }
-            $this->job = ['body' => $body, 'status' => 200, 'headers' => []];
+        $headers = array_merge(['Content-Type' => 'application/json'], $this->headersBuilder->getHeaders());
+        // Authorization is the only header required for the peek-lock POST; strip BrokerProperties
+        // (which carries the *outgoing* MessageId) so the broker does not reject the request.
+        unset($headers['BrokerProperties']);
 
-            return JobEnvelope::fromBackend(
-                backend: 'servicebus',
-                id: $this->headersBuilder->getMessageId(),
-                queue: $queue,
-                payload: $body,
-                extraMeta: ['status' => 200],
-                raw: $this->job,
-            );
+        $resp = $this->client()->post(
+            $this->baseUrl . $queue . '/messages/head?timeout=' . $lockTimeout,
+            ['headers' => $headers],
+        );
+
+        if (! method_exists($resp, 'getStatusCode')) {
+            return null;
         }
 
-        return null;
+        $status = (int) $resp->getStatusCode();
+        // 201 Created = peek-lock succeeded (message held), 204 No Content = empty queue.
+        if ($status !== 201) {
+            return null;
+        }
+
+        [$messageId, $lockToken] = $this->extractLockTokens($resp);
+
+        if ($lockToken === null || $messageId === null) {
+            log_message('error', 'ServiceBusQueue::watch missing LockToken/MessageId in BrokerProperties; cannot ack message safely.');
+
+            return null;
+        }
+
+        $rawBody = (string) $resp->getBody();
+        $body    = $this->getSerializer()->deserialize($rawBody);
+        if (! $body) {
+            // We hold the lock but cannot interpret the payload. Don't ack:
+            // the broker will redeliver after lock expiry and eventually
+            // dead-letter the message after MaxDeliveryCount.
+            log_message('error', 'ServiceBusQueue::watch deserialization failed; leaving message locked. Raw body: ' . mb_substr($rawBody, 0, 500));
+
+            return null;
+        }
+
+        $this->job = [
+            'lockToken' => $lockToken,
+            'messageId' => $messageId,
+            'queue'     => $queue,
+            'body'      => $body,
+        ];
+
+        return JobEnvelope::fromBackend(
+            backend: 'servicebus',
+            id: $messageId,
+            queue: $queue,
+            payload: $body,
+            extraMeta: ['lockToken' => $lockToken, 'status' => $status],
+            raw: $this->job,
+        );
     }
 
     public function removeJob(QueuesJob $job, bool $recreate = false): bool
     {
+        if ($this->job === null) {
+            // Legacy call path (no active lease): keep the previous behaviour so
+            // callers that just push a recreate without a prior watch() still work.
+            if ($recreate) {
+                $this->enqueue($job->toObject());
+            }
+
+            return true;
+        }
+
+        $queue     = (string) ($this->job['queue'] ?? 'default');
+        $messageId = (string) ($this->job['messageId'] ?? '');
+        $lockToken = (string) ($this->job['lockToken'] ?? '');
+
+        if ($messageId === '' || $lockToken === '') {
+            $this->job = null;
+
+            return false;
+        }
+
         if ($recreate) {
-            // Re-enqueue directly to this service bus backend instead of using enqueue()
-            // which might cause issues with queue configuration
+            // Enqueue the new copy FIRST so we never lose the message if the
+            // settle of the original fails. If enqueue throws, the broker will
+            // redeliver the original after lock expiry — no data loss.
             $this->enqueue($job->toObject());
         }
+
+        $this->settleLockedMessage($queue, $messageId, $lockToken);
         $this->job = null;
 
         return true;
+    }
+
+    /**
+     * Pull MessageId and LockToken out of the BrokerProperties response header.
+     *
+     * @return array{0: ?string, 1: ?string} [messageId, lockToken]
+     */
+    private function extractLockTokens(object $resp): array
+    {
+        if (! method_exists($resp, 'getHeader')) {
+            return [null, null];
+        }
+
+        $header = $resp->getHeader('BrokerProperties');
+        if ($header === null) {
+            return [null, null];
+        }
+
+        $value = method_exists($header, 'getValue') ? $header->getValue() : (string) $header;
+        if (! is_string($value) || $value === '') {
+            return [null, null];
+        }
+
+        $decoded = json_decode($value);
+        if (! is_object($decoded)) {
+            return [null, null];
+        }
+
+        return [
+            isset($decoded->MessageId) ? (string) $decoded->MessageId : null,
+            isset($decoded->LockToken) ? (string) $decoded->LockToken : null,
+        ];
+    }
+
+    /**
+     * Settle (DELETE) the locked message. A failure here only triggers a warning;
+     * the broker will redeliver after lock expiry, so no data is lost.
+     */
+    private function settleLockedMessage(string $queue, string $messageId, string $lockToken): void
+    {
+        try {
+            $headers = $this->headersBuilder->getHeaders();
+            unset($headers['BrokerProperties']);
+
+            $this->client()->delete(
+                $this->baseUrl . $queue . '/messages/' . rawurlencode($messageId) . '/' . rawurlencode($lockToken),
+                ['headers' => $headers],
+            );
+        } catch (Throwable $e) {
+            log_message('warning', "ServiceBusQueue::settleLockedMessage failed for messageId={$messageId}: " . $e->getMessage() . '. Broker will redeliver after lock expiry.');
+        }
     }
 
     /**

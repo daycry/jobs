@@ -112,37 +112,64 @@ final class ServiceBusQueueTest extends TestCase
     public function testWatchSuccessAndNull(): void
     {
         $bodyObj = (object) ['createdAt' => '2025-01-02 03:04:05', 'attempts' => 2, 'payload' => 'x'];
-        $okResp  = new class ($bodyObj) {
+        // v1.1+ peek-lock: 201 Created with BrokerProperties header carrying LockToken + MessageId.
+        $okResp = new class ($bodyObj) {
             public function __construct(private readonly object $b)
             {
             }
 
             public function getStatusCode(): int
             {
-                return 200;
+                return 201;
             }
 
             public function getBody(): string
             {
                 return (string) json_encode($this->b);
             }
+
+            public function getHeader(string $name): mixed
+            {
+                if ($name !== 'BrokerProperties') {
+                    return null;
+                }
+
+                return new class () {
+                    public function getValue(): string
+                    {
+                        return (string) json_encode([
+                            'MessageId' => 'test-msg-id-1',
+                            'LockToken' => '00000000-0000-0000-0000-000000000001',
+                        ]);
+                    }
+                };
+            }
         };
-        $notFound = new class () {
+        // 204 No Content = empty queue under peek-lock semantics.
+        $empty = new class () {
             public function getStatusCode(): int
             {
-                return 404;
+                return 204;
             }
 
             public function getBody(): string
             {
                 return '';
             }
+
+            public function getHeader(string $name): mixed
+            {
+                return null;
+            }
         };
+
         $q   = $this->makeQueue([$okResp]);
         $env = $q->watch('default');
         $this->assertInstanceOf(JobEnvelope::class, $env);
         $this->assertSame(2, $env->attempts);
-        $q2 = $this->makeQueue([$notFound]);
+        $this->assertSame('test-msg-id-1', $env->id);
+
+        $q2 = $this->makeQueue([$empty]);
         $this->assertNull($q2->watch('default'));
     }
 
@@ -207,15 +234,34 @@ final class ServiceBusQueueTest extends TestCase
 
     public function testWatchDeserializationFailureReturnsNull(): void
     {
+        // Peek-lock returns 201 with valid headers but body is unreadable;
+        // the message stays locked (we do not ack) so the broker can redeliver.
         $okRespInvalidBody = new class () {
             public function getStatusCode(): int
             {
-                return 200;
+                return 201;
             }
 
             public function getBody(): string
             {
                 return 'not-json';
+            }
+
+            public function getHeader(string $name): mixed
+            {
+                if ($name !== 'BrokerProperties') {
+                    return null;
+                }
+
+                return new class () {
+                    public function getValue(): string
+                    {
+                        return (string) json_encode([
+                            'MessageId' => 'corrupt-msg',
+                            'LockToken' => '00000000-0000-0000-0000-000000000099',
+                        ]);
+                    }
+                };
             }
         };
         $q   = $this->makeQueue([$okRespInvalidBody]);

@@ -46,8 +46,8 @@ final class LoggingErrorTest extends TestCase
 
         $file = rtrim((string) config('Jobs')->filePath, DIRECTORY_SEPARATOR) . '/error_job.json';
         $this->assertFileExists($file);
-        $json = json_decode(file_get_contents($file));
-        $this->assertIsArray($json);
+        $json = $this->readJobLogFile($file);
+        $this->assertNotEmpty($json);
         $first = $json[0];
         $this->assertSame('error_job', $first->name);
         $this->assertNull($first->output, 'Output should be null when error');

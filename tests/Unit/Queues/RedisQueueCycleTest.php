@@ -71,9 +71,11 @@ final class RedisQueueCycleTest extends TestCase
         }, false);
         $this->assertSame(1, $job->getAttempt(), 'Attempt incremented after failed cycle');
 
-        // fetch requeued job
+        // Fetch the requeued job. v1.1 reliable-queue pattern preserves the original payload
+        // (and therefore its identifier) across nack: the same raw entry is moved back to the
+        // waiting list. The retry is tracked via the attempts counter, not via a new id.
         $fetched2 = $worker->watch($queueName);
         $this->assertNotNull($fetched2, 'Should consume requeued job');
-        $this->assertNotSame($id1, $fetched2->id, 'New identifier after requeue');
+        $this->assertSame($id1, $fetched2->id, 'Requeued job should retain its original identifier');
     }
 }
