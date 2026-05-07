@@ -11,6 +11,8 @@
 [![Tests](https://github.com/daycry/jobs/actions/workflows/php.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/php.yml)
 [![Static Analysis](https://github.com/daycry/jobs/actions/workflows/analyze.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/analyze.yml)
 [![Code Style](https://github.com/daycry/jobs/actions/workflows/cs.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/cs.yml)
+[![Composer](https://github.com/daycry/jobs/actions/workflows/composer.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/composer.yml)
+[![Security](https://github.com/daycry/jobs/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/security.yml)
 [![Coverage status](https://coveralls.io/repos/github/daycry/jobs/badge.svg?branch=master)](https://coveralls.io/github/daycry/jobs?branch=master)
 [![Downloads](https://poser.pugx.org/daycry/jobs/downloads)](https://packagist.org/packages/daycry/jobs)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/daycry/jobs)](https://packagist.org/packages/daycry/jobs)
