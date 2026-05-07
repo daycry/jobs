@@ -28,14 +28,20 @@ class DeadLetterQueue
      * @param Job    $job      Failed job
      * @param string $reason   Failure reason
      * @param int    $attempts Number of attempts made
+     *
+     * @return bool true when the job was successfully persisted to the DLQ; false otherwise
+     *              (DLQ disabled in config or push to backend failed). Callers MUST act on
+     *              a false return value to avoid silent job loss.
      */
-    public function store(Job $job, string $reason, int $attempts): void
+    public function store(Job $job, string $reason, int $attempts): bool
     {
         $config  = ConfigCache::get();
-        $dlqName = $config->deadLetterQueue;
+        $dlqName = $config->deadLetterQueue ?? null;
 
         if (! $dlqName) {
-            return; // DLQ disabled
+            log_message('critical', "Job {$job->getName()} permanently failed after {$attempts} attempts but DLQ is not configured — caller must decide whether to drop or requeue. Reason: {$reason}");
+
+            return false;
         }
 
         // Add metadata about the failure
@@ -61,8 +67,12 @@ class DeadLetterQueue
         try {
             $dlqJob->push();
             log_message('info', "Job {$job->getName()} moved to DLQ after {$attempts} attempts. Reason: {$reason}");
+
+            return true;
         } catch (Throwable $e) {
-            log_message('error', "Failed to store job in DLQ: {$e->getMessage()}");
+            log_message('critical', "Failed to store job {$job->getName()} in DLQ: {$e->getMessage()}");
+
+            return false;
         }
     }
 

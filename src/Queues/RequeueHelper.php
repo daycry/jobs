@@ -47,39 +47,47 @@ final class RequeueHelper
             $this->dlq = new DeadLetterQueue();
         }
 
-        // Authoritative increment for this execution cycle (success or failure)
-        $job->addAttempt();
+        // The current cycle's attempt number = persisted counter + 1.
+        // We delay the actual addAttempt() call until we know the destination so the
+        // counter stays consistent with the backend state if removeFn or DLQ fails.
+        $maxRetries  = $job->getMaxRetries();
+        $nextAttempt = $job->getAttempt() + 1;
 
         if ($success) {
+            $job->addAttempt();
             $removeFn($job, false);
             $this->metrics?->increment('jobs_succeeded', 1, ['queue' => $envelope->queue]);
 
             return;
         }
 
-        // Failure: check if we should requeue based on maxRetries
-        $maxRetries     = $job->getMaxRetries();
-        $currentAttempt = $job->getAttempt();
-
-        // If maxRetries is null, do NOT requeue (fail immediately)
-        // If maxRetries is set, requeue only if attempts < maxRetries + 1 (first attempt + retries)
-        $shouldRequeue = ($maxRetries !== null) && ($currentAttempt < ($maxRetries + 1));
+        // Failure path. Requeue only when retries remain.
+        $shouldRequeue = ($maxRetries !== null) && ($nextAttempt < ($maxRetries + 1));
 
         if ($shouldRequeue) {
-            $removeFn($job, true); // Requeue
+            $job->addAttempt(); // counter is persisted into the requeued payload via toObject()
+            $removeFn($job, true);
             $this->metrics?->increment('jobs_failed', 1, ['queue' => $envelope->queue]);
             $this->metrics?->increment('jobs_requeued', 1, ['queue' => $envelope->queue]);
-        } else {
-            $removeFn($job, false); // Mark as failed permanently
-            $this->metrics?->increment('jobs_failed', 1, ['queue' => $envelope->queue]);
-            $this->metrics?->increment('jobs_failed_permanently', 1, ['queue' => $envelope->queue]);
 
-            // Move to Dead Letter Queue if configured
-            $this->dlq->store(
-                $job,
-                'Max retries exceeded',
-                $currentAttempt,
-            );
+            return;
+        }
+
+        // Permanent failure: try DLQ FIRST so we know whether the origin removal is safe.
+        // store() returns true only when the job was persisted to the DLQ backend.
+        $stored = $this->dlq->store($job, 'Max retries exceeded', $nextAttempt);
+
+        $job->addAttempt();
+        $removeFn($job, false);
+        $this->metrics?->increment('jobs_failed', 1, ['queue' => $envelope->queue]);
+        $this->metrics?->increment('jobs_failed_permanently', 1, ['queue' => $envelope->queue]);
+
+        if (! $stored) {
+            // DLQ disabled or push failed. The job has been removed from the origin queue
+            // (in some backends — Redis/ServiceBus — the message is gone after fetch and
+            // we cannot leave it there). Track this as a separate signal so operators can
+            // monitor it as a job-loss indicator and configure DLQ.
+            $this->metrics?->increment('jobs_dlq_failed', 1, ['queue' => $envelope->queue]);
         }
     }
 }
