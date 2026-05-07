@@ -94,7 +94,7 @@ jobs:
         run: composer test
 
       - name: Upload coverage to Coveralls
-        if: matrix.php-versions == '8.3'
+        if: matrix.php-versions == '8.5'
         run: |
           composer global require --ansi php-coveralls/php-coveralls:^2.4
           php-coveralls --coverage_clover=build/logs/clover.xml -v
