@@ -56,6 +56,19 @@ class JobException extends RuntimeException
         return new self("Shell command '{$command}' is not in the whitelist of allowed commands.");
     }
 
+    public static function forShellCommandsNotConfigured(): static
+    {
+        return new self(
+            'ShellHandler is deny-by-default: configure Config\\Jobs::$allowedShellCommands '
+            . 'with absolute paths, or set $allowAllShellCommands = true to opt out explicitly.',
+        );
+    }
+
+    public static function forEventNotAllowed(string $event): static
+    {
+        return new self("Event '{$event}' is not in Config\\Jobs::\$allowedEvents.");
+    }
+
     public static function forJobTimeout(string $jobName, int $timeout): static
     {
         return new self("Job '{$jobName}' exceeded maximum execution time of {$timeout} seconds.");

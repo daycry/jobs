@@ -48,6 +48,43 @@ class Jobs extends BaseConfig
         'event'   => EventJob::class,
         'url'     => UrlJob::class,
     ];
+
+    /**
+     * v3 handler map (key => JobHandlerInterface class). Replaces $jobs.
+     * The v3 HandlerRegistry falls back to $jobs while the deprecated v1 facade exists.
+     *
+     * @var array<string, class-string>
+     */
+    public array $handlers = [
+        'command' => \Daycry\Jobs\Handlers\CommandHandler::class,
+        'shell'   => \Daycry\Jobs\Handlers\ShellHandler::class,
+        'closure' => \Daycry\Jobs\Handlers\ClosureHandler::class,
+        'event'   => \Daycry\Jobs\Handlers\EventHandler::class,
+        'url'     => \Daycry\Jobs\Handlers\UrlHandler::class,
+    ];
+
+    /**
+     * Per-queue allowlist of handler keys. A queue may only run the handlers listed here.
+     * A queue absent from this map (or with an empty list) imposes no restriction — set it
+     * explicitly in production so remote queues cannot invoke 'shell'/'command'.
+     * Example: ['reports' => ['command'], 'web' => ['url', 'event']]
+     *
+     * @var array<string, list<string>>
+     */
+    public array $queueHandlers = [];
+
+    /**
+     * Allowlist of event names EventHandler may trigger. Empty = deny all (secure default).
+     *
+     * @var list<string>
+     */
+    public array $allowedEvents = [];
+
+    /**
+     * Explicit escape hatch to allow ANY shell command (insecure).
+     * Default false = deny-by-default: an empty $allowedShellCommands rejects execution.
+     */
+    public bool $allowAllShellCommands = false;
     public bool $logPerformance = true;
     public int $maxLogsPerJob   = 3;
 
