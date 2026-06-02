@@ -317,6 +317,19 @@ class Jobs extends BaseConfig
         'serviceBus' => ServiceBusQueue::class,
         'database'   => DatabaseQueue::class,
     ];
+
+    /**
+     * v3 backend map (name => QueueBackend class). Used by the v3 worker (jobs:queue:work)
+     * and BackendFactory. Beanstalk/ServiceBus backends ship in a later release; until then
+     * those names fall back to the v1 $workers via the deprecated facade.
+     *
+     * @var array<string, class-string>
+     */
+    public array $backends = [
+        'sync'     => \Daycry\Jobs\Queues\Backends\SyncBackend::class,
+        'database' => \Daycry\Jobs\Queues\Backends\DatabaseBackend::class,
+        'redis'    => \Daycry\Jobs\Queues\Backends\RedisBackend::class,
+    ];
     public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
     public string $from                  = 'your@example.com';
     public string $fromName              = 'CronJob';
