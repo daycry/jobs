@@ -85,6 +85,27 @@ class Jobs extends BaseConfig
      * Default false = deny-by-default: an empty $allowedShellCommands rejects execution.
      */
     public bool $allowAllShellCommands = false;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Envelope Signing (anti-tamper / anti-RCE)
+     * --------------------------------------------------------------------------
+     * HMAC-SHA256 key used to sign queue envelopes. When null, the signer falls back to
+     * env('JOBS_SIGNING_KEY') and then to the CodeIgniter Encryption key. If no key can be
+     * resolved, signing/verification operate in insecure mode (logged as critical).
+     */
+    public ?string $signingKey = null;
+
+    /**
+     * When true, the worker rejects queue messages whose HMAC signature is missing or invalid
+     * (provided a signing key is available). Set false only for trusted, private backends.
+     */
+    public bool $verifyEnvelopeSignature = true;
+
+    /**
+     * Default TTL (seconds) for idempotency keys stored by IdempotencyGuard.
+     */
+    public int $idempotencyTtl = 86400;
     public bool $logPerformance = true;
     public int $maxLogsPerJob   = 3;
 
