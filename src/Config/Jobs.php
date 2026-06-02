@@ -196,6 +196,16 @@ class Jobs extends BaseConfig
 
     /**
      * --------------------------------------------------------------------------
+     * Database Reliable Queue
+     * --------------------------------------------------------------------------
+     * Visibility timeout (seconds) used by the database backend reaper to decide when a
+     * row left 'in_progress' belongs to a crashed worker and must be returned to 'pending'.
+     * Must be greater than the maximum expected job runtime to avoid reclaiming live jobs.
+     */
+    public int $databaseVisibilityTimeout = 300;
+
+    /**
+     * --------------------------------------------------------------------------
      * Service Bus
      * --------------------------------------------------------------------------
      * Lock timeout (seconds) requested when peek-locking messages.

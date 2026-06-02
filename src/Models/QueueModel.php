@@ -80,24 +80,28 @@ class QueueModel extends Model
      * Reserve a job from the queue safely (Atomic operation).
      * Attempts FOR UPDATE SKIP LOCKED first (MySQL 8+, PostgreSQL 9.5+),
      * falls back to optimistic locking for older databases or SQLite.
+     *
+     * When $ownerToken is provided (v3 backend path), the reserved row is stamped with
+     * reserved_at = now and owner_token = $ownerToken so the reaper can later detect and
+     * recover leases left behind by a crashed worker.
      */
-    public function reserveJob(string $queue): ?Queue
+    public function reserveJob(string $queue, ?string $ownerToken = null): ?Queue
     {
         // Try atomic locking first (best for concurrency)
         if (self::$supportsSkipLocked !== false) {
-            $result = $this->reserveJobSkipLocked($queue);
+            $result = $this->reserveJobSkipLocked($queue, $ownerToken);
             if ($result instanceof Queue || self::$supportsSkipLocked === true) {
                 return $result;
             }
         }
 
-        return $this->reserveJobOptimistic($queue);
+        return $this->reserveJobOptimistic($queue, $ownerToken);
     }
 
     /**
      * Reserve using FOR UPDATE SKIP LOCKED (MySQL 8+, PostgreSQL 9.5+).
      */
-    private function reserveJobSkipLocked(string $queue): ?Queue
+    private function reserveJobSkipLocked(string $queue, ?string $ownerToken = null): ?Queue
     {
         $table = $this->db->prefixTable($this->table);
         $now   = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
@@ -107,11 +111,12 @@ class QueueModel extends Model
 
             $sql = "SELECT id FROM {$table}
                     WHERE queue = ? AND status = 'pending' AND schedule <= ?
+                    AND (available_at IS NULL OR available_at <= ?)
                     ORDER BY priority ASC, schedule ASC
                     LIMIT 1
                     FOR UPDATE SKIP LOCKED";
 
-            $query = $this->db->query($sql, [$queue, $now]);
+            $query = $this->db->query($sql, [$queue, $now, $now]);
             $row   = $query->getRow();
 
             if (! $row) {
@@ -122,10 +127,10 @@ class QueueModel extends Model
             }
 
             $updateSql = "UPDATE {$table}
-                          SET status = 'in_progress', updated_at = ?
+                          SET status = 'in_progress', reserved_at = ?, owner_token = ?, updated_at = ?
                           WHERE id = ?";
 
-            $this->db->query($updateSql, [$now, $row->id]);
+            $this->db->query($updateSql, [$now, $ownerToken, $now, $row->id]);
             $this->db->transComplete();
 
             self::$supportsSkipLocked = true;
@@ -148,7 +153,7 @@ class QueueModel extends Model
      * Reserve using optimistic locking (fallback for older databases).
      * Uses exponential backoff with jitter to scale under contention.
      */
-    private function reserveJobOptimistic(string $queue): ?Queue
+    private function reserveJobOptimistic(string $queue, ?string $ownerToken = null): ?Queue
     {
         $table       = $this->db->prefixTable($this->table);
         $maxAttempts = 10;
@@ -160,9 +165,10 @@ class QueueModel extends Model
 
             $sql = "SELECT id FROM {$table}
                     WHERE queue = ? AND status = 'pending' AND schedule <= ?
+                    AND (available_at IS NULL OR available_at <= ?)
                     ORDER BY priority ASC, schedule ASC LIMIT 1";
 
-            $query = $this->db->query($sql, [$queue, $now]);
+            $query = $this->db->query($sql, [$queue, $now, $now]);
             $row   = $query->getRow();
 
             if (! $row) {
@@ -171,10 +177,10 @@ class QueueModel extends Model
             }
 
             $updateSql = "UPDATE {$table}
-                          SET status = 'in_progress', updated_at = ?
+                          SET status = 'in_progress', reserved_at = ?, owner_token = ?, updated_at = ?
                           WHERE id = ? AND status = 'pending'";
 
-            $this->db->query($updateSql, [$now, $row->id]);
+            $this->db->query($updateSql, [$now, $ownerToken, $now, $row->id]);
 
             if ($this->db->affectedRows() > 0) {
                 /** @var Queue|null */
@@ -188,6 +194,64 @@ class QueueModel extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Reclaim rows stuck in 'in_progress' whose lease exceeded the visibility timeout
+     * (the owning worker crashed/stalled). Returns the number of rows recovered.
+     */
+    public function reapStuck(string $queue, int $visibilityTimeoutSeconds): int
+    {
+        $table     = $this->db->prefixTable($this->table);
+        $threshold = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))
+            ->modify('-' . max(0, $visibilityTimeoutSeconds) . ' seconds')
+            ->format('Y-m-d H:i:s');
+
+        $sql = "UPDATE {$table}
+                SET status = 'pending', owner_token = NULL, reserved_at = NULL
+                WHERE queue = ? AND status = 'in_progress' AND reserved_at IS NOT NULL AND reserved_at < ?";
+
+        $this->db->query($sql, [$queue, $threshold]);
+
+        return $this->db->affectedRows();
+    }
+
+    /**
+     * Requeue a leased row IN PLACE for retry: same row/id, attempts incremented, made
+     * available again after $delaySeconds (retry backoff). Avoids the orphan-row leak of
+     * the legacy mark-failed + insert-new pattern.
+     */
+    public function requeueInPlace(int $id, int $delaySeconds = 0): bool
+    {
+        $table     = $this->db->prefixTable($this->table);
+        $tz        = new DateTimeZone(config('App')->appTimezone);
+        $now       = (new DateTime('now', $tz))->format('Y-m-d H:i:s');
+        $available = (new DateTime('now', $tz))->modify('+' . max(0, $delaySeconds) . ' seconds')->format('Y-m-d H:i:s');
+
+        $sql = "UPDATE {$table}
+                SET status = 'pending', attempts = attempts + 1, available_at = ?, reserved_at = NULL, owner_token = NULL, updated_at = ?
+                WHERE id = ?";
+
+        $this->db->query($sql, [$available, $now, $id]);
+
+        return $this->db->affectedRows() > 0;
+    }
+
+    /**
+     * Set a terminal status ('completed' | 'failed') on a leased row.
+     */
+    public function markStatus(int $id, string $status): bool
+    {
+        $table = $this->db->prefixTable($this->table);
+        $now   = (new DateTime('now', new DateTimeZone(config('App')->appTimezone)))->format('Y-m-d H:i:s');
+
+        $sql = "UPDATE {$table}
+                SET status = ?, reserved_at = NULL, owner_token = NULL, updated_at = ?
+                WHERE id = ?";
+
+        $this->db->query($sql, [$status, $now, $id]);
+
+        return $this->db->affectedRows() > 0;
     }
 
     /**
