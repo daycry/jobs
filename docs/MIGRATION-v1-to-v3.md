@@ -186,9 +186,10 @@ honours per-queue rate limits.
   `$databaseVisibilityTimeout`, `$metricsCollector`.
 - **Security defaults:** `ShellHandler` is now deny-by-default (`$allowedShellCommands = []` rejects
   everything); `EventHandler` requires `$allowedEvents`; envelope signature verification is on by
-  default.
+  default. See [Security](security.md) for the full model.
 
-See [Configuration](CONFIGURATION.md) for the complete, current list.
+See [Configuration](CONFIGURATION.md) for the complete, current list, and
+[Concurrency & Resilience](concurrency.md) for the locking/breaker/rate-limit controls.
 
 ## Suggested migration steps
 

@@ -174,9 +174,9 @@ class Jobs extends BaseConfig
      * --------------------------------------------------------------------------
      * Redis Reliable Queue
      * --------------------------------------------------------------------------
-     * Visibility timeout (seconds) used by jobs:redis:reap-stuck to decide when
-     * an in-flight job left in the processing list belongs to a crashed worker
-     * and must be returned to the waiting list for retry.
+     * Visibility timeout (seconds) used by the redis backend reaper (jobs:queue:reap)
+     * to decide when an in-flight job left in the processing list belongs to a crashed
+     * worker and must be returned to the waiting list for retry.
      */
     public int $redisProcessingVisibilityTimeout = 300;
 

@@ -2,18 +2,18 @@
 
 v3 turns failures into data, not crashes. A handler may throw any `Throwable`; the runtime catches
 it, records a failed `ExecutionResult`, and the worker decides whether to requeue with backoff or
-dead-letter the message. The worker process itself keeps running.
+abandon the message. The worker process itself keeps running.
 
 ## Where exceptions are handled
 
 | Layer | Class | Responsibility |
 |-------|-------|----------------|
 | Single attempt | `Daycry\Jobs\Execution\JobRuntime` | Run the handler, capture output, apply the timeout, turn any `Throwable` into a failed `ExecutionResult`. |
-| Retry decision | `Daycry\Jobs\Worker\QueueWorker` | Inspect the result; ack on success, `nack(delay)` with retries left, `abandon()` when exhausted. |
+| Retry decision | `Daycry\Jobs\Worker\QueueWorker` | Inspect the result; ack on success, `nack(delay)` with retries left, `abandon($lease)` (backend-specific) plus a `critical` log line when exhausted. |
 | Timeout | `Daycry\Jobs\Execution\Timeout` | Throw `JobException::forJobTimeout()` at the deadline (SIGALRM, interrupts CPU-bound code) or via a soft post-hoc check without `pcntl`. |
 
 **Key principle:** exceptions never crash the worker. They are caught at the execution boundary,
-recorded, and routed through the same retry/dead-letter path as a logical failure.
+recorded, and routed through the same retry/abandon path as a logical failure.
 
 ## Single attempt — `JobRuntime`
 
@@ -54,6 +54,7 @@ What is caught:
 | Handler not allowed on this queue | failed `ExecutionResult` |
 | `beforeRun()` / `handle()` throws | failed `ExecutionResult` with the message |
 | Timeout exceeded | failed `ExecutionResult` (`JobException::forJobTimeout`) |
+| Single-instance lock already held | failed `ExecutionResult` (`"single-instance job '...' is already running"`) — the worker requeues it (see [Concurrency](concurrency.md)) |
 | Any `Throwable` (`Error`, `TypeError`, ...) | failed `ExecutionResult` |
 
 `afterRun()` runs through `safeAfterRun()`: an exception there is swallowed and never changes the
@@ -65,7 +66,19 @@ The worker reads `ExecutionResult::$success` and acts:
 
 - success → `ack()`
 - failure, `attempts < maxRetries` → `nack($lease, $delay)` (backend requeues with backoff)
-- failure, retries exhausted → `abandon()` (dead-letter) plus a `critical` log line
+- failure, retries exhausted → `abandon($lease)` plus a `critical` log line
+
+`abandon()` is backend-specific, and "dead-letter" only describes one of them:
+
+| Backend | `abandon()` behaviour |
+|---------|------------------------|
+| Beanstalk | buries the job — beanstalkd's native dead-letter facility |
+| Redis | drops the message from the processing list (no DLQ) |
+| Database | marks the row `failed` (retained for audit, never re-fetched) |
+
+The app-level `Daycry\Jobs\Libraries\DeadLetterQueue` helper is **opt-in** and is **not** called by
+the worker: `QueueWorker::processOnce()` invokes `$this->backend->abandon($lease)` only. If you want a
+DLQ on Redis/Database, wire `DeadLetterQueue::store()` yourself.
 
 See [Retries](RETRIES.md) for the backoff model and [Attempts](ATTEMPTS.md) for the counter.
 
@@ -111,6 +124,8 @@ Some failures are intentional refusals rather than bugs:
   `JobRuntime`, recorded as a normal failed attempt.
 - **Shell / event refusals** — `ShellHandler` (deny-by-default) and `EventHandler` (empty allowlist)
   throw `JobException` before doing any work.
+
+These refusals are detailed in [Security](security.md).
 
 ## Writing handlers
 
