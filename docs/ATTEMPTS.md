@@ -1,48 +1,72 @@
 # Attempts Semantics
 
-Attempts represent completed execution cycles of a job. They are not merely "failures" or "retries"; success also advances the counter.
+The attempts counter records how many times a job has already been executed. It is carried on the
+queue envelope as `attempts` and surfaced to handlers via `JobContext::$attempt`.
 
-## Life Cycle
-1. Enqueued job starts with `attempts = 0` (never executed).
-2. When the worker finishes running the job (success OR failure) the counter is incremented exactly once.
-3. If the job failed and is requeued the increment remains (e.g. after first failed run attempts=1).
-4. The next execution will increment to 2, etc.
+## Where it lives
 
-## Why This Model?
-- Retry policies need a consistent monotonic counter to compute backoff.
-- Logging & analytics benefit from knowing how many full cycles a job has consumed.
-- Avoids ambiguity of whether `attempt=0` means already processed or still pristine.
+- **Envelope (`attempts`)** — a **0-based** counter of *completed runs before the current one*. A
+  freshly enqueued message has `attempts = 0`. Each requeue (`nack`) advances it by one.
+- **`JobContext::$attempt`** — a **1-based** view for the handler: it equals `envelope->attempts + 1`,
+  so the very first execution sees `attempt = 1`.
 
-## Accessing Attempts
+`JobDefinition` describes the retry budget (`maxRetries`); the live attempt count travels on the
+envelope, not on the definition.
+
+## Life cycle
+
+1. A job is enqueued with `attempts = 0` (never executed).
+2. The worker fetches the message and runs **one** attempt. The handler sees
+   `JobContext::$attempt = attempts + 1`.
+3. On **success**, the message is acked — the counter is irrelevant after that.
+4. On **failure with retries left**, the worker `nack`s the message; the backend requeues it with
+   `attempts` incremented, so the next delivery sees a higher `attempt`.
+5. When `attempts == maxRetries` and the attempt fails, the worker `abandon`s the message
+   (dead-letter). Total executions therefore equal `maxRetries + 1`.
+
+## Why this model
+
+- The worker (not the runtime) owns the retry decision, so the counter advances exactly once per
+  delivery — there is no double counting across backends.
+- Backoff strategies need a monotonic counter to compute the next delay; `RetryPolicy::computeDelay()`
+  is called with the next attempt number.
+- Handlers can branch on `attempt` (e.g. log differently on the final try) without knowing anything
+  about the queue.
+
+## Reading the attempt in a handler
+
 ```php
-$attempt = $job->getAttempt();
-```
-You typically only read this in retry policy evaluators or logging.
+use Daycry\Jobs\Handlers\AbstractJobHandler;
+use Daycry\Jobs\Execution\JobContext;
 
-## Requeue Flow
-Requeue logic is centralized in `RequeueHelper::finalize()` ensuring a single authoritative increment per cycle and preventing duplicate counting across queue backends.
+final class SyncStripe extends AbstractJobHandler
+{
+    public function handle(JobContext $ctx): mixed
+    {
+        if ($ctx->attempt > 1) {
+            log_message('warning', "Retry #{$ctx->attempt} for {$ctx->name}");
+        }
 
-Order of operations (v1.0.3+):
-
-1. Compute the destination based on the cycle outcome (success / requeue / permanent failure).
-2. Run the destination operation:
-   - **Success** — `removeFn(false)`, then `addAttempt()`, then emit `jobs_succeeded`.
-   - **Requeue** — `addAttempt()` (so the requeued payload carries the new value), `removeFn(true)`, emit `jobs_failed` + `jobs_requeued`.
-   - **Permanent failure** — `DeadLetterQueue::store()` first; only after we know whether the DLQ accepted the message do we run `removeFn(false)` and emit `jobs_failed` + `jobs_failed_permanently` (plus `jobs_dlq_failed` if the DLQ rejected the message).
-
-This ordering eliminates the v1.0.2 race where a failure between the origin removal and the DLQ push silently lost the job.
-
-## Custom Retry Constraints
-Implement a policy that decides max attempts:
-```php
-if ($job->getAttempt() >= 5) {
-    // mark permanently failed, do not requeue
+        // ... business logic ...
+        return 'ok';
+    }
 }
 ```
 
-## Edge Cases
-- If a job is removed/requeued manually bypassing `RequeueHelper::finalize()`, attempts will NOT increment; this path is discouraged.
-- Partial executions aborted before finalization should not increment (ensures only completed cycles count).
+## Relation to backoff
 
-## Relation to Backoff
-Backoff delay may use formulae referencing `attempt` (e.g. exponential: `delay = base * multiplier^(attempt-1)`). With this semantics the first finished run (attempt=1) leads to a first retry delay derived from the base.
+The worker computes the requeue delay from the **next** attempt number:
+
+```
+delay = RetryPolicy::computeDelay(attemptIndex + 2)
+```
+
+where `attemptIndex` is the 0-based envelope `attempts` for the run that just failed. With the
+exponential strategy the first retry delay equals `retryBackoffBase`. See [Retries](RETRIES.md).
+
+## Relation to delivery guarantees
+
+Delivery is **at-least-once**: if a worker crashes mid-run, `reapExpired()` (via `jobs:queue:reap`)
+returns the message for redelivery. The redelivered message keeps its `attempts`, so a crash does
+not silently burn a retry — but it does mean the same `attempt` may run more than once. Make handlers
+idempotent, and use `idempotencyKey()` when a duplicate run must be prevented.

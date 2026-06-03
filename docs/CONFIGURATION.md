@@ -1,203 +1,223 @@
 # Configuration
 
-The package reads its settings from `Daycry\Jobs\Config\Jobs` (you may publish / copy to your app namespace to customize). Below is an overview of the most relevant options.
+All settings live in `Daycry\Jobs\Config\Jobs`. Copy the file into your application
+(`app/Config/Jobs.php`, keeping the `Config` namespace) to override defaults — CodeIgniter's
+service locator favours the application namespace.
 
-## Core
-| Property | Type | Description |
-|----------|------|-------------|
-| `$jobs` | array | Mapping of job handler keys (e.g. `command`, `shell`) to concrete job classes. |
-| `$queues` | string|array | Comma list or array of queue names available. First is used as default if none chosen. |
-| `$worker` | string | Active queue backend key referencing `$workers`. Access via `QueueManager::instance()->get($name)`. |
-| `$workers` | array | Map of worker key => queue implementation class. Instances cached by `QueueManager`. |
-| `$logPerformance` | bool | Enable/disable structured execution logging. |
-| `$log` | string | Logging driver key (`file` or `database`). |
-| `$loggers` | array | Map logging driver key => handler class. |
-| `$filePath` | string | Directory for file logs (one JSON file per job name). |
-| `$maxLogsPerJob` | int | Prune old records (database) or lines (file) beyond this count (file handler may ignore if not implemented). |
-| `$sensitiveKeys` | array | List of payload/output/error keys (case-insensitive) to mask recursively. |
-| `$maxOutputLength` | ?int | Truncate output & error string length (null = unlimited). |
+Every property documented below exists in the v3 `Config\Jobs`. Nothing here is invented.
 
-## Security & Performance
+## Handlers
+
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `$allowedShellCommands` | array | `[]` | Whitelist for `ShellJob`. Empty array = allow all (backward compatible). Entries with a path separator are matched via `realpath()`; bare names use the legacy basename match with a deprecation warning (removal in v2.0). |
-| `$queueRateLimits` | array | `[]` | Per-queue rate limits (jobs/minute). Format: `['queue_name' => max_per_minute]`. 0 or missing = no limit. Cache-based token bucket; production deployments should use Redis/Memcached for atomic semantics. |
-| `$deadLetterQueue` | ?string | `null` | Queue name for permanently failed jobs. **When `null` and retries exhaust, the helper logs a `critical` and emits `jobs_dlq_failed`.** Configure a queue to avoid silent loss. Metadata appended: `dlq_reason`, `dlq_timestamp`, `dlq_attempts`, `original_queue`. |
-| `$jobTimeout` | int | `300` | Maximum execution time per job in seconds. 0 = disabled. Uses `pcntl_alarm` (with `pcntl_async_signals(true)` so CPU-bound jobs get interrupted), falls back to a post-execute time check on Windows/non-pcntl runtimes. Emits `jobs_timed_out` on either path. |
-| `$batchSize` | int | `1` | Reserved for future batch processing feature. Currently unused. |
-
-### Worker behaviour
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `$pollInterval` | int | `5` | Seconds to sleep between polling cycles when no job is available. Skipped automatically when `$blockingFetch` is enabled and the active backend supports blocking reads. |
-| `$blockingFetch` | bool | `false` | Opt in to blocking fetch on backends that support it (Redis `BRPOPLPUSH`, Beanstalk `reserve_with_timeout`). Eliminates the polling sleep latency. |
-| `$blockingFetchTimeout` | int | `5` | Seconds to wait per blocking fetch (also acts as the upper bound for graceful shutdown latency). |
-| `$redisProcessingVisibilityTimeout` | int | `300` | Visibility timeout (seconds) used by `jobs:redis:reap-stuck` to decide when an in-flight job in the Redis processing list belongs to a crashed worker and must be requeued. |
-| `$serviceBusLockTimeout` | int | `60` | Lock timeout (seconds) requested when peek-locking Service Bus messages. Should be ≥ the maximum job runtime; otherwise the broker may redeliver mid-execution. |
-| `$circuitBreakerThreshold` | int | `5` | Consecutive backend failures before the circuit opens. |
-| `$circuitBreakerCooldown` | int | `60` | Seconds the circuit stays open before the worker retries the backend. |
-
-## Retry / Backoff
-| Property | Type | Notes |
-|----------|------|-------|
-| `$retryBackoffStrategy` | string | `none`, `fixed`, `exponential`. |
-| `$retryBackoffBase` | int | Base delay (seconds) for first retry. |
-| `$retryBackoffMultiplier` | float | Exponential factor: `delay = base * multiplier^(attempt-2)` (attempt=2 = first retry) |
-| `$retryBackoffMax` | int | Upper cap on any computed delay. |
-| `$retryBackoffJitter` | bool | Add +/- up to 15% random jitter. |
-
-## Timeout
-| Property | Type | Description |
-|----------|------|-------------|
-| `$defaultTimeout` | ?int | Global timeout seconds for jobs lacking explicit timeout. (Enforcement dependent on execution wrapper.) |
-
-## Backend Specific
-### Database
-| Property | Path | Description |
-|----------|------|-------------|
-| `$database` | `['group','table']` | Connection group + table for queue storage. |
-
-### Redis
-Relies on `ext-redis` and host/port taken from environment (e.g. `REDIS_HOST`, `REDIS_PORT`).
-
-### Beanstalk
-| Key | Default |
-|-----|---------|
-| `host` | 127.0.0.1 |
-| `port` | 11300 |
-
-### Azure Service Bus
-| Key | Description |
-|-----|-------------|
-| `url` | Full queue endpoint. |
-| `issuer` | SAS key name. |
-| `secret` | SAS key value. |
-
-## Sensitive Data Masking
-The effective keys are the union of internal defaults (`password`, `token`, `secret`, `authorization`, `api_key`) plus any configured in `$sensitiveKeys` and those appended dynamically at runtime. Matching is case-insensitive and recursive across arrays/objects. Values are replaced with `***`.
-
-### Enhanced Token Pattern Detection (v1.0.3+)
-In addition to key-based masking, the logger automatically detects and masks:
-- **JWT Tokens**: Format `xxx.yyy.zzz` → `***JWT_TOKEN***`
-- **API Keys**: known provider prefixes (`sk_(live|test)_…`, `pk_(live|test)_…`, `AKIA…` (AWS), `gh[pousr]_…` (GitHub PATs), `xox[abprs]-…` (Slack)) **or** opaque alphanumeric strings of 40 characters or more → `***API_KEY***`. The previous "32+ chars" rule was tightened in v1.0.3 so 32-character UUIDs and SHA-1 hex digests are no longer false positives.
-- **Bearer Tokens**: `Bearer <token>` → `Bearer ***TOKEN***`
-
-Recursion is bounded by `MAX_MASK_DEPTH = 10`; payloads nested deeper than that are replaced by `[truncated:max-depth]` so adversarial deep arrays/objects cannot cause a stack overflow.
-
-This pattern-based detection works independently of key names, providing defense-in-depth for leaked credentials.
-
-## Security Features
-
-### Shell Command Whitelisting
-Restrict which shell commands can be executed by `ShellJob`. **Recommended in v1.1+:** use absolute paths so `/tmp/echo` cannot impersonate a whitelisted `/usr/bin/echo`:
+| `$handlers` | `array<string, class-string>` | `command`, `shell`, `closure`, `event`, `url` | Single source of truth mapping a handler **key** to a `JobHandlerInterface` class. `HandlerRegistry` resolves keys exclusively from here. |
+| `$queueHandlers` | `array<string, list<string>>` | `[]` | Per-queue allowlist of handler keys. A queue listed here may run **only** the keys it declares. A queue absent from the map (or with an empty list) imposes no restriction — set it explicitly in production so remote queues cannot invoke `shell`/`command`. |
 
 ```php
-// Recommended (v1.1+): absolute paths matched via realpath()
-public array $allowedShellCommands = ['/usr/bin/ls', '/usr/bin/grep', '/usr/bin/cat'];
+public array $handlers = [
+    'command' => CommandHandler::class,
+    'shell'   => ShellHandler::class,
+    'closure' => ClosureHandler::class,
+    'event'   => EventHandler::class,
+    'url'     => UrlHandler::class,
+];
 
-// Legacy (deprecated, still works with a warning log)
-public array $allowedShellCommands = ['ls', 'grep', 'cat'];
-```
-
-- Empty array (default): All commands allowed (backward compatible).
-- Entries with a path separator (`/` or `\\`) are resolved with `realpath()` and compared against the resolved candidate. `/tmp/echo` is rejected even if the whitelist contains `/usr/bin/echo`.
-- Bare names fall back to the legacy `basename()` match and emit a deprecation warning. This mode is removed in v2.0.
-- Throws `JobException::forShellCommandNotAllowed()` on violation.
-
-### Rate Limiting
-Prevents queue overload with per-queue limits:
-```php
-public array $queueRateLimits = [
-    'high_priority' => 100,  // Max 100 jobs/minute
-    'default' => 50,         // Max 50 jobs/minute
+// Lock the 'reports' queue to the command handler, and 'web' to url/event only.
+public array $queueHandlers = [
+    'reports' => ['command'],
+    'web'     => ['url', 'event'],
 ];
 ```
-Implementation:
-- Cache-based token bucket algorithm
-- Worker skips processing when limit exceeded
-- Use `RateLimiter` class for programmatic access:
-  ```php
-  $limiter = new \Daycry\Jobs\Libraries\RateLimiter();
-  if ($limiter->allow('default', 50)) {
-      // Process job
-  }
-  ```
 
-### Dead Letter Queue (DLQ)
-Automatic routing of permanently failed jobs for forensic analysis:
+## Handler Security
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$allowedShellCommands` | `list<string>` | `[]` | Allowlist of binaries `ShellHandler` may run. **Deny-by-default**: an empty list rejects all execution. Entries are matched against the candidate via `realpath()`, so `/tmp/echo` cannot impersonate `/usr/bin/echo`. |
+| `$allowAllShellCommands` | `bool` | `false` | Explicit, insecure escape hatch. When `true`, `ShellHandler` runs any binary even with an empty allowlist. |
+| `$allowedEvents` | `list<string>` | `[]` | Allowlist of event names `EventHandler` may trigger. **Empty = deny all** (secure default). |
+
 ```php
-public ?string $deadLetterQueue = 'failed_jobs';
-```
-Behavior (v1.0.3+):
-- Jobs exceeding max retries are moved to the DLQ **before** being cleared from the origin queue, so a DLQ failure does not lose the message.
-- `DeadLetterQueue::store()` returns `bool` — `false` means the DLQ was unconfigured or the underlying push failed; `RequeueHelper` then emits the `jobs_dlq_failed` metric so operators can alert on it.
-- Without `$deadLetterQueue`, permanently failed jobs are still removed from the origin (otherwise some backends — Redis processing list, ServiceBus settle — would loop forever) and a `critical` log entry is recorded.
-- Metadata added when stored: `dlq_reason`, `dlq_timestamp`, `dlq_attempts`, `original_queue`.
-- Retrieve stats: `$dlq->getStats()`.
+// ShellHandler is deny-by-default. Allow specific absolute paths:
+public array $allowedShellCommands = ['/usr/bin/ls', '/usr/bin/git'];
 
-### Job Timeout Protection
-Hard enforcement of maximum execution time:
-```php
-public int $jobTimeout = 300; // 5 minutes
-```
-- 0 = disabled (backward compatible)
-- Uses `pcntl_alarm()` for signal-based timeout (kills runaway processes)
-- Fallback to time check if `pcntl` extension unavailable
-- Throws `JobException::forJobTimeout()` when exceeded
-
-## Queue Management
-
-### QueueManager (Centralized Registry)
-Access queue backends via singleton:
-```php
-use Daycry\Jobs\Libraries\QueueManager;
-
-// Get default worker
-$queue = QueueManager::instance()->getDefault();
-
-// Get specific worker by name
-$queue = QueueManager::instance()->get('redis');
-
-// List all configured workers
-$workers = QueueManager::instance()->list();
+// EventHandler only fires events you explicitly permit:
+public array $allowedEvents = ['user.registered', 'cache.warm'];
 ```
 
-### PayloadSerializer (Schema Versioning)
-All queues use centralized serialization:
-```php
-use Daycry\Jobs\Libraries\JsonPayloadSerializer;
+`ShellHandler` executes through `proc_open()` with an argv array — never `/bin/sh -c` — so shell
+metacharacters carry no attack surface. `UrlHandler` is SSRF-hardened (http/https only, private/
+reserved IPs rejected, SSL verification forced on, redirects disabled).
 
-$serializer = new JsonPayloadSerializer(schemaVersion: 2);
-$queue->setSerializer($serializer);
+## Envelope Signing
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$signingKey` | `?string` | `null` | HMAC-SHA256 key used to sign queue envelopes. When `null`, the signer falls back to `env('JOBS_SIGNING_KEY')` and then to the CodeIgniter `Encryption` key. If no key resolves, signing/verification operate in insecure pass-through mode (logged as `critical`). |
+| `$verifyEnvelopeSignature` | `bool` | `true` | When `true`, the worker rejects messages whose HMAC signature is missing or invalid (when a key is available). Set `false` only for trusted, private backends. |
+
+The signature is computed over the **immutable identity fields** only (`job`, `payload`, `queue`,
+`priority`, `maxRetries`, `name`, `identifier`); the mutable `attempts`/`schedule` are excluded so
+the signature survives a requeue. See [Architecture](ARCHITECTURE.md) and the security section of
+the README.
+
+## Idempotency
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$idempotencyTtl` | `int` | `86400` | TTL (seconds) for idempotency keys stored by `IdempotencyGuard`. |
+
+Idempotency is opt-in per job via `JobBuilder::idempotencyKey()`. See [Retries](RETRIES.md).
+
+## Rate Limiting
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$queueRateLimits` | `array<string, int>` | `[]` | Maximum jobs processed per minute per queue. `0` or missing = unlimited. The worker skips a cycle (logging `[Rate Limited]`) when the limit is reached. |
+
+```php
+public array $queueRateLimits = [
+    'high_priority' => 100,
+    'default'       => 50,
+];
 ```
 
-### InstrumentedQueueDecorator (Metrics)
-Wrap any queue for transparent metrics:
-```php
-use Daycry\Jobs\Libraries\InstrumentedQueueDecorator;
-use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+## Dead Letter Queue
 
-$metrics = new InMemoryMetricsCollector();
-$instrumented = new InstrumentedQueueDecorator(
-    queue: $queue,
-    metrics: $metrics,
-    backendName: 'redis'
-);
-// Tracks: enqueue_total, fetch_total, ack_total, nack_total, durations
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$deadLetterQueue` | `?string` | `null` | Queue name where jobs are routed after retries are exhausted. `null` disables DLQ routing; the worker still abandons the message so it does not loop forever, logging a `critical` entry. |
+
+## Timeouts
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$jobTimeout` | `int` | `300` | Maximum execution time per job in seconds (`0` = unlimited). May be overridden per job. |
+| `$defaultTimeout` | `?int` | `null` | Default per-attempt timeout applied to jobs that do not declare their own via `JobBuilder::timeout()`. `null` disables the global timeout. |
+
+The runtime enforces the per-job `timeout` if set, otherwise `$defaultTimeout`. When PHP `pcntl` is
+available the timeout **interrupts** the running job (a SIGALRM handler that throws); otherwise it
+degrades to a soft post-hoc check that cannot abort a runaway job.
+
+## Worker Behaviour
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$pollInterval` | `int` | `5` | Seconds to sleep between polling cycles when no job is available. Skipped when `$blockingFetch` is enabled and the active backend supports blocking reads. |
+| `$blockingFetch` | `bool` | `false` | Opt in to blocking reads on backends that support them (Redis `BRPOPLPUSH`, Beanstalk `reserve_with_timeout`). |
+| `$blockingFetchTimeout` | `int` | `5` | Seconds to wait per blocking fetch (also the upper bound for graceful shutdown latency). |
+| `$circuitBreakerThreshold` | `int` | `5` | Consecutive backend failures before the circuit opens. |
+| `$circuitBreakerCooldown` | `int` | `60` | Seconds the circuit stays open before the worker retries the backend. |
+
+## Reaper / Visibility
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$redisProcessingVisibilityTimeout` | `int` | `300` | Visibility timeout (seconds) the Redis backend reaper uses to decide when an in-flight job belongs to a crashed worker and must be returned to the waiting list. |
+| `$databaseVisibilityTimeout` | `int` | `300` | Visibility timeout (seconds) the database backend reaper uses to return an `in_progress` row to `pending`. Must exceed the maximum expected job runtime to avoid reclaiming live jobs. |
+| `$serviceBusLockTimeout` | `int` | `60` | Peek-lock timeout (seconds) requested when locking Service Bus messages. Must be ≥ the maximum job runtime, otherwise the broker may redeliver mid-execution. |
+
+These are used by `jobs:queue:reap`. Beanstalk and Service Bus recover stalled work natively.
+
+## Retry / Backoff
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$retryBackoffStrategy` | `string` | `none` | One of `none`, `fixed`, `exponential`. |
+| `$retryBackoffBase` | `int` | `5` | Base delay (seconds) used to compute the first retry delay. |
+| `$retryBackoffMultiplier` | `float` | `2.0` | Multiplier for the exponential strategy: `delay = base * multiplier^(attempt-2)`. |
+| `$retryBackoffMax` | `int` | `300` | Upper cap (seconds) on any computed delay. |
+| `$retryBackoffJitter` | `bool` | `true` | Add ±15% random jitter to the computed delay (exponential strategy). |
+
+See [Retries & Backoff](RETRIES.md) for the full model.
+
+## Queues & Backends
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$queues` | `list<string>\|string` | `'default,dummy'` | Comma list or array of available queue names. The first entry is the worker's default when no queue is given. |
+| `$worker` | `string` | `'sync'` | Default backend key (must exist in `$backends`). Resolved by `BackendFactory`. |
+| `$backends` | `array<string, class-string>` | `sync`, `database`, `redis`, `beanstalk`, `serviceBus` | Single source of truth mapping a backend name to a `QueueBackend` class. Used by the worker, the cron runner and `BackendFactory`. |
+
+```php
+public array $backends = [
+    'sync'       => SyncBackend::class,
+    'database'   => DatabaseBackend::class,
+    'redis'      => RedisBackend::class,
+    'beanstalk'  => BeanstalkBackend::class,
+    'serviceBus' => ServiceBusBackend::class,
+];
+
+public string $worker = 'database';
 ```
 
-## Publishing / Overriding
-Copy `src/Config/Jobs.php` into `app/Config/Jobs.php` and modify. CodeIgniter's service locator will favor the application namespace.
+## Backend-specific Settings
 
-## Minimal Example
+### Database / history table
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$database` | `array{group: ?string, table: string}` | `['group' => null, 'table' => 'queues']` | Connection group and table for the database queue backend. |
+| `$databaseGroup` | `?string` | `null` | Connection group used by the Jobs migrations (`null` = default group). |
+| `$tableName` | `string` | `'jobs'` | Name of the table created by the Jobs history migration. |
+
+### Redis
+
+Relies on `ext-redis`; host/port are taken from the CodeIgniter Redis configuration / environment.
+
+### Beanstalk
+
+| Property | Type | Default |
+|----------|------|---------|
+| `$beanstalk['host']` | `string` | `127.0.0.1` |
+| `$beanstalk['port']` | `int` | `11300` |
+
+### Azure Service Bus
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `$serviceBus['url']` | `string` | Full queue endpoint, e.g. `https://<namespace>.servicebus.windows.net/<queue>`. |
+| `$serviceBus['issuer']` | `string` | SAS key name. |
+| `$serviceBus['secret']` | `string` | SAS key value — prefer `env('SERVICEBUS_SECRET')`. |
+
+## Metrics
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `$metricsCollector` | `?string` | `InMemoryMetricsCollector::class` | FQCN of a `MetricsCollectorInterface` implementation. `null` disables metrics (all increment/observe calls no-op). The in-memory default is fine for local/dev but not for production scraping. |
+
+## Scheduled jobs: `init()`
+
+`Config\Jobs::init(Scheduler $scheduler)` is called by `jobs:cronjob:run` before evaluating due
+definitions. Register scheduled jobs on the fluent `Scheduler` here:
+
 ```php
-$cfg = config('Jobs');
-$cfg->queues = 'default,mail';
-$cfg->worker = 'redis';
-$cfg->logPerformance = true;
-$cfg->sensitiveKeys[] = 'access_token';
+public function init(Scheduler $scheduler): void
+{
+    $scheduler->define('command', 'app:report')
+        ->named('daily-report')
+        ->dailyAt('02:00')
+        ->queue('reports')
+        ->maxRetries(3);
+
+    $scheduler->define('closure', static fn () => cache()->clean())
+        ->named('cache-clean')
+        ->everyMinute();
+}
+```
+
+Definitions that declare a `queue()` are **enqueued**; the rest run **inline**. The runner honours
+`enabled()`/`environments()` and executes in topological order of `dependsOn()`.
+
+## Minimal example
+
+```php
+$cfg                       = config('Jobs');
+$cfg->worker               = 'redis';
+$cfg->queues               = 'default,reports';
+$cfg->signingKey           = env('JOBS_SIGNING_KEY');
 $cfg->retryBackoffStrategy = 'exponential';
-$cfg->retryBackoffBase = 3;
-$cfg->retryBackoffMultiplier = 2.5;
-$cfg->retryBackoffMax = 180;
+$cfg->retryBackoffBase     = 3;
+$cfg->retryBackoffMax      = 180;
+$cfg->deadLetterQueue      = 'failed_jobs';
 ```

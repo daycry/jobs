@@ -1,213 +1,139 @@
 # CLI Commands
 
-The package supplies several Spark commands to orchestrate scheduling, queue consumption and introspection.
+v3 ships exactly four Spark commands. Run them with `php spark <command>`.
 
-## Cron / Scheduler
-| Command | Description |
-|---------|-------------|
-| `jobs:cronjob:run` | Execute all due scheduled jobs immediately. |
-| `jobs:cronjob:history <name> [--extended]` | Show recent executions (extended adds attempt, queue, payload hash, etc.). |
-| `jobs:cronjob:enable <name>` | Enable a scheduled job by name. |
-| `jobs:cronjob:disable <name>` | Disable a scheduled job by name. |
-| `jobs:cronjob:list` | List registered cron jobs and their expressions. |
+| Command | Purpose |
+|---------|---------|
+| `jobs:queue:work` | Run a queue worker (long-running or one-shot). |
+| `jobs:queue:reap` | Reclaim messages whose visibility timeout expired (crashed-worker recovery). |
+| `jobs:cronjob:run` | Evaluate the schedule and run/enqueue due jobs (wire to system cron every minute). |
+| `jobs:queue:purge` | Maintenance: delete completed/failed rows from the database backend table. |
 
-### Commands
+> The v1 commands `jobs:queue:run`, `jobs:redis:reap-stuck`, `jobs:cronjob:enable`,
+> `jobs:cronjob:disable`, `jobs:cronjob:list`, `jobs:cronjob:history` and `jobs:health` were
+> **removed** in v3.0. They no longer exist. See the migration guide for replacements.
 
-**jobs:cronjob:list**
+## jobs:queue:work
 
-    > php spark jobs:cronjob:list
+Pulls messages from the configured backend and drives each through the worker pipeline
+(`fetch -> verify signature -> idempotency guard -> run one attempt -> ack / nack(backoff) /
+abandon`).
 
-This will list all available tasks that have been defined in the project, along with their type and
-the next time they are scheduled to run.
-
-    +--------------------------+---------+-------------+---------------------+---------------------+
-    | Name                     | Type    | Expression  | Last Run            | Next Run            |
-    +--------------------------+---------+-------------+---------------------+---------------------+
-    | job1                     | command | 08 10 * * * | --                  | 2022-11-04 10:08:00 |
-    | Job2                     | command | 0 0 * * *   | 2022-10-28 13:23:21 | 2022-11-05 00:00:00 |
-    +--------------------------+---------+-------------+---------------------+---------------------+
-
-**jobs:cronjob:disable**
-
-    > php spark jobs:cronjob:disable
-
-Will disable the task runner manually until you enable it again. Writes a file to `{WRITEPATH}/cronJob` so 
-you need to ensure that directory is writable. Default CodeIgniter permissions already have the WRITEABLE
-path with write permissions. You should not need to change anything for this to work. 
-
-**jobs:cronjob:enable**
-
-    > php spark jobs:cronjob:enable
-
-Will enable the task runner if it was previously disabled, allowing all tasks to resume running. 
-
-**jobs:cronjob:run**
-
-    > php spark jobs:cronjob:run
-
-
-## Queues
-| Command | Description |
-|---------|-------------|
-| `jobs:queue:run [--queue=NAME] [--oneTime] [--background]` | Run a worker consuming jobs from the configured backend. |
-| `jobs:queue:purge [--status=...] [--queue=...] [--before=...] [--dry-run] [--force]` | Purge completed/failed records from the database queue table. |
-| `jobs:redis:reap-stuck [--queue=NAME] [--timeout=SECONDS]` | Re-enqueue Redis jobs left in the processing list past the visibility timeout (v1.1+). |
-| `jobs:health [--json] [--queue=NAME]` | Display system health and queue statistics. |
-
-### Queue Worker Details
-
-The `jobs:queue:run` command starts a long-running process that:
-1. Uses `QueueManager` to get the configured queue backend
-2. Continuously calls `watch()` to fetch jobs
-3. Executes jobs via `JobLifecycleCoordinator`
-4. Handles retries, metrics, and logging
-5. Sleeps between cycles (default: 1 second)
-
-**Options**:
-- `--queue=NAME` - Specific queue name to consume from (default: uses first in config)
-- `--sleep=N` - Seconds to sleep between fetch cycles (default: 1)
-
-**Queue Backends**:
-The worker automatically uses the backend configured in `Config\Jobs::$worker`:
-- `redis` - Fast in-memory queue with delayed job support
-- `database` - Persistent relational storage
-- `beanstalk` - Beanstalkd tube-based processing
-- `servicebus` - Azure Service Bus integration
-- `sync` - Inline execution (no background processing)
-
-### Background Worker (detached)
-
-The `jobs:queue:run` command supports starting the worker in the background so it can run independently of the shell session.
-
-- Option: `--background` — spawn a detached worker process and return immediately to the caller.
-
-Implementation notes:
-- The worker is spawned using a platform-appropriate detached invocation: `nohup` + `&` on POSIX systems, and `start /B` on Windows. Standard output and error are redirected to the system null device to avoid writing to a closed CLI stream.
-- The child is invoked with `--queue=<name>` so it does not prompt interactively for the queue name.
-
-PHP executable selection:
-- When running from the CLI (`php spark ...`) the system PHP binary is used (`PHP_BINARY`).
-- When the worker is started from a non-CLI SAPI (for example, from a web request or a supervisor that does not provide a proper PHP path), you can configure the PHP binary path using the `PHP_BINARY_PATH` environment variable. Set it to the absolute path of your `php` executable, for example:
-
-  - POSIX: `export PHP_BINARY_PATH=/usr/bin/php`
-  - Windows (PowerShell): `$env:PHP_BINARY_PATH = 'C:\\php\\php.exe'`
-
-You can also set `PHP_BINARY_PATH` inside your framework project's `.env` file so it's available to the application at runtime. Example `.env` entry:
-
-```
-PHP_BINARY_PATH=/usr/bin/php
+```text
+Usage: jobs:queue:work [queue] [--once] [--max N] [--backend name]
 ```
 
-Notes and recommendations:
-- Ensure the `spark` script is accessible and executable from the working directory used when spawning the background process (the implementation uses the project `spark` script by path).
-- Because the background child runs detached and has its stdout/stderr redirected, any early startup errors are captured in a brief trace file under the Jobs log directory (see `config('Jobs')->filePath`). Check that location if a background child exits immediately.
-- For more advanced background supervision consider using a process manager (systemd, Supervisor, or equivalent) instead of ad-hoc detaching.
+| Argument / Option | Description |
+|-------------------|-------------|
+| `queue` | Queue name. Defaults to the first queue in `Config\Jobs::$queues`. |
+| `--once` | Process a single cycle and exit. |
+| `--max N` | Process at most N cycles then exit (0 = unlimited). |
+| `--backend name` | Override the configured backend (`$worker`). |
 
-**Metrics**:
-If metrics are enabled, the worker tracks:
-- `jobs_fetched` - Total fetch attempts
-- `jobs_age_seconds` - Queue latency (enqueue → start)
-- `jobs_exec_seconds` - Execution duration
-- `jobs_succeeded` / `jobs_failed` / `jobs_requeued` / `jobs_failed_permanently`
-- `jobs_timed_out` (v1.0.3+, both pcntl and fallback paths)
-- `jobs_dlq_failed` (v1.0.3+, DLQ unavailable or push failed)
-- Plus queue-level metrics if using `InstrumentedQueueDecorator`
+Behaviour:
 
-**Worker maintenance (v1.2+)**:
-- Every 100 iterations the worker pings the database with `SELECT 1` and reconnects on failure (avoids `MySQL has gone away` after `wait_timeout`).
-- Every 1 000 iterations the in-memory metrics collector is reset and `gc_collect_cycles()` is invoked so workers running 24/7 keep memory bounded.
-- When `blockingFetch = true` and the active worker is `redis` or `beanstalk`, the `pollInterval` sleep is skipped because the fetch already blocked.
+- **Graceful shutdown**: SIGTERM/SIGINT finish the current cycle and exit (POSIX, requires `pcntl`).
+  A job in flight is never aborted mid-execution; the worker simply stops fetching the next one.
+- **Circuit breaker**: after `circuitBreakerThreshold` consecutive backend errors the circuit opens
+  and the worker backs off for `circuitBreakerCooldown` seconds.
+- **Rate limiting**: per-queue caps from `Config\Jobs::$queueRateLimits` (jobs/min) are honoured.
+- **Idle polling**: when a cycle yields nothing (`empty`, `rate-limited`, `circuit-open`, `error`)
+  the worker sleeps `Config\Jobs::$pollInterval` seconds. With `blockingFetch = true` on a supporting
+  backend the fetch blocks instead of polling.
 
-## Redis reaper (v1.1+)
-
-`jobs:redis:reap-stuck` walks the Redis processing-meta hash and re-enqueues every item whose lease is older than the visibility timeout. Run it periodically via system cron when Redis is the active worker:
+Examples:
 
 ```bash
-# every minute, default visibility timeout (Config\Jobs::$redisProcessingVisibilityTimeout, 300s)
-* * * * * php /path/to/spark jobs:redis:reap-stuck --queue=default
+# Long-running worker on the first configured queue
+php spark jobs:queue:work
 
-# override the timeout from the CLI
-php spark jobs:redis:reap-stuck --queue=high --timeout=120
+# Named queue, one cycle then exit (cron-friendly)
+php spark jobs:queue:work reports --once
+
+# Bound to 500 cycles on the redis backend
+php spark jobs:queue:work emails --max 500 --backend redis
 ```
 
-A worker that crashes after `watch()` but before `removeJob()` leaves its message in the processing list. Without the reaper that message is invisible to the rest of the workers; with it the message is restored to `waiting` after the configured timeout and retried.
+Run a worker under a process supervisor (systemd, Supervisor) for production so it is restarted on
+exit. For cron-style processing use `--once` or `--max N`.
 
-## Health Monitoring
+## jobs:queue:reap
 
-**jobs:health**
+Reclaims queue messages whose visibility timeout expired (a worker crashed or stalled between fetch
+and ack), returning them to the ready state via `QueueBackend::reapExpired()`.
 
-    > php spark jobs:health
-
-Displays comprehensive system health and queue statistics.
-
-**Options**:
-- `--json` - Output in JSON format (machine-readable)
-- `--queue=NAME` - Show statistics for a specific queue only
-
-**Example Output** (table format):
-```
-=== Jobs System Health Check ===
-
-Configuration:
-  Retry Strategy: exponential (base: 60s, multiplier: 2.0, max: 3600s)
-  Job Timeout: 300 seconds
-  Dead Letter Queue: failed_jobs
-  Rate Limits: default=50/min, high_priority=100/min
-
-Queue: default
-  Status:
-    Pending: 42
-    Processing: 3
-    Completed: 1,245
-    Failed: 12
-  Rate Limit: 23/50 (46% used)
-  Last 24h:
-    Executions: 156
-    Success Rate: 92.3%
-    Failure Rate: 7.7%
-    Avg Duration: 2.45s
+```text
+Usage: jobs:queue:reap [queue] [--backend name]
 ```
 
-**JSON Output** (`--json`):
-```json
-{
-  "config": {
-    "retry_strategy": "exponential",
-    "job_timeout": 300,
-    "dead_letter_queue": "failed_jobs",
-    "rate_limits": {"default": 50}
-  },
-  "queues": {
-    "default": {
-      "status": {"pending": 42, "processing": 3, "completed": 1245, "failed": 12},
-      "rate_limit": {"current": 23, "max": 50},
-      "last_24h": {
-        "executions": 156,
-        "success_rate": 92.3,
-        "avg_duration_seconds": 2.45
-      }
-    }
-  }
-}
-```
+| Argument / Option | Description |
+|-------------------|-------------|
+| `queue` | Queue name to reap (**required**). |
+| `--backend name` | Override the configured backend. |
 
-**Use Cases**:
-- Monitoring dashboards (JSON output to Prometheus/Grafana)
-- Quick operational health checks
-- Identifying bottlenecks and failure patterns
-- Rate limit capacity planning
+The visibility timeout applied is `redisProcessingVisibilityTimeout` when the backend is `redis`, and
+`databaseVisibilityTimeout` otherwise (both default to 300s).
 
+Needed for the **database** and **redis** backends; **beanstalk** and **serviceBus** recover in-flight
+messages natively when their lock/reservation expires. Run it periodically via system cron:
 
-## Examples
-Run Redis worker on specific queue:
 ```bash
-php spark jobs:queue:run --queue=emails --sleep=2
+# every minute, recover stranded messages on the 'reports' queue
+* * * * * cd /path/to/project && php spark jobs:queue:reap reports >> /dev/null 2>&1
+
+# explicit backend
+php spark jobs:queue:reap emails --backend redis
 ```
-View extended cron history:
-```bash
-php spark jobs:cronjob:history <name> --extended
+
+## jobs:cronjob:run
+
+Evaluates the scheduled definitions registered in `Config\Jobs::init()` and acts on the due ones —
+**enqueuing** those with a `queue()` and **running inline** those without. Wire it to system cron to
+run every minute.
+
+```text
+Usage: jobs:cronjob:run [options]
 ```
-Disable a cron job:
+
+| Option | Description |
+|--------|-------------|
+| `-testTime <iso>` | Evaluate the schedule against a frozen datetime (testing/dry-run). |
+
 ```bash
-php spark jobs:cronjob:disable
+# Run due jobs now
+php spark jobs:cronjob:run
+
+# Crontab: every minute
+* * * * * cd /path/to/project && php spark jobs:cronjob:run >> /dev/null 2>&1
+
+# Evaluate against a frozen time
+php spark jobs:cronjob:run -testTime "2026-06-03 02:00:00"
+```
+
+See [Scheduling](scheduling.md) for how to register jobs, frequency helpers, `enabled`/`disable`,
+environments and dependencies.
+
+## jobs:queue:purge
+
+Deletes completed and/or failed rows from the **database** backend table — essential maintenance, as
+the table grows indefinitely otherwise.
+
+```text
+Usage: jobs:queue:purge [options]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--status` | `completed`, `failed`, or `all`. Default `completed`. |
+| `--queue` | Restrict to a single queue. |
+| `--before` | Only rows created before this date (e.g. `"2026-01-01"` or `"-7 days"`). |
+| `--dry-run` | Show the count without deleting. |
+| `--force` | Skip the confirmation prompt. |
+
+```bash
+# Preview how many completed jobs would be removed
+php spark jobs:queue:purge --status completed --dry-run
+
+# Purge failed jobs older than 7 days in the 'reports' queue, no prompt
+php spark jobs:queue:purge --status failed --queue reports --before "-7 days" --force
 ```
