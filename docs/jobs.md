@@ -91,7 +91,7 @@ Jobs::define('command', 'app:cleanup')
 | `maxRetries(?int $maxRetries): self` | Number of retries **after** the first attempt. Total runs = `maxRetries + 1`. `0` (default) = run once, no retry. |
 | `timeout(?int $timeout): self` | Per-attempt timeout in seconds. `null` falls back to `Config\Jobs::$defaultTimeout`. |
 | `singleInstance(bool $singleInstance = true): self` | Prevent overlapping runs of the same named job via a cache-backed ownership lock. |
-| `idempotencyKey(?string $idempotencyKey): self` | Opt-in deduplication key stored on the `JobDefinition`. **Not yet active on the standard dispatch path:** `EnvelopeFactory::toWire()` does not serialise the key onto the wire, so the worker's dedup check finds no key and runs the message normally. See the [`idempotencyKey` and `singleInstance`](#idempotencykey-and-singleinstance) note below. |
+| `idempotencyKey(?string $idempotencyKey): self` | Opt-in deduplication key. `EnvelopeFactory::toWire()` serialises it onto the wire (as a signed identity field), and the worker skips a message whose key was already processed within `idempotencyTtl` — acking it without running. See the [`idempotencyKey` and `singleInstance`](#idempotencykey-and-singleinstance) note below. |
 
 ```php
 Jobs::define('command', 'app:reconcile')
@@ -256,16 +256,17 @@ message enqueued through one backend has the exact same structure as one enqueue
 
 ```json
 {
-  "job":        "command",
-  "payload":    "app:report",
-  "queue":      "reports",
-  "priority":   5,
-  "maxRetries": 3,
-  "attempts":   0,
-  "name":       "daily-report",
-  "identifier": "1d4f...",
-  "schedule":   "2026-06-10 09:00:00",
-  "_sig":       "9a3b...hmac-sha256-hex..."
+  "job":            "command",
+  "payload":        "app:report",
+  "queue":          "reports",
+  "priority":       5,
+  "maxRetries":     3,
+  "attempts":       0,
+  "name":           "daily-report",
+  "identifier":     "1d4f...",
+  "idempotencyKey": null,
+  "schedule":       "2026-06-10 09:00:00",
+  "_sig":           "9a3b...hmac-sha256-hex..."
 }
 ```
 
@@ -279,14 +280,15 @@ message enqueued through one backend has the exact same structure as one enqueue
 | `attempts` | (worker-managed) | Completed runs **before** the current one (0-based). Starts at `0`; the backend re-stamps it on requeue. |
 | `name` | `JobDefinition::$name` | Logical name. |
 | `identifier` | backend-assigned id | Unique id for traceability. |
+| `idempotencyKey` | `JobDefinition::$idempotencyKey` | Opt-in dedup key (`null` if unset). Part of the signed identity. |
 | `schedule` | `JobDefinition::$scheduledAt` | `Y-m-d H:i:s` or `null`. |
 | `_sig` | `EnvelopeSigner` | HMAC-SHA256 over the **immutable identity fields** only. |
 
 ### Signature scope
 
 The `_sig` HMAC is computed over a deterministic JSON of the **immutable** identity fields:
-`job`, `payload`, `queue`, `priority`, `maxRetries`, `name`, `identifier`. The mutable
-`attempts` and `schedule` fields and `_sig` itself are **excluded** so the signature survives a
+`job`, `payload`, `queue`, `priority`, `maxRetries`, `name`, `identifier`, `idempotencyKey`. The
+mutable `attempts` and `schedule` fields and `_sig` itself are **excluded** so the signature survives a
 requeue (when `attempts` is incremented). The worker re-verifies `_sig` after fetch and rejects any
 message whose signature is missing or invalid.
 
@@ -346,14 +348,13 @@ you keep a scheduled job declared but inactive without deleting its registration
 
 These guard two different problems:
 
-- **`idempotencyKey`** is intended to prevent the *same logical message* from being processed twice
-  (at-least-once delivery can redeliver). The worker has the consumer-side machinery for this — when a
-  wire message carries an `idempotencyKey`, it consults `IdempotencyGuard` and acks-without-running a
-  repeat. **However, this path is currently inert for jobs enqueued via the builder/`dispatch()`:**
-  `EnvelopeFactory::toWire()` does not write `idempotencyKey` onto the wire (and it is not part of the
-  signed identity fields), so the worker never sees a key and runs every delivery. Until the envelope
-  factory propagates the key, treat `idempotencyKey()` as stored-but-not-enforced and make your
-  handlers idempotent by other means.
+- **`idempotencyKey`** prevents the *same logical message* from being processed twice (at-least-once
+  delivery can redeliver). It is opt-in: `EnvelopeFactory::toWire()` writes `idempotencyKey` onto the
+  wire and includes it in the signed identity fields, so tampering with the key breaks signature
+  verification. When a wire message carries the key, the worker consults `IdempotencyGuard` and
+  acks-without-running a repeat seen within `idempotencyTtl` (status `skipped-idempotent`). Because
+  delivery is at-least-once and the dedupe is best-effort under crash/redelivery, still make your
+  handlers idempotent.
 - **`singleInstance`** prevents *two runs at the same time* of the same named job. `JobRuntime`
   acquires a cache-backed ownership lock; contention surfaces as a failed result (so the worker can
   requeue it to run once the holder finishes).
@@ -362,7 +363,7 @@ These guard two different problems:
 Jobs::define('command', 'app:rebuild-index')
     ->named('rebuild-index')
     ->singleInstance()                 // never overlap
-    ->idempotencyKey('rebuild-index')  // stored, but not yet enforced on dispatch (see note above)
+    ->idempotencyKey('rebuild-index')  // deduplicated on the worker within idempotencyTtl
     ->queue('search')
     ->dispatch();
 ```

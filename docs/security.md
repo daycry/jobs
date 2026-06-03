@@ -69,6 +69,7 @@ produces deterministic JSON over exactly these keys:
 | `maxRetries` | yes | Retry budget is fixed at enqueue time. |
 | `name` | yes | Logical identity used for locks/logs. |
 | `identifier` | yes | Per-enqueue random id. |
+| `idempotencyKey` | yes | Opt-in dedup key; signing it prevents forging a duplicate-suppression. |
 | `attempts` | **no** | Mutable — incremented on every requeue. |
 | `schedule` | **no** | Mutable — rewritten when a delayed requeue is scheduled. |
 | `_sig` | **no** | The signature itself. |

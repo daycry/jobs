@@ -120,7 +120,7 @@ $id = Jobs::define('welcome', ['user_id' => 123])
 echo "queued as {$id}\n";
 ```
 
-```
+```text
 queued as 7
 ```
 
@@ -146,7 +146,7 @@ php spark jobs:queue:work default
 
 Expected output for one successful job:
 
-```
+```text
 [Worker] processing queue 'default'
 [acked] default (attempt 1)
 ```
@@ -155,7 +155,7 @@ The worker leases one ready message, verifies its signature, runs **one** attemp
 success. It keeps polling (sleeping `pollInterval` seconds when the queue is empty) until you stop
 it with `Ctrl+C`:
 
-```
+```text
 [Worker] stop signal received, finishing current cycle...
 [Worker] graceful shutdown complete.
 ```
@@ -199,7 +199,7 @@ If a worker dies mid-job, its lease eventually expires. Reclaim stranded message
 php spark jobs:queue:reap default
 ```
 
-```
+```text
 Reaped 1 expired message(s) from queue 'default'.
 ```
 
@@ -285,7 +285,7 @@ requeue.
 When the worker fetches a message it recomputes the HMAC and compares with `hash_equals()`
 (constant-time). A tampered or forged message is rejected:
 
-```
+```text
 [rejected] default (attempt 0) - invalid signature
 ```
 

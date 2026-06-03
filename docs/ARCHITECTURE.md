@@ -40,7 +40,7 @@ The layers talk to each other only through these small, mostly immutable objects
   object is:
 
   ```json
-  { "job", "payload", "queue", "priority", "maxRetries", "attempts", "name", "identifier", "schedule", "_sig" }
+  { "job", "payload", "queue", "priority", "maxRetries", "attempts", "name", "identifier", "idempotencyKey", "schedule", "_sig" }
   ```
 
   Built by `EnvelopeFactory::toWire()`, identical across every backend so a message enqueued via one
@@ -86,7 +86,7 @@ The layers talk to each other only through these small, mostly immutable objects
 Total runs for a job are therefore `maxRetries + 1`. Backoff is realised by the backend honouring
 `nack($lease, $delaySeconds)`. See [Retries](RETRIES.md).
 
-```
+```text
                     ┌───────────────────────── QueueWorker::processOnce($queue) ─────────────────────────┐
                     │                                                                                     │
  fetch(lease) ──►  verify signature  ──►  idempotency guard  ──►  run ONE attempt (JobRuntime)           │
@@ -183,10 +183,12 @@ delivered (and a handler can therefore run) more than once. This happens by desi
 
 1. **Make handlers idempotent.** Running twice should not corrupt state (use upserts, conditional
    writes, or dedupe on a natural key).
-2. **Use `idempotencyKey()` for hard dedupe.** `IdempotencyGuard` is designed to skip a message whose
-   key was already processed (within `idempotencyTtl`). Note: on the builder/`dispatch()` path the key
-   is not yet serialised onto the envelope, so this guard is currently inert end-to-end — rely on
-   handler-level idempotency for now. See [Idempotency in depth](advanced.md#idempotency-in-depth).
+2. **Use `idempotencyKey()` for hard dedupe.** When a definition carries an `idempotencyKey`,
+   `EnvelopeFactory::toWire()` serialises it onto the envelope (as a signed identity field) and the
+   worker, via `IdempotencyGuard`, skips a message whose key was already processed within
+   `idempotencyTtl` — it `ack`s without running (status `skipped-idempotent`). This is opt-in. Because
+   delivery is at-least-once and the dedupe is best-effort under crash/redelivery, still keep handlers
+   idempotent at the application level. See [Idempotency in depth](advanced.md#idempotency-in-depth).
 3. **Size visibility timeouts correctly.** `databaseVisibilityTimeout` / `redisProcessingVisibilityTimeout`
    / `serviceBusLockTimeout` must exceed the longest job, or a live job may be reclaimed and run
    concurrently. See [Configuration](CONFIGURATION.md).

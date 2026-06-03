@@ -57,7 +57,7 @@ final class SyncStripe extends AbstractJobHandler
 
 The worker computes the requeue delay from the **next** attempt number:
 
-```
+```text
 delay = RetryPolicy::computeDelay(attemptIndex + 2)
 ```
 

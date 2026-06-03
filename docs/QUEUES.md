@@ -140,21 +140,22 @@ consumed through another:
 
 ```json
 {
-  "job":        "command",
-  "payload":    "app:report",
-  "queue":      "reports",
-  "priority":   5,
-  "maxRetries": 3,
-  "attempts":   0,
-  "name":       "daily-report",
-  "identifier": "9f1c2a...",
-  "schedule":   null,
-  "_sig":       "<HMAC-SHA256>"
+  "job":            "command",
+  "payload":        "app:report",
+  "queue":          "reports",
+  "priority":       5,
+  "maxRetries":     3,
+  "attempts":       0,
+  "name":           "daily-report",
+  "identifier":     "9f1c2a...",
+  "idempotencyKey": null,
+  "schedule":       null,
+  "_sig":           "<HMAC-SHA256>"
 }
 ```
 
 The `_sig` HMAC is computed over the **immutable identity fields only** (`job`, `payload`, `queue`,
-`priority`, `maxRetries`, `name`, `identifier`) — the mutable `attempts` and `schedule` are excluded
+`priority`, `maxRetries`, `name`, `identifier`, `idempotencyKey`) — the mutable `attempts` and `schedule` are excluded
 so the signature survives a requeue (where backends re-serialize with `attempts + 1`). See
 [Envelope signing](advanced.md#envelope-signing).
 
