@@ -88,13 +88,13 @@ Configured via `Config\Jobs::$retryBackoffStrategy`:
 
 ### Exponential formula
 
-```
+```text
 delay = base * multiplier^(attempt - 2)   (clamped to max)
 ```
 
 The exponent is `attempt - 2`, so the **first retry** (attempt 2) delay equals `base`:
 
-```
+```text
 base=5, multiplier=2, max=300:
 computeDelay(1) -> 0s   (first run, no pre-delay)
 computeDelay(2) -> 5s   (5 * 2^0)

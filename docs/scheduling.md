@@ -84,24 +84,10 @@ php spark jobs:cronjob:run -testTime "2026-06-03 02:00:00"
 The runner evaluates cron expressions using `Config\App::$appTimezone`, so schedules are interpreted
 in your application timezone rather than UTC or the server's locale.
 
-> **Warning — scheduling is gated by a global active flag.** Before evaluating any definition,
-> `jobs:cronjob:run` checks the cache key `jobs_active`: it only proceeds when that key holds an
-> object whose `status` is `'enabled'`. **Out of the box the flag is unset**, so the command prints a
-> "Task running is currently disabled" warning and returns success **without loading the config,
-> building the `Scheduler`, or running/enqueuing any job**. Until the flag is enabled, your crontab
-> entry runs every minute but executes nothing.
->
-> No shipped command sets this flag (`jobs:cronjob:enable` does **not** exist — the message printed by
-> the command refers to it, but it is not registered). For now the only way to enable scheduling is to
-> set the cache key yourself, e.g. in a bootstrap or one-off script:
->
-> ```php
-> $flag         = new \stdClass();
-> $flag->status = 'enabled';
-> service('cache')->save('jobs_active', $flag, 0); // 0 = never expires
-> ```
->
-> Set `status` to `'disabled'` (or delete the key) to pause scheduling again.
+> **Note:** The runner evaluates the schedule on **every** invocation, out of the box — there is no
+> global on/off flag to set first. Control which jobs run on a **per-job** basis with `enabled()` /
+> `disable()` and `environments()` on the definition (see [Enabled / disabled](#enabled--disabled)
+> and [Environments](#environments) below).
 
 ## Frequency helpers
 

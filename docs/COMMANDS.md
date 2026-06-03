@@ -15,18 +15,11 @@ and graceful-shutdown behaviour.
 > **Note — retired commands.** The v1 commands `jobs:queue:run`, `jobs:redis:reap-stuck`,
 > `jobs:cronjob:enable`, `jobs:cronjob:disable`, `jobs:cronjob:list`, `jobs:cronjob:history` and
 > `jobs:health` were **removed** in v3.0 and no longer exist as commands. Use `jobs:queue:work`
-> instead of `jobs:queue:run`, and `jobs:queue:reap` instead of `jobs:redis:reap-stuck`. Per-job
-> enable/disable is now a property on the definition (`enabled()`/`disable()` — see
+> instead of `jobs:queue:run`, and `jobs:queue:reap` instead of `jobs:redis:reap-stuck`. The v1
+> **global** on/off mechanism (the `jobs_active` cache flag, set by `jobs:cronjob:enable`/`disable`)
+> is gone too: `jobs:cronjob:run` now evaluates the schedule on every invocation, out of the box.
+> Per-job enable/disable is a property on the definition (`enabled()`/`disable()` — see
 > [Scheduling](scheduling.md)). See the [Migration guide](MIGRATION-v1-to-v3.md) for the full mapping.
-
-> **Known issue — global `jobs_active` gate.** Separate from the per-definition `enabled()`/`disable()`
-> property, `BaseJobsCommand` still carries the v1 **global** on/off mechanism: a cache flag named
-> `jobs_active` that gates `jobs:cronjob:run` (see [its Behaviour](#behaviour-2) below). No shipped
-> command toggles this flag — the `jobs:cronjob:enable`/`jobs:cronjob:disable` commands that would set
-> it were removed. As a result, when the flag is unset the runtime prints the **stale** hint
-> `**** To re-enable tasks run: jobs:cronjob:enable ****`, which references a command that no longer
-> exists. There is currently no supported command to set `jobs_active` to `enabled`; see the
-> note in [`jobs:cronjob:run`](#jobscronjobrun) for the practical impact.
 
 ## jobs:queue:work
 
@@ -161,30 +154,17 @@ environments, dependencies and the queued-vs-inline rule.
 
 ### Behaviour
 
-- **Global `jobs_active` gate.** Before evaluating the schedule, the command checks
-  `BaseJobsCommand::isActive()`, which reads the cache flag `jobs_active`. If the flag is missing or
-  not set to `enabled`, the command **short-circuits**: it prints a warning, does **nothing** (no jobs
-  are evaluated, enqueued or run), and still returns `SUCCESS` (`0`).
-- **No shipped command enables the flag.** The v1 `jobs:cronjob:enable`/`jobs:cronjob:disable`
-  commands were removed (see the *Known issue* note at the top of this page), so out of the box the
-  flag is unset and **`php spark jobs:cronjob:run` is a no-op** — the crontab entry below will run but
-  process nothing. The runtime hint `To re-enable tasks run: jobs:cronjob:enable` is stale and points
-  at a command that no longer exists. Until a supported toggle is reintroduced, set the flag yourself
-  (e.g. from a bootstrap/migration or a small app command) by caching a `jobs_active` value whose
-  `status` property is `enabled`:
-
-  ```php
-  $settings = new \stdClass();
-  $settings->status     = 'enabled';
-  $settings->updated_at = new \DateTime();
-  service('cache')->save('jobs_active', $settings, 0); // 0 = never expires
-  ```
+- **Evaluates the schedule on every run.** The command loads `Config\Jobs::init()`, builds the
+  `Scheduler`, and evaluates every registered definition against the current minute on each
+  invocation — out of the box, with no global flag to enable first. Govern which jobs run on a
+  **per-job** basis with `enabled()`/`disable()` and `environments()` on the definition (see
+  [Scheduling](scheduling.md)).
 
 ### Exit codes
 
 | Code | Meaning |
 |------|---------|
-| `0` (`SUCCESS`) | The run completed (due jobs were enqueued / run inline) **or** processing was globally disabled via the `jobs_active` gate, in which case nothing ran. |
+| `0` (`SUCCESS`) | The run completed (due jobs were enqueued / run inline). |
 
 ## jobs:queue:purge
 

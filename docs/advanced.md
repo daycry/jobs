@@ -260,21 +260,17 @@ Jobs::define('command', 'app:report')
     ->dispatch();
 ```
 
-> **Caveat (current limitation):** `idempotencyKey()` is accepted by the builder and stored on the
-> `JobDefinition`, but it is **not yet serialised onto the envelope** — `EnvelopeFactory::toWire()`
-> does not emit an `idempotencyKey` field. The worker reads `$wire->idempotencyKey`
-> (`QueueWorker::processOnce()`), which is therefore always `null` for builder-dispatched jobs, so the
-> guard described below **does not currently trigger** end-to-end for jobs enqueued through the
-> builder. Treat the guard as a documented API and a building block you can drive directly (see
-> [How the guard works](#how-the-guard-works)); until the key is carried on the wire (and included in
-> the signed canonical fields), keep your handlers idempotent on their own. The remainder of this
-> section describes the guard's intended behaviour.
+When `idempotencyKey()` is set, `EnvelopeFactory::toWire()` serialises it onto the envelope and
+includes it in `canonicalJson()`, so the key is one of the **signed identity fields** — tampering
+with it breaks signature verification. The worker reads `$wire->idempotencyKey`
+(`QueueWorker::processOnce()`) and drives the guard described below end-to-end for builder-dispatched
+jobs. The feature is opt-in; because delivery is at-least-once and the dedupe is best-effort under
+crash/redelivery, keep your handlers idempotent on their own as well.
 
 ### How the guard works
 
 When an idempotency key is present on the wire, the worker consults
-`Daycry\Jobs\Execution\IdempotencyGuard` before running (see the caveat above on why builder-dispatched
-jobs do not yet carry the key):
+`Daycry\Jobs\Execution\IdempotencyGuard` before running:
 
 ```php
 final readonly class IdempotencyGuard

@@ -160,7 +160,7 @@ php spark list
 
 You should see the `Jobs` command group:
 
-```
+```text
 Jobs
   jobs:cronjob:run   Runs jobs based on the schedule; configure it as a crontask to run every minute.
   jobs:publish       Publish the jobs config file.
