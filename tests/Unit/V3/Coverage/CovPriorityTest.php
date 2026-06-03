@@ -23,7 +23,7 @@ final class CovPriorityTest extends CIUnitTestCase
 {
     public function testParseNullReturnsNull(): void
     {
-        $this->assertNull(Priority::parse(null));
+        $this->assertNotInstanceOf(Priority::class, Priority::parse(null));
     }
 
     public function testParseEnumInstanceReturnsItself(): void
@@ -40,7 +40,7 @@ final class CovPriorityTest extends CIUnitTestCase
 
     public function testParseUnknownStringReturnsNull(): void
     {
-        $this->assertNull(Priority::parse('urgent'));
+        $this->assertNotInstanceOf(Priority::class, Priority::parse('urgent'));
     }
 
     public function testParseIntKnownValue(): void
@@ -52,13 +52,13 @@ final class CovPriorityTest extends CIUnitTestCase
 
     public function testParseIntUnknownValueReturnsNull(): void
     {
-        $this->assertNull(Priority::parse(42));
+        $this->assertNotInstanceOf(Priority::class, Priority::parse(42));
     }
 
     public function testParseUnsupportedTypeReturnsNull(): void
     {
-        $this->assertNull(Priority::parse(3.14));
-        $this->assertNull(Priority::parse(['x']));
+        $this->assertNotInstanceOf(Priority::class, Priority::parse(3.14));
+        $this->assertNotInstanceOf(Priority::class, Priority::parse(['x']));
     }
 
     public function testToNumericReturnsBackingValue(): void

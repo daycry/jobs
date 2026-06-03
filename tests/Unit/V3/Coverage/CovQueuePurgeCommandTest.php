@@ -51,7 +51,6 @@ final class CovQueuePurgeCommandTest extends DatabaseTestCase
     {
         $ref  = new ReflectionClass(CLI::class);
         $prop = $ref->getProperty('options');
-        $prop->setAccessible(true);
         $prop->setValue(null, $options);
     }
 

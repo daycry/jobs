@@ -96,7 +96,6 @@ final class CovCronRunCommandTest extends DatabaseTestCase
         $command = $this->command();
 
         $enable = new ReflectionMethod($command, 'enable');
-        $enable->setAccessible(true);
 
         ob_start();
         $enabled = $enable->invoke($command);
@@ -105,11 +104,9 @@ final class CovCronRunCommandTest extends DatabaseTestCase
 
         // After enable(), isActive() must report true.
         $isActive = new ReflectionMethod($command, 'isActive');
-        $isActive->setAccessible(true);
         $this->assertTrue($isActive->invoke($command));
 
         $disable = new ReflectionMethod($command, 'disable');
-        $disable->setAccessible(true);
 
         ob_start();
         $disabled = $disable->invoke($command);
@@ -124,10 +121,8 @@ final class CovCronRunCommandTest extends DatabaseTestCase
     {
         $command = $this->command();
 
-        $alreadyEnabled = new ReflectionMethod($command, 'alreadyEnabled');
-        $alreadyEnabled->setAccessible(true);
+        $alreadyEnabled  = new ReflectionMethod($command, 'alreadyEnabled');
         $alreadyDisabled = new ReflectionMethod($command, 'alreadyDisabled');
-        $alreadyDisabled->setAccessible(true);
 
         ob_start();
         $alreadyEnabled->invoke($command);

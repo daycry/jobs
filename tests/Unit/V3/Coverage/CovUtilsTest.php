@@ -13,8 +13,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\V3\Coverage;
 
-use CodeIgniter\Test\CIUnitTestCase;
 use Closure;
+use CodeIgniter\Test\CIUnitTestCase;
 use Daycry\Jobs\Exceptions\JobException;
 use Daycry\Jobs\Libraries\Utils;
 use stdClass;

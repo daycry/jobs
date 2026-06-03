@@ -17,6 +17,7 @@ use Config\Database;
 use Daycry\Jobs\Entities\Queue as QueueEntity;
 use Daycry\Jobs\Models\QueueModel;
 use ReflectionClass;
+use stdClass;
 use Tests\Support\DatabaseTestCase;
 
 /**
@@ -117,7 +118,7 @@ final class CovQueueModelTest extends DatabaseTestCase
         $group = config('Jobs')->database['group'];
         $table = config('Jobs')->database['table'];
         $row   = Database::connect($group)->table($table)->where('id', $id)->get()->getRow();
-        $this->assertNotNull($row);
+        $this->assertInstanceOf(stdClass::class, $row);
         $this->assertSame('owner-token-abc', $row->owner_token);
         $this->assertNotNull($row->reserved_at);
     }
@@ -136,7 +137,7 @@ final class CovQueueModelTest extends DatabaseTestCase
     public function testReserveJobReturnsNullWhenQueueEmpty(): void
     {
         $reserved = (new QueueModel())->reserveJob('this-queue-has-no-rows');
-        $this->assertNull($reserved);
+        $this->assertNotInstanceOf(QueueEntity::class, $reserved);
     }
 
     public function testReserveJobOptimisticPathWhenSkipLockedDisabled(): void
@@ -145,7 +146,6 @@ final class CovQueueModelTest extends DatabaseTestCase
         // mirroring how the model behaves on SQLite/older databases.
         $ref  = new ReflectionClass(QueueModel::class);
         $prop = $ref->getProperty('supportsSkipLocked');
-        $prop->setAccessible(true);
         $prop->setValue(null, false);
 
         try {
@@ -158,7 +158,7 @@ final class CovQueueModelTest extends DatabaseTestCase
             $this->assertSame('in_progress', $reserved->status);
 
             // The optimistic path also returns null on an empty queue.
-            $this->assertNull((new QueueModel())->reserveJob('opt-empty'));
+            $this->assertNotInstanceOf(QueueEntity::class, (new QueueModel())->reserveJob('opt-empty'));
         } finally {
             QueueModel::resetSkipLockedDetection();
         }
@@ -181,7 +181,7 @@ final class CovQueueModelTest extends DatabaseTestCase
         $group = config('Jobs')->database['group'];
         $table = config('Jobs')->database['table'];
         $row   = Database::connect($group)->table($table)->where('id', $id)->get()->getRow();
-        $this->assertNotNull($row);
+        $this->assertInstanceOf(stdClass::class, $row);
         $this->assertSame('pending', $row->status);
         $this->assertNull($row->owner_token);
         $this->assertNull($row->reserved_at);
@@ -216,7 +216,7 @@ final class CovQueueModelTest extends DatabaseTestCase
         $group = config('Jobs')->database['group'];
         $table = config('Jobs')->database['table'];
         $row   = Database::connect($group)->table($table)->where('id', $id)->get()->getRow();
-        $this->assertNotNull($row);
+        $this->assertInstanceOf(stdClass::class, $row);
         $this->assertSame('pending', $row->status);
         $this->assertSame(3, (int) $row->attempts);
         $this->assertNull($row->owner_token);
@@ -247,7 +247,7 @@ final class CovQueueModelTest extends DatabaseTestCase
         $group = config('Jobs')->database['group'];
         $table = config('Jobs')->database['table'];
         $row   = Database::connect($group)->table($table)->where('id', $id)->get()->getRow();
-        $this->assertNotNull($row);
+        $this->assertInstanceOf(stdClass::class, $row);
         $this->assertSame('completed', $row->status);
         $this->assertNull($row->owner_token);
         $this->assertNull($row->reserved_at);

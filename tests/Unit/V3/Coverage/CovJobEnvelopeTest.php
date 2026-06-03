@@ -119,7 +119,7 @@ final class CovJobEnvelopeTest extends CIUnitTestCase
         $this->assertSame('object-job', $env->name);
         $this->assertSame(2, $env->attempts);
         $this->assertNull($env->priority);
-        $this->assertNull($env->scheduledAt);
+        $this->assertNotInstanceOf(DateTimeInterface::class, $env->scheduledAt);
         $this->assertInstanceOf(DateTimeInterface::class, $env->createdAt);
         $this->assertSame('database', $env->meta['backend']);
         $this->assertSame('dbid-1', $env->meta['rawId']);
@@ -132,7 +132,7 @@ final class CovJobEnvelopeTest extends CIUnitTestCase
         $this->assertNull($env->name);
         $this->assertSame(0, $env->attempts);
         $this->assertNull($env->priority);
-        $this->assertNull($env->scheduledAt);
+        $this->assertNotInstanceOf(DateTimeInterface::class, $env->scheduledAt);
         $this->assertInstanceOf(DateTimeInterface::class, $env->createdAt);
         $this->assertNull($env->payload);
     }

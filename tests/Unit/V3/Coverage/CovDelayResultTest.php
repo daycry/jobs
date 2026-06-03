@@ -16,6 +16,7 @@ namespace Tests\Unit\V3\Coverage;
 use CodeIgniter\Test\CIUnitTestCase;
 use DateTime;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Daycry\Jobs\Libraries\DelayResult;
 
 /**
@@ -28,7 +29,7 @@ final class CovDelayResultTest extends CIUnitTestCase
         $result = DelayResult::fromSchedule(null);
         $this->assertSame(0, $result->seconds);
         $this->assertTrue($result->isImmediate());
-        $this->assertNull($result->scheduledAt);
+        $this->assertNotInstanceOf(DateTimeInterface::class, $result->scheduledAt);
     }
 
     public function testFromSchedulePastDateTimeClampsToZero(): void

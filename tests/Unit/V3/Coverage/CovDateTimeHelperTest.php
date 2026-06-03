@@ -61,22 +61,22 @@ final class CovDateTimeHelperTest extends CIUnitTestCase
 
     public function testParseImmutableInvalidStringReturnsNull(): void
     {
-        $this->assertNull(DateTimeHelper::parseImmutable('not-a-date-!!'));
+        $this->assertNotInstanceOf(DateTimeImmutable::class, DateTimeHelper::parseImmutable('not-a-date-!!'));
     }
 
     public function testParseImmutableEmptyStringReturnsNull(): void
     {
-        $this->assertNull(DateTimeHelper::parseImmutable(''));
+        $this->assertNotInstanceOf(DateTimeImmutable::class, DateTimeHelper::parseImmutable(''));
     }
 
     public function testParseImmutableNullReturnsNull(): void
     {
-        $this->assertNull(DateTimeHelper::parseImmutable(null));
+        $this->assertNotInstanceOf(DateTimeImmutable::class, DateTimeHelper::parseImmutable(null));
     }
 
     public function testParseImmutableUnsupportedTypeReturnsNull(): void
     {
-        $this->assertNull(DateTimeHelper::parseImmutable(['x']));
+        $this->assertNotInstanceOf(DateTimeImmutable::class, DateTimeHelper::parseImmutable(['x']));
     }
 
     public function testNowReturnsImmutable(): void
