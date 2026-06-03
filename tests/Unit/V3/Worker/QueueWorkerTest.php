@@ -238,4 +238,30 @@ final class QueueWorkerTest extends CIUnitTestCase
         $this->assertSame('skipped-idempotent', $result->status);
         $this->assertSame('ack', $backend->terminal);
     }
+
+    public function testIdempotencyKeyFromDefinitionFlowsThroughEnvelope(): void
+    {
+        // End-to-end regression: an idempotencyKey set on the JobDefinition must survive
+        // EnvelopeFactory::toWire() and reach the worker's guard. Before the fix, toWire() never
+        // serialised the key, so the guard was inert for builder-dispatched jobs.
+        $cache = new MockCache();
+        $cache->initialize();
+        $guard = new IdempotencyGuard($cache);
+        $guard->firstRun('def-key'); // mark as already processed
+
+        $wire = EnvelopeFactory::toWire(
+            new JobDefinition(handler: 'command', payload: 'jobs:test', queue: 'q', idempotencyKey: 'def-key'),
+            'id-1',
+        );
+        $this->assertSame('def-key', $wire->idempotencyKey);
+
+        $envelope = new JobEnvelope(id: 'id-1', queue: 'q', payload: $wire, attempts: 0, meta: []);
+        $lease    = new JobLease($envelope, 'tok', 'owner', new DateTimeImmutable('+300 seconds'), 'fake');
+        $backend  = new _FakeBackend($lease);
+
+        $result = $this->unsignedWorker($backend, guard: $guard)->processOnce('q');
+
+        $this->assertSame('skipped-idempotent', $result->status);
+        $this->assertSame('ack', $backend->terminal);
+    }
 }
