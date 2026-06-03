@@ -36,32 +36,45 @@ class JobException extends RuntimeException
         return new self('The log type is not valid.');
     }
 
-    public static function validationError(mixed $errors): static
+    public static function validationError(mixed $errors): self
     {
         return new self($errors);
     }
 
-    public static function forInvalidMethod(string $method): static
+    public static function forInvalidMethod(string $method): self
     {
         return new self(lang('HTTP.methodNotFound', [$method]));
     }
 
-    public static function forInvalidPriority(int $priority): static
+    public static function forInvalidPriority(int $priority): self
     {
         return new self("The priority '{$priority}' is not valid. It must be between 0 and 10.");
     }
 
-    public static function forShellCommandNotAllowed(string $command): static
+    public static function forShellCommandNotAllowed(string $command): self
     {
         return new self("Shell command '{$command}' is not in the whitelist of allowed commands.");
     }
 
-    public static function forJobTimeout(string $jobName, int $timeout): static
+    public static function forShellCommandsNotConfigured(): self
+    {
+        return new self(
+            'ShellHandler is deny-by-default: configure Config\\Jobs::$allowedShellCommands '
+            . 'with absolute paths, or set $allowAllShellCommands = true to opt out explicitly.',
+        );
+    }
+
+    public static function forEventNotAllowed(string $event): self
+    {
+        return new self("Event '{$event}' is not in Config\\Jobs::\$allowedEvents.");
+    }
+
+    public static function forJobTimeout(string $jobName, int $timeout): self
     {
         return new self("Job '{$jobName}' exceeded maximum execution time of {$timeout} seconds.");
     }
 
-    public static function forRateLimitExceeded(string $queue, int $limit): static
+    public static function forRateLimitExceeded(string $queue, int $limit): self
     {
         return new self("Queue '{$queue}' has exceeded rate limit of {$limit} jobs per minute.");
     }

@@ -97,12 +97,16 @@ class CircuitBreaker
 
     public function getState(): string
     {
-        return (string) ($this->cacheGet('state') ?: self::STATE_CLOSED);
+        $state = $this->cacheGet('state');
+
+        return is_string($state) && $state !== '' ? $state : self::STATE_CLOSED;
     }
 
     public function getFailureCount(): int
     {
-        return (int) ($this->cacheGet('failures') ?: 0);
+        $failures = $this->cacheGet('failures');
+
+        return is_numeric($failures) ? (int) $failures : 0;
     }
 
     /**

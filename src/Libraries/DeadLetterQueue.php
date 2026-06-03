@@ -13,7 +13,8 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Libraries;
 
-use Daycry\Jobs\Job;
+use Daycry\Jobs\Definition\JobDefinition;
+use Daycry\Jobs\Queues\BackendFactory;
 use Throwable;
 
 /**
@@ -23,54 +24,53 @@ use Throwable;
 class DeadLetterQueue
 {
     /**
-     * Move a job to the dead letter queue.
+     * Route a permanently-failed job's payload to the configured dead letter queue.
      *
-     * @param Job    $job      Failed job
-     * @param string $reason   Failure reason
-     * @param int    $attempts Number of attempts made
+     * @param mixed  $payload  The failed job payload (re-enqueued onto the DLQ for inspection).
+     * @param string $handler  Handler key of the failed job.
+     * @param string $reason   Failure reason (recorded in the DLQ payload metadata).
+     * @param int    $attempts Number of attempts made before giving up.
      *
-     * @return bool true when the job was successfully persisted to the DLQ; false otherwise
-     *              (DLQ disabled in config or push to backend failed). Callers MUST act on
-     *              a false return value to avoid silent job loss.
+     * @return bool true when the payload was successfully persisted to the DLQ; false otherwise
+     *              (DLQ disabled in config or enqueue to backend failed). Callers MUST act on a
+     *              false return value to avoid silent job loss.
      */
-    public function store(Job $job, string $reason, int $attempts): bool
+    public function store(mixed $payload, string $handler, string $reason, int $attempts): bool
     {
         $config  = ConfigCache::get();
         $dlqName = $config->deadLetterQueue ?? null;
 
-        if (! $dlqName) {
-            log_message('critical', "Job {$job->getName()} permanently failed after {$attempts} attempts but DLQ is not configured — caller must decide whether to drop or requeue. Reason: {$reason}");
+        if ($dlqName === null || $dlqName === '') {
+            log_message('critical', "Job '{$handler}' permanently failed after {$attempts} attempts but DLQ is not configured — caller must decide whether to drop or requeue. Reason: {$reason}");
 
             return false;
         }
 
-        // Add metadata about the failure
         $metadata = [
-            'dlq_reason'     => $reason,
-            'dlq_timestamp'  => date('Y-m-d H:i:s'),
-            'dlq_attempts'   => $attempts,
-            'original_queue' => $job->getQueue(),
+            'dlq_reason'    => $reason,
+            'dlq_timestamp' => date('Y-m-d H:i:s'),
+            'dlq_attempts'  => $attempts,
         ];
 
-        // Create a new job instance for DLQ
-        $dlqJob = clone $job;
-        $dlqJob->setQueue($dlqName);
-
-        // Store metadata in payload if possible
-        $payload = $dlqJob->getPayload();
-        if (is_array($payload)) {
-            $payload['_dlq_metadata'] = $metadata;
-            $dlqJob->setPayload($payload);
+        $dlqPayload = $payload;
+        if (is_array($dlqPayload)) {
+            $dlqPayload['_dlq_metadata'] = $metadata;
         }
 
-        // Push to DLQ
+        $definition = new JobDefinition(
+            handler: $handler,
+            payload: $dlqPayload,
+            queue: $dlqName,
+            meta: $metadata,
+        );
+
         try {
-            $dlqJob->push();
-            log_message('info', "Job {$job->getName()} moved to DLQ after {$attempts} attempts. Reason: {$reason}");
+            BackendFactory::make($config)->enqueue($definition);
+            log_message('info', "Job '{$handler}' moved to DLQ after {$attempts} attempts. Reason: {$reason}");
 
             return true;
         } catch (Throwable $e) {
-            log_message('critical', "Failed to store job {$job->getName()} in DLQ: {$e->getMessage()}");
+            log_message('critical', "Failed to store job '{$handler}' in DLQ: {$e->getMessage()}");
 
             return false;
         }
@@ -78,13 +78,15 @@ class DeadLetterQueue
 
     /**
      * Get statistics about dead letter queue.
+     *
+     * @return array{enabled: bool, queue?: string}
      */
     public function getStats(): array
     {
         $config  = ConfigCache::get();
         $dlqName = $config->deadLetterQueue;
 
-        if (! $dlqName) {
+        if ($dlqName === null || $dlqName === '') {
             return ['enabled' => false];
         }
 

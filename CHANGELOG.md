@@ -1,5 +1,61 @@
 # Changelog
 
+## v3.0.0 - 2026-06-03
+
+### BREAKING — single, clean architecture
+
+v3.0 collapses the previously coexisting V1/V2 designs into one. The legacy mutable `Job` builder,
+the V1 `Scheduler`, the performance loggers, email notifications, and the old CLI commands are
+**removed**. See [`docs/MIGRATION-v1-to-v3.md`](docs/MIGRATION-v1-to-v3.md) for the full old→new map.
+
+#### Added
+- **Single public API.** `Daycry\Jobs\Jobs::define($handler, $payload)` returns a fluent
+  `JobBuilder` that produces an immutable `JobDefinition`; `dispatch()` enqueues and `toDefinition()`
+  materialises. `Jobs::backend($name)` resolves a configured backend.
+- **`JobHandlerInterface`** — handlers contain business logic only and receive an immutable
+  `JobContext` (no scheduling/queue state). `AbstractJobHandler` adds optional `beforeRun`/`afterRun`
+  hooks; `TypedJobHandler` rehydrates a typed DTO from the payload.
+- **Single `QueueBackend` contract** with lease semantics
+  (`enqueue`/`fetch`/`ack`/`nack(delay)`/`abandon`/`reapExpired`) implemented natively by `sync`,
+  `database`, `redis`, `beanstalk`, and `serviceBus`. Delivery is at-least-once.
+- **HMAC-SHA256 envelope signing** — `EnvelopeSigner` signs the immutable identity fields at enqueue;
+  the worker rejects tampered/forged messages (`$signingKey` → `env('JOBS_SIGNING_KEY')` →
+  Encryption key; toggled by `$verifyEnvelopeSignature`).
+- **Security allowlists** — per-queue handler allowlist (`$queueHandlers`); `ShellHandler` is
+  deny-by-default and runs via `proc_open` argv (never `/bin/sh -c`); `EventHandler` requires
+  `$allowedEvents`; `UrlHandler` keeps anti-SSRF protections (http/https only, private IPs rejected,
+  redirects disabled).
+- **Crash recovery** — `jobs:queue:reap` reclaims expired leases for the database and Redis backends
+  (`$databaseVisibilityTimeout` / `$redisProcessingVisibilityTimeout`); Beanstalk and Service Bus
+  recover natively.
+- **One attempt per fetch.** `JobRuntime` runs a job exactly once; the worker decides retries and
+  requeues with backoff via `nack(delay)` — no blocking `sleep()`, no double-retry.
+- **Real timeout** — `Timeout` installs a SIGALRM handler that throws (interrupts CPU-bound code),
+  with a documented soft fallback when `pcntl` is unavailable.
+- **Opt-in idempotency** — `IdempotencyGuard` deduplicates by `idempotencyKey()` (TTL
+  `$idempotencyTtl`); single-instance locking uses an ownership token.
+- **v3 cron** — `Config\Jobs::init(Scheduler $scheduler)` registers scheduled jobs; the runner
+  honours `enabled()`/`environments()`, enqueues jobs with a queue and runs the rest inline in
+  topological `dependsOn()` order; no global `sleep()` between jobs.
+- **`docs/MIGRATION-v1-to-v3.md`** documenting the removed surface and its v3 equivalent.
+
+#### Removed
+- The mutable `Job` builder and its traits, and the V1 `Scheduler`.
+- Handlers extending `Job` (`ClosureJob`/`CommandJob`/`ShellJob`/`UrlJob`/`EventJob`).
+- `QueueInterface`/`WorkerInterface`/`JobInterface`, `LegacyWorkerAdapter`, and `QueueManager`.
+- Performance loggers (`JobLogger`, file/db handlers), `$logPerformance`/`$log`/`$loggers`, and
+  `JobsLogModel`.
+- `NotificationService`/email notifications and the callback/chaining API.
+- `$batchSize` config (never implemented).
+- CLI commands `jobs:queue:run`, `jobs:redis:reap-stuck`, `jobs:cronjob:{enable,disable,list,history}`,
+  and `jobs:health`.
+
+#### Changed
+- `Config\Jobs`: `$jobs` → `$handlers`, `$workers` → `$backends`; added `$queueHandlers`,
+  `$allowedEvents`, `$allowAllShellCommands`, `$signingKey`, `$verifyEnvelopeSignature`,
+  `$idempotencyTtl`, `$databaseVisibilityTimeout`, `$metricsCollector`.
+- The PHPStan baseline was removed; the typed v3 surface raises the static-analysis floor.
+
 ## v2.0.0-alpha - 2026-05-08
 ### Added (opt-in)
 - `Daycry\Jobs\V2\` namespace ships alongside the v1 API. Adopters can migrate

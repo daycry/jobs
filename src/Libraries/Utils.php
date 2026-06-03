@@ -25,6 +25,8 @@ class Utils
     /**
      * Validate queue job data against a named rule set using framework validator.
      * Throws JobException on failure.
+     *
+     * @param array<array-key, mixed>|object $data
      */
     public static function checkDataQueue(array|object $data, string $rule): void
     {
@@ -42,17 +44,22 @@ class Utils
     /**
      * Parse comma-delimited string or pass-through array into trimmed array of strings.
      *
-     * @param mixed $attr
+     * @param list<string>|string|null $attr
+     *
+     * @return list<string>
      */
     public static function parseConfigFile($attr): array
     {
-        if ($attr && ! is_array($attr)) {
-            $attr = explode(',', (string) $attr);
+        if (! is_array($attr)) {
+            $attr = $attr === null || $attr === '' ? [] : explode(',', $attr);
         }
 
         return array_map(trim(...), $attr);
     }
 
+    /**
+     * @return array<array-key, mixed>
+     */
     private static function objectToArray(object $object): array
     {
         $result = [];

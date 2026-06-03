@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues;
 
 use DateTimeInterface;
-use Daycry\Jobs\Job;
 use Daycry\Jobs\Libraries\DateTimeHelper;
 
 /**
@@ -35,6 +34,10 @@ use Daycry\Jobs\Libraries\DateTimeHelper;
  */
 final readonly class JobEnvelope
 {
+    /**
+     * @param array<array-key, mixed>|object|null $payload
+     * @param array<string, mixed>                $meta
+     */
     public function __construct(
         public string $id,
         public string $queue,
@@ -52,6 +55,9 @@ final readonly class JobEnvelope
 
     /**
      * Create from a decoded backend payload plus raw reference.
+     *
+     * @param array<array-key, mixed>|object|null $decoded
+     * @param array<string, mixed>                $meta
      *
      * @deprecated Use named parameters to avoid type ambiguity on $name/$attempts.
      */
@@ -81,28 +87,6 @@ final readonly class JobEnvelope
     }
 
     /**
-     * Create directly from a Job domain object (minimal meta)
-     */
-    public static function fromJob(Job $job, array $meta = []): self
-    {
-        $payload = $job->toObject();
-
-        return new self(
-            id: $payload->identifier ?? $job->getName() . '-' . bin2hex(random_bytes(4)),
-            queue: $payload->queue ?? 'default',
-            payload: $payload,
-            name: $payload->name ?? $job->getName(),
-            attempts: $job->getAttempt(),
-            priority: $payload->priority ?? null,
-            scheduledAt: $payload->schedule ?? null,
-            availableAt: null,
-            createdAt: $payload->createdAt ?? ($payload->schedule ?? null),
-            meta: $meta,
-            raw: $job,
-        );
-    }
-
-    /**
      * Unified factory for creating envelopes from backend-specific messages with normalized metadata.
      *
      * Standardized meta keys injected automatically:
@@ -110,12 +94,12 @@ final readonly class JobEnvelope
      *  - rawId: ID nativo original del mensaje (útil para trazabilidad)
      *  - status: estado backend si disponible (pending, in_progress, completed, failed, etc.)
      *
-     * @param string       $backend   Backend identifier (redis|database|beanstalk|servicebus|sync)
-     * @param string       $id        Job identifier (unique within backend)
-     * @param string       $queue     Queue/tube name
-     * @param array|object $payload   Decoded payload object
-     * @param array        $extraMeta Additional backend-specific metadata (delay, ttr, entity_id, headers, etc.)
-     * @param mixed        $raw       Original backend object/record (for low-level operations)
+     * @param string                              $backend   Backend identifier (redis|database|beanstalk|servicebus|sync)
+     * @param string                              $id        Job identifier (unique within backend)
+     * @param string                              $queue     Queue/tube name
+     * @param array<array-key, mixed>|object|null $payload   Decoded payload object
+     * @param array<string, mixed>                $extraMeta Additional backend-specific metadata (delay, ttr, entity_id, headers, etc.)
+     * @param mixed                               $raw       Original backend object/record (for low-level operations)
      */
     public static function fromBackend(
         string $backend,

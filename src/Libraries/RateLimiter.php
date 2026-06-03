@@ -40,7 +40,9 @@ class RateLimiter
 
         // Atomic path (Redis, Memcached, APCu) — increment() is server-side atomic
         // and (on Redis/Memcached) returns the new value, so we can decide based on
-        // the post-increment count without another roundtrip.
+        // the post-increment count without another roundtrip. Some injected/custom cache
+        // handlers do not expose increment(), so the guard is a real runtime check even
+        // though CacheInterface declares the method.
         if (method_exists($cache, 'increment')) {
             $current = $cache->get($key);
 

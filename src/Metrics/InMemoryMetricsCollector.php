@@ -22,7 +22,14 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
      */
     private int $maxCardinality = 5_000;
 
-    private array $counters   = [];
+    /**
+     * @var array<string, int>
+     */
+    private array $counters = [];
+
+    /**
+     * @var array<string, array{count: int, sum: float, min: float|null, max: float|null}>
+     */
     private array $histograms = [];
 
     public function __construct(?int $maxCardinality = null)
@@ -32,6 +39,9 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
         }
     }
 
+    /**
+     * @param array<string, scalar> $labels
+     */
     public function increment(string $counter, int $value = 1, array $labels = []): void
     {
         $key = $this->key($counter, $labels);
@@ -39,6 +49,9 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
         $this->counters[$key] = ($this->counters[$key] ?? 0) + $value;
     }
 
+    /**
+     * @param array<string, scalar> $labels
+     */
     public function observe(string $metric, float $value, array $labels = []): void
     {
         $key = $this->key($metric, $labels);
@@ -51,6 +64,9 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
         $this->histograms[$key] = $bucket;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getSnapshot(): array
     {
         return [
@@ -94,6 +110,9 @@ final class InMemoryMetricsCollector implements MetricsCollectorInterface
         unset($store[$first]);
     }
 
+    /**
+     * @param array<string, scalar> $labels
+     */
     private function key(string $name, array $labels): string
     {
         if ($labels === []) {

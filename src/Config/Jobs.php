@@ -14,69 +14,97 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Config;
 
 use CodeIgniter\Config\BaseConfig;
-use Daycry\Jobs\Cronjob\Scheduler;
-use Daycry\Jobs\Jobs\ClosureJob;
-use Daycry\Jobs\Jobs\CommandJob;
-use Daycry\Jobs\Jobs\EventJob;
-use Daycry\Jobs\Jobs\ShellJob;
-use Daycry\Jobs\Jobs\UrlJob;
-use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
-use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
+use Daycry\Jobs\Cron\Scheduler;
+use Daycry\Jobs\Handlers\ClosureHandler;
+use Daycry\Jobs\Handlers\CommandHandler;
+use Daycry\Jobs\Handlers\EventHandler;
+use Daycry\Jobs\Handlers\ShellHandler;
+use Daycry\Jobs\Handlers\UrlHandler;
 use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
-use Daycry\Jobs\Queues\BeanstalkQueue;
-use Daycry\Jobs\Queues\DatabaseQueue;
-use Daycry\Jobs\Queues\RedisQueue;
-use Daycry\Jobs\Queues\ServiceBusQueue;
-use Daycry\Jobs\Queues\SyncQueue;
+use Daycry\Jobs\Queues\Backends\BeanstalkBackend;
+use Daycry\Jobs\Queues\Backends\DatabaseBackend;
+use Daycry\Jobs\Queues\Backends\RedisBackend;
+use Daycry\Jobs\Queues\Backends\ServiceBusBackend;
+use Daycry\Jobs\Queues\Backends\SyncBackend;
 
 /**
- * Central configuration for Jobs package (scheduling, queues, logging, retries, notifications).
+ * Central configuration for Jobs package (scheduling, queues, retries).
  * Key groups:
- *  - jobs: handler mapping keys -> concrete job classes
- *  - logging: logPerformance, maxLogsPerJob, maxOutputLength, log driver, loggers map
+ *  - handlers: handler-key mapping (key -> JobHandlerInterface class)
+ *  - queueHandlers: per-queue handler allowlist
  *  - retries: backoff strategy & parameters (strategy/base/multiplier/jitter/max)
- *  - queues: available queues, default worker, backend-specific settings (database, redis, beanstalk, serviceBus)
- *  - email: notification view & addresses
- *  - init(): optional bootstrap example registering jobs during scheduler setup
+ *  - queues: available queues, default worker, backend map and backend-specific settings
+ *  - init(): optional bootstrap registering scheduled jobs on the v3 Scheduler
  */
 class Jobs extends BaseConfig
 {
-    public array $jobs = [
-        'command' => CommandJob::class,
-        'shell'   => ShellJob::class,
-        'closure' => ClosureJob::class,
-        'event'   => EventJob::class,
-        'url'     => UrlJob::class,
+    /**
+     * v3 handler map (key => JobHandlerInterface class). This is the single source of truth
+     * for resolving handler keys; the v3 HandlerRegistry reads exclusively from here.
+     *
+     * @var array<string, class-string>
+     */
+    public array $handlers = [
+        'command' => CommandHandler::class,
+        'shell'   => ShellHandler::class,
+        'closure' => ClosureHandler::class,
+        'event'   => EventHandler::class,
+        'url'     => UrlHandler::class,
     ];
-    public bool $logPerformance = true;
-    public int $maxLogsPerJob   = 3;
 
     /**
-     * Maximum number of characters from job output to store (null = unlimited)
+     * Per-queue allowlist of handler keys. A queue may only run the handlers listed here.
+     * A queue absent from this map (or with an empty list) imposes no restriction — set it
+     * explicitly in production so remote queues cannot invoke 'shell'/'command'.
+     * Example: ['reports' => ['command'], 'web' => ['url', 'event']]
+     *
+     * @var array<string, list<string>>
      */
-    public ?int $maxOutputLength = null;
+    public array $queueHandlers = [];
 
-    public string $log    = 'file'; // 'file' or 'database'
-    public array $loggers = [
-        'database' => DatabaseLoggerHandler::class,
-        'file'     => FileLoggerHandler::class,
-    ];
-    public string $filePath       = WRITEPATH . 'jobs/';
+    /**
+     * Allowlist of event names EventHandler may trigger. Empty = deny all (secure default).
+     *
+     * @var list<string>
+     */
+    public array $allowedEvents = [];
+
+    /**
+     * Explicit escape hatch to allow ANY shell command (insecure).
+     * Default false = deny-by-default: an empty $allowedShellCommands rejects execution.
+     */
+    public bool $allowAllShellCommands = false;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Envelope Signing (anti-tamper / anti-RCE)
+     * --------------------------------------------------------------------------
+     * HMAC-SHA256 key used to sign queue envelopes. When null, the signer falls back to
+     * env('JOBS_SIGNING_KEY') and then to the CodeIgniter Encryption key. If no key can be
+     * resolved, signing/verification operate in insecure mode (logged as critical).
+     */
+    public ?string $signingKey = null;
+
+    /**
+     * When true, the worker rejects queue messages whose HMAC signature is missing or invalid
+     * (provided a signing key is available). Set false only for trusted, private backends.
+     */
+    public bool $verifyEnvelopeSignature = true;
+
+    /**
+     * Default TTL (seconds) for idempotency keys stored by IdempotencyGuard.
+     */
+    public int $idempotencyTtl = 86400;
+
+    /**
+     * Database connection group used by the Jobs migrations (null = default group).
+     */
     public ?string $databaseGroup = null;
-    public string $tableName      = 'jobs';
 
     /**
-     * Keys that should be masked in any logged payload/output/error structures.
-     * These are compared case-insensitively and recursively inside arrays/objects.
-     * You may extend this list in your application config (e.g. add 'api_key','access_token').
+     * Name of the table created by the Jobs history migration.
      */
-    public array $sensitiveKeys = [
-        'password',
-        'token',
-        'secret',
-        'authorization',
-        'api_key',
-    ];
+    public string $tableName = 'jobs';
 
     /**
      * --------------------------------------------------------------------------
@@ -85,6 +113,8 @@ class Jobs extends BaseConfig
      * List of allowed shell commands. Empty array allows all (backward compatible).
      * When populated, only listed commands are permitted in ShellJob.
      * Example: ['ls', 'grep', 'cat', 'find']
+     *
+     * @var list<string>
      */
     public array $allowedShellCommands = [];
 
@@ -94,6 +124,8 @@ class Jobs extends BaseConfig
      * --------------------------------------------------------------------------
      * Maximum jobs processed per minute per queue. 0 = unlimited.
      * Example: ['high_priority' => 100, 'default' => 50]
+     *
+     * @var array<string, int>
      */
     public array $queueRateLimits = [];
 
@@ -114,15 +146,6 @@ class Jobs extends BaseConfig
      * Can be overridden per-job.
      */
     public int $jobTimeout = 300; // 5 minutes
-
-    /**
-     * --------------------------------------------------------------------------
-     * Batch Processing
-     * --------------------------------------------------------------------------
-     * Number of jobs to fetch in batch for database queue.
-     * 1 = process one at a time (backward compatible).
-     */
-    public int $batchSize = 1;
 
     /**
      * --------------------------------------------------------------------------
@@ -156,6 +179,16 @@ class Jobs extends BaseConfig
      * and must be returned to the waiting list for retry.
      */
     public int $redisProcessingVisibilityTimeout = 300;
+
+    /**
+     * --------------------------------------------------------------------------
+     * Database Reliable Queue
+     * --------------------------------------------------------------------------
+     * Visibility timeout (seconds) used by the database backend reaper to decide when a
+     * row left 'in_progress' belongs to a crashed worker and must be returned to 'pending'.
+     * Must be greater than the maximum expected job runtime to avoid reclaiming live jobs.
+     */
+    public int $databaseVisibilityTimeout = 300;
 
     /**
      * --------------------------------------------------------------------------
@@ -213,8 +246,12 @@ class Jobs extends BaseConfig
      */
     public bool $retryBackoffJitter = true;
 
+    /**
+     * @var list<string>|string
+     */
     public array|string $queues = 'default,dummy';
-    public string $worker       = 'sync';
+
+    public string $worker = 'sync';
 
     /**
      * Fully-qualified class name of the metrics collector to use.
@@ -224,6 +261,9 @@ class Jobs extends BaseConfig
      */
     public ?string $metricsCollector = InMemoryMetricsCollector::class;
 
+    /**
+     * @var array{group: string|null, table: string}
+     */
     public array $database = [
         'group' => null,
         'table' => 'queues',
@@ -231,6 +271,8 @@ class Jobs extends BaseConfig
 
     /**
      * Azure Service Bus basic config (usada por ServiceBusQueue)
+     *
+     * @var array{url: string, issuer: string, secret: string}
      */
     public array $serviceBus = [
         'url'    => '', // e.g. https://<namespace>.servicebus.windows.net/<queue>
@@ -238,34 +280,40 @@ class Jobs extends BaseConfig
         'secret' => '', // SAS key value — prefer env('SERVICEBUS_SECRET')
     ];
 
+    /**
+     * @var array{host: string, port: int}
+     */
     public array $beanstalk = [
         'host' => '127.0.0.1',
         'port' => 11300,
     ];
-    public array $workers = [
-        'sync'       => SyncQueue::class,
-        'beanstalk'  => BeanstalkQueue::class,
-        'redis'      => RedisQueue::class,
-        'serviceBus' => ServiceBusQueue::class,
-        'database'   => DatabaseQueue::class,
-    ];
-    public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
-    public string $from                  = 'your@example.com';
-    public string $fromName              = 'CronJob';
-    public string $to                    = 'your@example.com';
-    public string $toName                = 'User';
 
+    /**
+     * v3 backend map (name => QueueBackend class). Single source of truth for the v3 worker
+     * (jobs:queue:work), the cron runner and BackendFactory.
+     *
+     * @var array<string, class-string>
+     */
+    public array $backends = [
+        'sync'       => SyncBackend::class,
+        'database'   => DatabaseBackend::class,
+        'redis'      => RedisBackend::class,
+        'beanstalk'  => BeanstalkBackend::class,
+        'serviceBus' => ServiceBusBackend::class,
+    ];
+
+    /**
+     * Register scheduled jobs on the v3 {@see Scheduler}. Called by jobs:cronjob:run before
+     * the cron runner evaluates due definitions. Each define() returns a fluent JobBuilder.
+     *
+     * Examples (uncomment and adapt in your application config):
+     */
     public function init(Scheduler $scheduler): void
     {
-        // $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->priority(5)->enqueue();
-        // $scheduler->command('jobs:test')->named('enabled')->everyMinute()->singleInstance()->notifyOnCompletion();
-        // $scheduler->command('jobs:test')->named('disabled')->everyMinute()->singleInstance()->disable();
-        /*$scheduler->shell('ls')->named('shell_test')->everyMinute()->singleInstance();
-        $scheduler->closure(function() {
-            // Your closure code here
-            return 'Closure executed successfully!';
-        })->named('closure_test')->everyMinute()->singleInstance();
-        $scheduler->event(name: 'user.registered', data: ['user_id' => 123])->named('event_test')->everyMinute()->singleInstance();
-        $scheduler->url(url: 'https://google.es', method: 'GET', options: ['headers' => ['Accept' => 'application/html']]);*/
+        // $scheduler->define('command', 'jobs:test')->named('reports')->dailyAt('02:00')->queue('reports');
+        // $scheduler->define('shell', 'ls')->named('shell_test')->everyMinute()->singleInstance();
+        // $scheduler->define('closure', static fn () => 'done')->named('closure_test')->everyMinute();
+        // $scheduler->define('event', ['name' => 'user.registered', 'data' => ['user_id' => 123]])->named('event_test')->hourly();
+        // $scheduler->define('url', ['url' => 'https://example.com', 'method' => 'GET'])->named('ping')->everyMinute()->disable();
     }
 }

@@ -1,74 +1,58 @@
-# CodeIgniter Job Scheduler Documentation
+# Codeigniter Jobs Documentation
 
-Welcome to the documentation for the CodeIgniter Job Scheduler. This index provides a complete map of every documentation page included in the distribution so you can discover features quickly.
+Job scheduling and queue processing for CodeIgniter 4. Define work with a fluent, immutable builder, dispatch it to one of five queue backends, and process it with a resilient worker featuring real timeouts, retries with backoff, signed envelopes, idempotency and per-queue handler allowlists.
+
+> **v3.0** is a single, clean architecture. The legacy mutable `Job` builder, the V1 `Scheduler`, the performance loggers and the `QueueManager` were removed. Upgrading from v1? See [Migration v1 → v3](MIGRATION-v1-to-v3.md).
 
 ---
+
 ## Quick Start
-- [Installation](installation.md)
-- [Defining Schedules](scheduling.md)
-- [Job Dependencies](dependencies.md)
-- [Advanced Features](advanced.md)
-- [Enhanced Features](ENHANCEMENTS.md)
-- [Metrics & Monitoring (Guide)](metrics-monitoring.md)
-- [Testing Guide](TESTING.md)
-- [**v2 Migration Guide**](V2_MIGRATION.md) — adoption path for the new opt-in `Daycry\Jobs\V2\` API.
+
+```php
+use Daycry\Jobs\Jobs;
+
+$id = Jobs::define('command', 'app:report')
+    ->named('daily-report')
+    ->dailyAt('02:00')
+    ->queue('reports')
+    ->maxRetries(3)
+    ->dispatch();
+```
+
+`Jobs::define()` opens a fluent `JobBuilder`; `dispatch()` enqueues the resulting immutable `JobDefinition` onto the configured backend and returns its id. Use `toDefinition()` to build a definition without enqueuing it, and `Jobs::backend(?string $name)` to resolve a backend directly.
 
 ---
-## Core Configuration & Architecture
-- [Configuration Reference](CONFIGURATION.md)
-- [Architecture Overview](ARCHITECTURE.md)
-- [Queues & Backends](QUEUES.md)
-- [Queue Simplification Guide](QUEUE_SIMPLIFICATION.md)
-- [Logging](LOGGING.md)
-- [Metrics (Detailed Spec)](METRICS.md)
+
+## Documentation Map
+
+| Page | Description |
+|------|-------------|
+| [Installation](installation.md) | Install, migrate, optional extensions and config. |
+| [Scheduling](scheduling.md) | Frequency helpers and the cron scheduler. |
+| [Queues & Backends](QUEUES.md) | The `QueueBackend` contract and the five backends. |
+| [CLI Commands](COMMANDS.md) | `jobs:queue:work`, `jobs:queue:reap`, `jobs:cronjob:run`, `jobs:queue:purge`. |
+| [Configuration](CONFIGURATION.md) | Every option in `Config\Jobs`. |
+| [Retries](RETRIES.md) | Backoff strategies and retry semantics. |
+| [Architecture](ARCHITECTURE.md) | Definition, envelope, runtime and worker pipeline. |
+| [Dependencies](dependencies.md) | Job dependency ordering. |
+| [Migration v1 → v3](MIGRATION-v1-to-v3.md) | Upgrading from the removed v1 API. |
+| [Changelog](../CHANGELOG.md) | Release history. |
 
 ---
-## Execution Semantics
-- [Attempts Semantics](ATTEMPTS.md)
-- [Retry Policies](RETRIES.md)
-- [**Exception Handling (NEW)**](EXCEPTIONS.md)
-- [CLI Commands](COMMANDS.md)
+
+## Core Concepts
+
+- **`JobBuilder` → `JobDefinition`**: the builder is a throwaway accumulator; the definition is an immutable value object.
+- **Handlers** implement `JobHandlerInterface` and receive a read-only `JobContext` — they never see the builder. Built-in keys: `command`, `shell`, `closure`, `event`, `url`.
+- **Backends** share one `QueueBackend` contract (`enqueue` / `fetch` / `ack` / `nack` / `abandon` / `reapExpired`) with at-least-once delivery.
+- **The worker** runs a single attempt per fetch; retries are the backend's responsibility (requeue with backoff).
 
 ---
-## Operational / Dashboard
-- [Dashboard (Concepts)](dashboard.md)
-- [Home (Legacy Landing)](home.md)
 
----
-## Visual Assets
-Images and diagrams used across pages are stored under [`images/`](images/).
-
----
-## Page Index (Full List)
-| File | Purpose |
-|------|---------|
-| installation.md | Install & initial setup |
-| scheduling.md | Frequency & scheduling API |
-| dependencies.md | Job dependency chaining |
-| advanced.md | Direct queueing, callbacks, retries summary |
-| **ENHANCEMENTS.md** | **Security, performance & operational features (NEW)** |
-| metrics-monitoring.md | Operational metrics quick guide |
-| METRICS.md | Full metrics system specification |
-| CONFIGURATION.md | All configurable options |
-| ARCHITECTURE.md | Internal component design |
-| QUEUES.md | Backend notes & capabilities |
-| QUEUE_SIMPLIFICATION.md | Migration guide for queue refactoring |
-| LOGGING.md | Structured logging & masking |
-| ATTEMPTS.md | Attempt counting model |
-| RETRIES.md | Backoff strategies |
-| EXCEPTIONS.md | Exception handling & resilience |
-| COMMANDS.md | CLI command reference (incl. `jobs:redis:reap-stuck`, v1.1+) |
-| TESTING.md | Test organization and running tests |
-| **V2_MIGRATION.md** | **Migration path for the v2.0-alpha opt-in API (JobDefinition, QueueBackend, JobLease, TypedJobHandler)** |
-| dashboard.md | Suggested dashboard ideas |
-| home.md | Alternate landing / legacy content |
-| requirements.txt | Python build deps (docs) |
-| index.rst | Placeholder (Sphinx compatibility) |
-
----
 ## Contributing
-Feel free to propose improvements (typos, clarifications, new examples) via Pull Request.
 
----
-## See Also
-Project README for high‑level feature overview and changelog.
+Contributions and feedback are welcome — open an issue or PR on [GitHub](https://github.com/daycry/jobs).
+
+## License
+
+MIT License. See the repository for the full text.

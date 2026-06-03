@@ -1,0 +1,164 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
+namespace Daycry\Jobs\Definition;
+
+use DateTimeImmutable;
+
+/**
+ * Immutable description of a job at definition time.
+ *
+ * JobDefinition is a value object: every withXxx() helper returns a new instance, so the same
+ * definition can be shared across enqueue sites without spooky action at a distance.
+ *
+ * The v3 design splits the responsibilities into focused objects:
+ *  - JobDefinition: what the job IS (handler key, payload, scheduling, retry policy).
+ *  - JobEnvelope: how the definition travels through queues.
+ *  - JobRuntime: the in-flight execution of a single attempt.
+ */
+final readonly class JobDefinition
+{
+    /**
+     * @param string                 $handler        Handler key (must exist in Config\Jobs::$jobs).
+     * @param mixed                  $payload        Arbitrary payload passed to the handler.
+     * @param string|null            $name           Friendly name for logs/metrics; defaults to handler:hash(payload).
+     * @param string|null            $queue          Optional explicit queue; null means "use first configured queue".
+     * @param int                    $priority       Higher = sooner (backend-dependent).
+     * @param int|null               $maxRetries     Null = no retries; integers = retry up to N times before DLQ.
+     * @param int|null               $timeout        Per-attempt soft timeout in seconds; null = use config defaultTimeout.
+     * @param DateTimeImmutable|null $scheduledAt    Earliest run time (UTC); null = run as soon as possible.
+     * @param bool                   $singleInstance Lock with a runtime cache flag to prevent concurrent runs.
+     * @param list<string>           $environments   Restrict execution to these CI4 environments; empty = no restriction.
+     * @param list<string>           $dependsOn      Job names that must succeed first within the same scheduler run.
+     * @param string                 $cronExpression Cron schedule used by Scheduler; defaults to every minute.
+     * @param array<string, mixed>   $meta           Free-form metadata propagated to the envelope.
+     * @param bool                   $enabled        Whether the definition is active; disabled jobs are skipped.
+     * @param string|null            $idempotencyKey Optional caller-supplied key to deduplicate enqueues.
+     */
+    public function __construct(
+        public string $handler,
+        public mixed $payload,
+        public ?string $name = null,
+        public ?string $queue = null,
+        public int $priority = 5,
+        public ?int $maxRetries = 0,
+        public ?int $timeout = null,
+        public ?DateTimeImmutable $scheduledAt = null,
+        public bool $singleInstance = false,
+        public array $environments = [],
+        public array $dependsOn = [],
+        public string $cronExpression = '* * * * *',
+        public array $meta = [],
+        public bool $enabled = true,
+        public ?string $idempotencyKey = null,
+    ) {
+    }
+
+    public function withName(string $name): self
+    {
+        return $this->copy(['name' => $name]);
+    }
+
+    public function withQueue(?string $queue): self
+    {
+        return $this->copy(['queue' => $queue]);
+    }
+
+    public function withPriority(int $priority): self
+    {
+        return $this->copy(['priority' => $priority]);
+    }
+
+    public function withMaxRetries(?int $maxRetries): self
+    {
+        return $this->copy(['maxRetries' => $maxRetries]);
+    }
+
+    public function withTimeout(?int $timeout): self
+    {
+        return $this->copy(['timeout' => $timeout]);
+    }
+
+    public function withScheduledAt(?DateTimeImmutable $when): self
+    {
+        return $this->copy(['scheduledAt' => $when]);
+    }
+
+    public function withSingleInstance(bool $singleInstance = true): self
+    {
+        return $this->copy(['singleInstance' => $singleInstance]);
+    }
+
+    /**
+     * @param list<string> $environments
+     */
+    public function withEnvironments(array $environments): self
+    {
+        return $this->copy(['environments' => $environments]);
+    }
+
+    /**
+     * @param list<string> $dependsOn
+     */
+    public function withDependsOn(array $dependsOn): self
+    {
+        return $this->copy(['dependsOn' => $dependsOn]);
+    }
+
+    public function withCronExpression(string $expression): self
+    {
+        return $this->copy(['cronExpression' => $expression]);
+    }
+
+    /**
+     * @param array<string, mixed> $meta
+     */
+    public function withMeta(array $meta): self
+    {
+        return $this->copy(['meta' => $meta]);
+    }
+
+    public function withEnabled(bool $enabled = true): self
+    {
+        return $this->copy(['enabled' => $enabled]);
+    }
+
+    public function withIdempotencyKey(?string $idempotencyKey): self
+    {
+        return $this->copy(['idempotencyKey' => $idempotencyKey]);
+    }
+
+    /**
+     * @param array<string, mixed> $changes
+     */
+    private function copy(array $changes): self
+    {
+        return new self(
+            handler: $changes['handler'] ?? $this->handler,
+            payload: array_key_exists('payload', $changes) ? $changes['payload'] : $this->payload,
+            name: array_key_exists('name', $changes) ? $changes['name'] : $this->name,
+            queue: array_key_exists('queue', $changes) ? $changes['queue'] : $this->queue,
+            priority: $changes['priority'] ?? $this->priority,
+            maxRetries: array_key_exists('maxRetries', $changes) ? $changes['maxRetries'] : $this->maxRetries,
+            timeout: array_key_exists('timeout', $changes) ? $changes['timeout'] : $this->timeout,
+            scheduledAt: array_key_exists('scheduledAt', $changes) ? $changes['scheduledAt'] : $this->scheduledAt,
+            singleInstance: $changes['singleInstance'] ?? $this->singleInstance,
+            environments: $changes['environments'] ?? $this->environments,
+            dependsOn: $changes['dependsOn'] ?? $this->dependsOn,
+            cronExpression: $changes['cronExpression'] ?? $this->cronExpression,
+            meta: $changes['meta'] ?? $this->meta,
+            enabled: $changes['enabled'] ?? $this->enabled,
+            idempotencyKey: array_key_exists('idempotencyKey', $changes) ? $changes['idempotencyKey'] : $this->idempotencyKey,
+        );
+    }
+}

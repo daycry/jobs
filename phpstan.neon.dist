@@ -1,6 +1,3 @@
-includes:
-  - phpstan-baseline.neon
-
 parameters:
   tmpDir: build/phpstan
   level: 6
@@ -18,12 +15,11 @@ parameters:
       - Daycry\\Jobs
   bootstrapFiles:
     - vendor/codeigniter4/framework/system/Test/bootstrap.php
-  excludePaths:
-    - src/Views/*
   ignoreErrors:
     - '#Dynamic call to static method PHPUnit\\Framework\\Assert::#'
     - '#Parameter \#1 \$name of function config expects a valid class string, .+ given#'
-    - '#Call to an undefined method [a-zA-Z\\]+::[a-zA-Z]+\(\) on mixed#'
+    # config(FQCN::class) is valid CI4; the codeigniter ruleset only prefers the short string form.
+    - '#Call to function config with .+ is discouraged#'
     # Pheanstalk is an optional dependency — classes may not be installed
     - '#unknown class Pheanstalk\\\\#'
     - '#class Pheanstalk\\\\#'
@@ -33,11 +29,20 @@ parameters:
     - '#Calling new RedisHandler\(\) directly is incomplete#'
     # model() discouraged but acceptable in legacy handler constructors
     - '#Call to function model with .+ is discouraged#'
-    # config() may return null per signature, but CI4 always returns the object for valid config classes
+    # CacheInterface declares increment(), but custom/injected cache handlers may omit it;
+    # the runtime method_exists() guard is intentional (covered by RateLimiterTest fallbacks).
+    - message: '#Call to function method_exists\(\) with CodeIgniter\\Cache\\CacheInterface and .increment. will always evaluate to true#'
+      path: src/Libraries/RateLimiter.php
+    # config('Jobs')/config('App')/config('Database') are typed nullable by the codeigniter
+    # extension (the package config class collides with the 'Jobs' short name), but CI4 always
+    # returns the object for a valid config. Property/method access on these is safe at runtime.
     - '#Cannot access property .+ on null\.#'
-    # service('scheduler') and service('uuid') are defined in library service files that can't be added to additionalServices
+    # service('scheduler') is defined in a library service file that the codeigniter extension
+    # cannot register, so getSharedInstance('scheduler') is typed null and the instanceof guard
+    # reads as always-false. The runtime guard is still correct.
     - '#Call to unknown service method .scheduler.#'
-    - '#Call to unknown service method .uuid.#'
+    - message: '#Instanceof between null and Daycry\\Jobs\\Cron\\Scheduler will always evaluate to false#'
+      path: src/Config/Services.php
     - '#Cannot call method .+ on null\.#'
     # CI4 TestCase::setPrivateProperty / injectMock accept mixed but PHPStan is strict
     - '#Parameter \#1 \$obj of method CodeIgniter\\\\Test\\\\CIUnitTestCase::setPrivateProperty\(\) expects object\|string, null given#'
@@ -45,14 +50,26 @@ parameters:
     # Call to deprecated setAccessible() in PHP 8.1+ - test-only
     - '#Call to deprecated method setAccessible\(\)#'
     # PHPUnit assertions with always-true values in tests (valid pessimistic checks)
-    - '#Call to method PHPUnit\\\\Framework\\\\Assert::assert.+ will always evaluate to true#'
+    - message: '#Call to method PHPUnit\\Framework\\Assert::assert.+ will always evaluate to true#'
+      path: tests/*
     # Instanceof always true/false in tests
-    - '#Instanceof between .+ will always evaluate to (true|false)#'
+    - message: '#Instanceof between .+ will always evaluate to (true|false)#'
+      path: tests/*
     # Test anonymous classes extending BaseCommand/BaseService don't need parent constructor
     - message: '#does not call parent constructor#'
       path: tests/*
     # Promoted array parameters in test stubs don't require full generic type annotations
     - message: '#has parameter .+ with no value type specified in iterable type array#'
+      path: tests/*
+    # Defensive `config(X::class) ?? new X()` fallbacks in tests: the codeigniter extension
+    # narrows config() to non-null, so the fallback reads as a dead ?? — harmless in tests.
+    - message: '#Expression on left side of \?\? is not nullable#'
+      path: tests/*
+    # Tests decode queue payloads as stdClass and read properties off the array|object union.
+    - message: '#Cannot access property \$[a-zA-Z_]+ on array<mixed>\|object#'
+      path: tests/*
+    # Test support command stubs mirror CI4 BaseCommand untyped $aliases property.
+    - message: '#Property .+::\$aliases has no type specified#'
       path: tests/*
   reportUnmatchedIgnoredErrors: false
   universalObjectCratesClasses:

@@ -28,14 +28,19 @@ use DateTimeZone;
  */
 class ServiceBusHeaders
 {
+    /**
+     * @var array<string, int|string>
+     */
     private array $brokerProperties = [];
-    private string $authorization   = '';
+
+    private string $authorization = '';
 
     public function generateMessageId(?string $messageId = null): self
     {
         helper('text');
-        $messageId                           = $messageId ?: random_string('alnum', 32);
-        $messageId                           = getenv('MESSAGEID') ?: $messageId;
+        $messageId                           = ($messageId === null || $messageId === '') ? random_string('alnum', 32) : $messageId;
+        $envMessageId                        = getenv('MESSAGEID');
+        $messageId                           = $envMessageId === false || $envMessageId === '' ? $messageId : $envMessageId;
         $this->brokerProperties['MessageId'] = $messageId;
 
         return $this;
@@ -43,7 +48,7 @@ class ServiceBusHeaders
 
     public function getMessageId(): string
     {
-        return $this->brokerProperties['MessageId'] ?? '';
+        return (string) ($this->brokerProperties['MessageId'] ?? '');
     }
 
     public function setLabel(string $label): self
@@ -73,6 +78,9 @@ class ServiceBusHeaders
         return $this;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getHeaders(): array
     {
         $headers = [];
@@ -80,7 +88,8 @@ class ServiceBusHeaders
             $headers['Authorization'] = $this->authorization;
         }
         if ($this->brokerProperties !== []) {
-            $headers['BrokerProperties'] = json_encode($this->brokerProperties);
+            $encoded                     = json_encode($this->brokerProperties);
+            $headers['BrokerProperties'] = $encoded === false ? '' : $encoded;
         }
 
         return $headers;

@@ -17,6 +17,9 @@ use Config\Validation as ConfigValidation;
 
 class Validation extends ConfigValidation
 {
+    /**
+     * @var array<string, string>
+     */
     public array $queueData = [
         'queue'            => 'required|string|max_length[100]',
         'job'              => 'required|string|max_length[100]',
@@ -28,6 +31,10 @@ class Validation extends ConfigValidation
         'callback.url'     => 'if_exist|required_with[callback]|valid_url_strict[https]',
         'callback.options' => 'if_exist|required_with[callback]',
     ];
+
+    /**
+     * @var array<string, string>
+     */
     public array $command = [
         'payload' => 'required|string',
     ];

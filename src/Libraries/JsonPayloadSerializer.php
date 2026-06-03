@@ -71,15 +71,17 @@ class JsonPayloadSerializer implements PayloadSerializerInterface
     /**
      * Valida que el payload contenga campos mínimos requeridos.
      *
-     * @param object $payload        Payload a validar
-     * @param array  $requiredFields Lista de campos obligatorios
+     * @param object       $payload        Payload a validar
+     * @param list<string> $requiredFields Lista de campos obligatorios
      *
      * @return bool True si válido
      */
     public function validate(object $payload, array $requiredFields = ['job']): bool
     {
+        $vars = get_object_vars($payload);
+
         foreach ($requiredFields as $field) {
-            if (! isset($payload->{$field})) {
+            if (! array_key_exists($field, $vars) || $vars[$field] === null) {
                 return false;
             }
         }
