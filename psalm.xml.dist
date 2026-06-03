@@ -15,7 +15,6 @@
     <projectFiles>
         <directory name="src"/>
         <ignoreFiles>
-            <directory name="src/Views"/>
             <directory name="vendor"/>
         </ignoreFiles>
     </projectFiles>
@@ -61,17 +60,8 @@
         <InvalidReturnStatement>
             <errorLevel type="suppress">
                 <file name="src/Models/QueueModel.php"/>
-                <file name="src/Models/JobsLogModel.php"/>
-                <file name="src/Loggers/DatabaseHandler.php"/>
             </errorLevel>
         </InvalidReturnStatement>
-
-        <!-- Queue entity payload is always a JSON string at runtime -->
-        <InvalidArgument>
-            <errorLevel type="suppress">
-                <file name="src/Queues/DatabaseQueue.php"/>
-            </errorLevel>
-        </InvalidArgument>
 
         <!-- MissingDependency: CI4 Validation extends framework class outside scan -->
         <MissingDependency errorLevel="suppress"/>
@@ -79,18 +69,10 @@
         <!-- InvalidClone: Config\Cache is outside scan path -->
         <InvalidClone errorLevel="suppress"/>
 
-        <!-- InstrumentedQueueDecorator uses intersection cast @var WorkerInterface&QueueInterface
-             for PHPStan compatibility; Psalm sees QueueInterface only for the property -->
-        <UndefinedInterfaceMethod>
-            <errorLevel type="suppress">
-                <file name="src/Libraries/InstrumentedQueueDecorator.php"/>
-            </errorLevel>
-        </UndefinedInterfaceMethod>
-
         <!-- UndefinedMagicMethod: CI4 Model query builder dynamic methods -->
         <UndefinedMagicMethod errorLevel="suppress"/>
 
-        <!-- Trait methods access properties declared in the host class (Job) -->
+        <!-- CI4 Entity dynamic properties accessed on $this -->
         <UndefinedThisPropertyFetch errorLevel="suppress"/>
         <UndefinedThisPropertyAssignment errorLevel="suppress"/>
 
@@ -108,20 +90,20 @@
         <!-- InvalidCatch for CI4 ExceptionInterface (not a real Throwable in older CI4) -->
         <InvalidCatch errorLevel="suppress"/>
 
-        <!-- DatabaseHandler::history() returns CI4 mixed result type -->
-        <InvalidReturnType>
-            <errorLevel type="suppress">
-                <file name="src/Loggers/DatabaseHandler.php"/>
-            </errorLevel>
-        </InvalidReturnType>
-
-        <!-- ServiceBusQueue::client() uses service() which Psalm types as null|object -->
+        <!-- service('cache') / config('Encryption')->key are typed null|object|mixed by Psalm,
+             but resolve to the concrete object/string at runtime (resolveCache/resolveKey). -->
         <InvalidNullableReturnType errorLevel="suppress"/>
-        <NullableReturnStatement>
-            <errorLevel type="suppress">
-                <file name="src/Queues/ServiceBusQueue.php"/>
-            </errorLevel>
-        </NullableReturnStatement>
+        <NullableReturnStatement errorLevel="suppress"/>
         <InvalidArrayOffset errorLevel="suppress"/>
+
+        <!-- Psalm's flow narrowing of validated array payloads flags Events::trigger as dead. -->
+        <NoValue errorLevel="suppress"/>
+
+        <!-- Queue Entity 'payload' column is a JSON string at runtime, typed mixed by the Entity. -->
+        <InvalidArgument>
+            <errorLevel type="suppress">
+                <file name="src/Queues/Backends/DatabaseBackend.php"/>
+            </errorLevel>
+        </InvalidArgument>
     </issueHandlers>
 </psalm>

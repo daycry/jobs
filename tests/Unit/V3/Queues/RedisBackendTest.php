@@ -84,7 +84,7 @@ final class RedisBackendTest extends CIUnitTestCase
         $this->assertSame('command', $lease->envelope->payload->job);
 
         $this->assertTrue($this->backend->ack($lease));
-        $this->assertNull($this->backend->fetch('v3rbq1'));
+        $this->assertNotInstanceOf(JobLease::class, $this->backend->fetch('v3rbq1'));
     }
 
     public function testNackReserialisesIncrementedAttempts(): void

@@ -21,10 +21,10 @@
         "codeigniter4/framework": "^4",
         "daycry/phpunit-extension-vcr": "^1.0",
         "ergebnis/composer-normalize": "^2.28",
+        "pda/pheanstalk": "^5",
         "phpstan/phpstan-strict-rules": "^2",
         "phpunit/phpcov": "^10",
-        "roave/security-advisories": "dev-latest",
-        "pda/pheanstalk": "^5"
+        "roave/security-advisories": "dev-latest"
     },
     "suggest": {
         "ext-pcntl": "Graceful signal handling for long-running cron workers on Unix",

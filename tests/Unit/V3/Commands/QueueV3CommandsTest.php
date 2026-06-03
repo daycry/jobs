@@ -19,6 +19,7 @@ use Daycry\Jobs\Commands\QueueWorkCommand;
 use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Models\QueueModel;
 use Daycry\Jobs\Queues\Backends\DatabaseBackend;
+use Daycry\Jobs\Queues\JobLease;
 use Tests\Support\DatabaseTestCase;
 
 /**
@@ -63,7 +64,7 @@ final class QueueV3CommandsTest extends DatabaseTestCase
         $backend->enqueue(new JobDefinition(handler: 'command', payload: 'jobs:test', queue: 'rq'));
 
         $lease = $backend->fetch('rq');
-        $this->assertNotNull($lease);
+        $this->assertInstanceOf(JobLease::class, $lease);
 
         $group = config('Jobs')->database['group'];
         $table = config('Jobs')->database['table'];

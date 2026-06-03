@@ -44,7 +44,7 @@ final class DatabaseBackendTest extends DatabaseTestCase
 
         $this->assertTrue($backend->ack($lease));
         // Nothing left to fetch (row is completed).
-        $this->assertNull($backend->fetch('dbq'));
+        $this->assertNotInstanceOf(JobLease::class, $backend->fetch('dbq'));
     }
 
     public function testNackRequeuesSameRowWithIncrementedAttempts(): void

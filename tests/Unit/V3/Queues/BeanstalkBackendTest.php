@@ -77,7 +77,7 @@ final class BeanstalkBackendTest extends CIUnitTestCase
         $this->assertSame('command', $payload->job);
 
         $this->assertTrue($this->backend->ack($lease));
-        $this->assertNull($this->backend->fetch('v3bs1'));
+        $this->assertNotInstanceOf(JobLease::class, $this->backend->fetch('v3bs1'));
     }
 
     public function testNackReserialisesIncrementedAttempts(): void

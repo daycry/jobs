@@ -139,7 +139,11 @@ final class JobRuntimeTest extends CIUnitTestCase
         $runtime = new JobRuntime(lock: $lock);
         $result  = $runtime->run(
             (new JobDefinition(handler: 'closure', payload: null, name: 'si-job'))->withSingleInstance(),
-            JobContext::fromPayload(static function () use (&$ran) { $ran = true; return 'ok'; }),
+            JobContext::fromPayload(static function () use (&$ran) {
+                $ran = true;
+
+                return 'ok';
+            }),
         );
 
         $this->assertFalse($ran, 'a single-instance job must not run while the lock is held');

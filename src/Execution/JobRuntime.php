@@ -30,12 +30,12 @@ use Throwable;
  * Responsibilities: resolve the handler (with per-queue allowlist), capture output, apply a
  * real timeout that interrupts the work, and turn any Throwable into a failed result.
  */
-final class JobRuntime
+final readonly class JobRuntime
 {
-    private readonly Jobs $config;
-    private readonly Timeout $timeout;
-    private readonly HandlerRegistry $registry;
-    private readonly SingleInstanceLock $lock;
+    private Jobs $config;
+    private Timeout $timeout;
+    private HandlerRegistry $registry;
+    private SingleInstanceLock $lock;
 
     public function __construct(
         ?Timeout $timeout = null,

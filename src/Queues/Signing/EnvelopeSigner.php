@@ -25,9 +25,9 @@ namespace Daycry\Jobs\Queues\Signing;
  * string the signer is "unconfigured" and operates in an insecure pass-through mode
  * (sign() returns '' and verify() returns true) which the worker logs as critical.
  */
-final class EnvelopeSigner
+final readonly class EnvelopeSigner
 {
-    private readonly string $key;
+    private string $key;
 
     public function __construct(?string $key = null)
     {

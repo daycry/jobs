@@ -24,14 +24,14 @@ use CodeIgniter\Cache\CacheInterface;
  * SET key value NX EX ttl (e.g. Redis) close that window; the cache-agnostic
  * implementation here does not, and callers must tolerate rare double execution.
  */
-final class IdempotencyGuard
+final readonly class IdempotencyGuard
 {
     /**
      * Prefix applied to every idempotency key stored in the cache.
      */
     private const KEY_PREFIX = 'jobs_idem_';
 
-    public function __construct(private readonly ?CacheInterface $cache = null)
+    public function __construct(private ?CacheInterface $cache = null)
     {
     }
 

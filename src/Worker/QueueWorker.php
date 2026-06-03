@@ -23,6 +23,7 @@ use Daycry\Jobs\Execution\RetryPolicyFixed;
 use Daycry\Jobs\Metrics\Metrics;
 use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 use Daycry\Jobs\Queues\EnvelopeFactory;
+use Daycry\Jobs\Queues\JobLease;
 use Daycry\Jobs\Queues\QueueBackend;
 use Daycry\Jobs\Queues\Signing\EnvelopeSigner;
 use stdClass;
@@ -37,17 +38,17 @@ use stdClass;
  * (#4) and brings backoff to the requeue (#13). Signature verification rejects tampered/forged
  * messages (#1). Delivery is at-least-once, so opt-in idempotency (#5) is honoured when present.
  */
-final class QueueWorker
+final readonly class QueueWorker
 {
-    private readonly Jobs $config;
+    private Jobs $config;
 
     public function __construct(
-        private readonly QueueBackend $backend,
-        private readonly ?JobRuntime $runtime = null,
-        private readonly ?EnvelopeSigner $signer = null,
-        private readonly ?IdempotencyGuard $idempotency = null,
-        private readonly ?RetryPolicy $retryPolicy = null,
-        private readonly ?MetricsCollectorInterface $metrics = null,
+        private QueueBackend $backend,
+        private ?JobRuntime $runtime = null,
+        private ?EnvelopeSigner $signer = null,
+        private ?IdempotencyGuard $idempotency = null,
+        private ?RetryPolicy $retryPolicy = null,
+        private ?MetricsCollectorInterface $metrics = null,
         ?Jobs $config = null,
     ) {
         $this->config = $config ?? config('Jobs');
@@ -58,7 +59,7 @@ final class QueueWorker
         $metrics = $this->metrics ?? Metrics::get();
 
         $lease = $this->backend->fetch($queue);
-        if ($lease === null) {
+        if (! $lease instanceof JobLease) {
             return new WorkerResult('empty');
         }
 

@@ -25,14 +25,14 @@ use CodeIgniter\Cache\CacheInterface;
  * guarantees that a release never frees a lock held by a different owner, which is
  * the property that matters for cleanup correctness.
  */
-final class SingleInstanceLock
+final readonly class SingleInstanceLock
 {
     /**
      * Cache key prefix shared by every lock entry.
      */
     private const KEY_PREFIX = 'jobs_lock_';
 
-    public function __construct(private readonly ?CacheInterface $cache = null)
+    public function __construct(private ?CacheInterface $cache = null)
     {
     }
 

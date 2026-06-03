@@ -50,18 +50,18 @@ use Throwable;
  * {@see CurlServiceBusTransport} talks to the broker, while tests inject a fake that records calls
  * and serves stub responses — keeping the class {@see final} without needing a subclass.
  */
-final class ServiceBusBackend implements QueueBackend
+final readonly class ServiceBusBackend implements QueueBackend
 {
     private const BACKEND = 'servicebus';
 
-    private readonly string $baseUrl;
+    private string $baseUrl;
 
     /**
      * @var array{url: string, issuer: string, secret: string}
      */
-    private readonly array $credentials;
+    private array $credentials;
 
-    private readonly ServiceBusTransport $transport;
+    private ServiceBusTransport $transport;
 
     public function __construct(?ServiceBusTransport $transport = null)
     {

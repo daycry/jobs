@@ -31,11 +31,11 @@ use Daycry\Jobs\Queues\BackendFactory;
  * Unlike the v1 runner this never sleeps between jobs: the v1 trailing sleep(defaultTimeout) made
  * every cron invocation block for the full timeout window and must not reappear.
  */
-final class CronRunner
+final readonly class CronRunner
 {
-    private readonly Jobs $config;
-    private readonly Scheduler $scheduler;
-    private readonly JobRuntime $runtime;
+    private Jobs $config;
+    private Scheduler $scheduler;
+    private JobRuntime $runtime;
 
     public function __construct(?Scheduler $scheduler = null, ?Jobs $config = null, ?JobRuntime $runtime = null)
     {

@@ -238,7 +238,7 @@ final class ServiceBusBackendTest extends CIUnitTestCase
         $transport = new RecordingServiceBusTransport([$this->emptyResponse()]);
         $backend   = new ServiceBusBackend($transport);
 
-        $this->assertNull($backend->fetch('sbq'));
+        $this->assertNotInstanceOf(JobLease::class, $backend->fetch('sbq'));
     }
 
     public function testAckDeletesTheLock(): void

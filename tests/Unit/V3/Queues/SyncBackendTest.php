@@ -16,6 +16,7 @@ namespace Tests\Unit\V3\Queues;
 use CodeIgniter\Test\CIUnitTestCase;
 use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Queues\Backends\SyncBackend;
+use Daycry\Jobs\Queues\JobLease;
 
 /**
  * @internal
@@ -43,6 +44,6 @@ final class SyncBackendTest extends CIUnitTestCase
 
     public function testFetchReturnsNull(): void
     {
-        $this->assertNull((new SyncBackend())->fetch('default'));
+        $this->assertNotInstanceOf(JobLease::class, (new SyncBackend())->fetch('default'));
     }
 }
