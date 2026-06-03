@@ -39,12 +39,6 @@ final class CronRunCommand extends BaseJobsCommand
      */
     public function run(array $params): int
     {
-        if (! $this->isActive()) {
-            $this->tryToEnable();
-
-            return self::SUCCESS;
-        }
-
         $this->getConfig();
 
         $scheduler = new Scheduler();

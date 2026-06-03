@@ -14,16 +14,11 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Commands;
 
 use CodeIgniter\CLI\BaseCommand;
-use CodeIgniter\CLI\CLI;
-use DateTime;
 use Daycry\Jobs\Config\Jobs;
-use stdClass;
 
 /**
- * Base command shared by Jobs CLI tools providing enable/disable runtime gating
- * and common helpers for status messaging.
- *
- * A cache flag 'jobs_active' determines whether scheduling/queue processing is allowed.
+ * Base command shared by the Jobs CLI tools. Provides the common command group and a
+ * helper to load the package configuration.
  */
 abstract class BaseJobsCommand extends BaseCommand
 {
@@ -36,101 +31,5 @@ abstract class BaseJobsCommand extends BaseCommand
     protected function getConfig(): void
     {
         $this->config = config(Jobs::class);
-    }
-
-    /**
-     * Check if job processing is globally enabled.
-     */
-    protected function isActive(): bool
-    {
-        $cache    = service('cache');
-        $settings = $cache->get('jobs_active');
-
-        return $settings !== null && $settings->status === 'enabled';
-    }
-
-    /**
-     * Disable job processing (persists flag in cache).
-     */
-    protected function disable(): bool
-    {
-        $cache                = service('cache');
-        $settings             = new stdClass();
-        $settings->status     = 'disabled';
-        $settings->updated_at = new DateTime();
-
-        $save = $cache->save('jobs_active', $settings, 0);
-
-        if ($save) {
-            $this->writeMessage('**** CronJob is now Disabled. ****', 'black', 'green');
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Enable job processing (persists flag in cache).
-     */
-    protected function enable(): bool
-    {
-        $cache                = service('cache');
-        $settings             = new stdClass();
-        $settings->status     = 'enabled';
-        $settings->updated_at = new DateTime();
-
-        $save = $cache->save('jobs_active', $settings, 0);
-
-        if ($save) {
-            $this->writeMessage('**** CronJob is now Enabled. ****', 'black', 'green');
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Inform user that processing is disabled and how to enable it.
-     */
-    protected function tryToEnable(): void
-    {
-        $this->writeMessage('**** WARNING: Task running is currently disabled. ****', 'red');
-        $this->writeMessage('**** To re-enable tasks run: jobs:cronjob:enable ****', 'black', 'green');
-    }
-
-    /**
-     * Inform user that the system is already enabled.
-     */
-    protected function alreadyEnabled(): void
-    {
-        $this->writeMessage('**** CronJob is already Enabled. ****', 'error');
-    }
-
-    /**
-     * Inform user that the system is already disabled.
-     */
-    protected function alreadyDisabled(): void
-    {
-        $this->writeMessage('**** CronJob is already Disabled. ****', 'error');
-    }
-
-    /**
-     * Standardized formatted CLI output helper.
-     *
-     * @param mixed      $message
-     * @param mixed|null $foreground
-     * @param mixed|null $background
-     */
-    private function writeMessage($message, $foreground = null, $background = null): void
-    {
-        CLI::newLine(1);
-        if ($foreground === 'error') {
-            CLI::error($message);
-        } else {
-            CLI::write($message, $foreground, $background);
-        }
-        CLI::newLine(1);
     }
 }

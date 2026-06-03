@@ -73,4 +73,35 @@ final class EnvelopeFactoryTest extends CIUnitTestCase
         $wire->job = 'shell'; // attacker swaps the handler
         $this->assertFalse($signer->verify(EnvelopeFactory::canonicalJson($wire), $wire->_sig));
     }
+
+    public function testToWirePropagatesIdempotencyKey(): void
+    {
+        // Regression: the definition's idempotencyKey must be serialised onto the wire so the
+        // worker's IdempotencyGuard can see it. Previously toWire() dropped it (guard was inert).
+        $def  = new JobDefinition(handler: 'command', payload: null, idempotencyKey: 'rebuild-index');
+        $wire = EnvelopeFactory::toWire($def, 'id-1');
+
+        $this->assertSame('rebuild-index', $wire->idempotencyKey);
+    }
+
+    public function testToWireIdempotencyKeyDefaultsToNull(): void
+    {
+        $wire = EnvelopeFactory::toWire(new JobDefinition(handler: 'command', payload: null), 'id-1');
+
+        $this->assertNull($wire->idempotencyKey);
+    }
+
+    public function testIdempotencyKeyIsPartOfSignature(): void
+    {
+        // The key is an immutable identity field: tampering with it (e.g. swapping in a key known
+        // to be already-processed, to suppress a legitimate run) must fail verification.
+        $signer = new EnvelopeSigner('secret-key');
+        $def    = new JobDefinition(handler: 'command', payload: null, idempotencyKey: 'k1');
+        $wire   = EnvelopeFactory::toWire($def, 'id-1', $signer);
+
+        $this->assertTrue($signer->verify(EnvelopeFactory::canonicalJson($wire), $wire->_sig));
+
+        $wire->idempotencyKey = 'k2';
+        $this->assertFalse($signer->verify(EnvelopeFactory::canonicalJson($wire), $wire->_sig));
+    }
 }
