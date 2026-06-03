@@ -4,17 +4,28 @@ repo_url: https://github.com/daycry/jobs
 repo_name: daycry/jobs
 nav:
   - Home: docs/index.md
-  - Installation: docs/installation.md
-  - Scheduling: docs/scheduling.md
-  - Dependencies: docs/dependencies.md
-  - Queues: docs/QUEUES.md
-  - Advanced: docs/advanced.md
-  - CLI Commands: docs/COMMANDS.md
-  - Configuration: docs/CONFIGURATION.md
-  - Architecture: docs/ARCHITECTURE.md
-  - Attempts: docs/ATTEMPTS.md
-  - Retries: docs/RETRIES.md
-  - Exceptions: docs/EXCEPTIONS.md
+  - Getting Started:
+      - Installation: docs/installation.md
+      - Quick Start: docs/quickstart.md
+  - Core Concepts:
+      - Architecture: docs/ARCHITECTURE.md
+      - Jobs & Builder: docs/jobs.md
+      - Handlers: docs/handlers.md
+      - Queues & Workers: docs/QUEUES.md
+  - Guides:
+      - Scheduling: docs/scheduling.md
+      - Retries: docs/RETRIES.md
+      - Security: docs/security.md
+      - Concurrency: docs/concurrency.md
+      - Advanced: docs/advanced.md
+  - Operations & CLI:
+      - Operations: docs/operations.md
+      - CLI Commands: docs/COMMANDS.md
+  - Reference:
+      - Configuration: docs/CONFIGURATION.md
+      - Attempts: docs/ATTEMPTS.md
+      - Dependencies: docs/dependencies.md
+      - Exceptions: docs/EXCEPTIONS.md
   - Migration to v3: docs/MIGRATION-v1-to-v3.md
   - Changelog: CHANGELOG.md
   - License: LICENSE

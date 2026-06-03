@@ -15,7 +15,15 @@ source_suffix = {
 
 master_doc = 'index'
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'index.md']
+exclude_patterns = [
+    '_build',
+    'Thumbs.db',
+    '.DS_Store',
+    'index.md',
+    'home.md',
+    'superpowers',
+    'superpowers/**',
+]
 
 html_theme = 'sphinx_rtd_theme'
 html_logo = 'images/logo.svg'

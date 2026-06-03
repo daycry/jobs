@@ -1,16 +1,22 @@
 # Scheduling (Cron)
 
-Scheduled jobs are registered in `Config\Jobs::init(Scheduler $scheduler)` and evaluated by the
-`jobs:cronjob:run` command, which you wire to your operating system cron to run **every minute**.
+The v3 scheduler lets you register recurring jobs in code and have them evaluated once a minute by a
+single system cron entry. Scheduled jobs are registered in `Config\Jobs::init(Scheduler $scheduler)`
+and evaluated by the `jobs:cronjob:run` command. For each registered definition the runner checks
+the cron expression against the current minute and, when due, either **enqueues** the job onto its
+backend (when it declares a `queue()`) or **executes it inline** in the same process (when it has no
+queue).
 
-For each registered definition the runner evaluates its cron expression against the current time.
-A due job is **enqueued** onto its backend when it declares a `queue()`, or **executed inline**
-(in the same process) when it has no queue.
+This is the v3 replacement for the legacy Scheduler. Definitions are immutable
+`JobDefinition` value objects produced by the same fluent `JobBuilder` used for ad-hoc dispatch, so
+everything you know from [Queues & Backends](QUEUES.md) applies here too.
 
 ## Registering jobs
 
-`init()` receives a `Daycry\Jobs\Cron\Scheduler`. Call `$scheduler->define($handler, $payload)` for
-each job; it returns a fluent `JobBuilder` so you can chain frequency, queue and identity helpers.
+Override `init()` in your application's `Config\Jobs` (which extends
+`Daycry\Jobs\Config\Jobs`). It receives a `Daycry\Jobs\Cron\Scheduler`. Call
+`$scheduler->define($handler, $payload)` once per job; it returns a fluent `JobBuilder` so you can
+chain frequency, queue and identity helpers.
 
 ```php
 <?php
@@ -24,25 +30,25 @@ class Jobs extends BaseJobs
 {
     public function init(Scheduler $scheduler): void
     {
-        // Enqueued onto the 'reports' queue (a worker runs it).
+        // Enqueued onto the 'reports' queue — a worker (jobs:queue:work) runs it asynchronously.
         $scheduler->define('command', 'app:report')
             ->named('daily-report')
             ->dailyAt('02:00')
             ->queue('reports')
             ->maxRetries(3);
 
-        // No queue -> executed inline by the cron runner itself.
+        // No queue() -> executed INLINE by the cron runner itself, one attempt.
         $scheduler->define('shell', ['ls', '-la'])
             ->named('list-files')
             ->everyMinute()
             ->singleInstance();
 
-        // Closures only run inline (they cannot be serialised to a remote backend).
+        // Closures can only run inline (they cannot be serialised to a remote backend).
         $scheduler->define('closure', static fn (): string => 'done')
             ->named('housekeeping')
             ->hourly();
 
-        // Restricted to specific CI4 environments and disabled by default.
+        // Restricted to a specific CI4 environment and registered but disabled.
         $scheduler->define('url', ['method' => 'GET', 'url' => 'https://example.com/ping'])
             ->named('ping')
             ->everyMinute()
@@ -52,34 +58,61 @@ class Jobs extends BaseJobs
 }
 ```
 
+> **Note:** `closure` jobs run **inline only**. A closure cannot be serialized onto a remote backend,
+> so do not give a `closure` definition a `queue()`. Use `command`, `shell`, `url` or `event` for
+> queued work. See the handler reference in [Configuration](CONFIGURATION.md#handlers).
+
 ## Running the scheduler
 
-Add a single system cron entry that runs the command every minute:
+`jobs:cronjob:run` must run **every minute**. Add one entry to your operating system's crontab:
 
 ```bash
 * * * * * cd /path/to/project && php spark jobs:cronjob:run >> /dev/null 2>&1
 ```
 
-`jobs:cronjob:run` is idempotent per minute: it only acts on definitions whose cron expression is
-due for the current minute.
+The command itself is the only thing the OS cron drives; it evaluates all registered definitions and
+acts only on those due for the current minute.
 
 ```bash
 # Run the due jobs now
 php spark jobs:cronjob:run
 
-# Evaluate the schedule against a frozen time (dry-run / testing)
+# Evaluate the schedule against a frozen time (deterministic dry-run / testing)
 php spark jobs:cronjob:run -testTime "2026-06-03 02:00:00"
 ```
+
+The runner evaluates cron expressions using `Config\App::$appTimezone`, so schedules are interpreted
+in your application timezone rather than UTC or the server's locale.
+
+> **Warning — scheduling is gated by a global active flag.** Before evaluating any definition,
+> `jobs:cronjob:run` checks the cache key `jobs_active`: it only proceeds when that key holds an
+> object whose `status` is `'enabled'`. **Out of the box the flag is unset**, so the command prints a
+> "Task running is currently disabled" warning and returns success **without loading the config,
+> building the `Scheduler`, or running/enqueuing any job**. Until the flag is enabled, your crontab
+> entry runs every minute but executes nothing.
+>
+> No shipped command sets this flag (`jobs:cronjob:enable` does **not** exist — the message printed by
+> the command refers to it, but it is not registered). For now the only way to enable scheduling is to
+> set the cache key yourself, e.g. in a bootstrap or one-off script:
+>
+> ```php
+> $flag         = new \stdClass();
+> $flag->status = 'enabled';
+> service('cache')->save('jobs_active', $flag, 0); // 0 = never expires
+> ```
+>
+> Set `status` to `'disabled'` (or delete the key) to pause scheduling again.
 
 ## Frequency helpers
 
 `JobBuilder` keeps the five standard cron fields (minute, hour, day-of-month, month, day-of-week) and
-recomposes the expression on every call.
+recomposes the expression on every call, so helpers compose predictably.
 
-| Helper | Cron expression | Meaning |
-|--------|-----------------|---------|
+| Helper | Resulting cron | Meaning |
+|--------|----------------|---------|
 | `everyMinute()` | `* * * * *` | Every minute |
-| `everyMinute(5)` / `everyXMinutes(5)` | `*/5 * * * *` | Every 5 minutes |
+| `everyMinute(5)` | `*/5 * * * *` | Every 5 minutes |
+| `everyXMinutes(5)` | `*/5 * * * *` | Every 5 minutes (explicit alias) |
 | `hourly()` | `0 * * * *` | Top of every hour |
 | `hourlyAt(15)` | `15 * * * *` | 15 minutes past every hour |
 | `daily()` | `0 0 * * *` | Every day at midnight |
@@ -89,6 +122,9 @@ recomposes the expression on every call.
 | `quarterly()` | `0 0 1 */3 *` | 1st of Jan/Apr/Jul/Oct at midnight |
 | `yearly()` | `0 0 1 1 *` | January 1st at midnight |
 
+> **Note:** `dailyAt('HH:MM')` normalises the time without leading zeros, so `'02:30'` yields the
+> hour field `2` (matching standard crontab output), not `02`.
+
 For full control, set a raw expression with `cron()`:
 
 ```php
@@ -97,11 +133,34 @@ $scheduler->define('command', 'app:purge')
     ->cron('30 3 * * 1-5'); // 03:30, Monday to Friday
 ```
 
-An invalid expression throws a `RuntimeException` at registration time.
+> **Warning:** `cron()` validates its argument and throws a `RuntimeException` at registration time
+> for an invalid expression (and the expression must have exactly five fields). Catch configuration
+> errors in CI rather than in production cron.
+
+## Queued vs inline — the rule
+
+The single rule that decides how a due job runs:
+
+| Definition declares | Behaviour in `jobs:cronjob:run` |
+|---------------------|---------------------------------|
+| `->queue('name')` | **Enqueued** onto the configured default backend (`Config\Jobs::$worker`); a separate worker (`jobs:queue:work`) runs it asynchronously. |
+| no `queue()` | **Executed inline** by the cron runner via `JobRuntime` — one attempt, in the cron process. |
+
+```php
+// Queued: cron enqueues it, jobs:queue:work runs it (subject to maxRetries, backoff, the reaper).
+$scheduler->define('command', 'app:report')->named('report')->dailyAt('02:00')->queue('reports');
+
+// Inline: cron runs it directly, blocking the cron process for the duration of one attempt.
+$scheduler->define('command', 'app:vacuum')->named('vacuum')->daily();
+```
+
+> **Note:** Queued cron jobs always enqueue onto the **default** backend (`$worker`); the scheduler
+> does not pick a per-job backend. Inline jobs do not get retries or backoff — a failed inline job is
+> simply a failed `ExecutionResult` for that tick.
 
 ## Enabled / disabled
 
-Every definition is enabled by default. Use `disable()` (or `enabled(false)`) to keep a job
+Every definition is enabled by default. Use `disable()` (alias of `enabled(false)`) to keep a job
 registered but skipped, and `enabled(true)` to turn it back on:
 
 ```php
@@ -111,7 +170,7 @@ $scheduler->define('command', 'app:experimental')
     ->disable();
 ```
 
-The cron runner short-circuits on disabled definitions before evaluating their schedule.
+The cron runner short-circuits on disabled definitions **before** evaluating their schedule.
 
 ## Environments
 
@@ -119,8 +178,8 @@ Restrict a job to specific CodeIgniter environments. An empty list (the default)
 restriction. `environments()` accepts a variadic list or a single array:
 
 ```php
-$scheduler->define('command', 'app:report')->environments('production');
-$scheduler->define('command', 'app:debug')->environments(['development', 'testing']);
+$scheduler->define('command', 'app:report')->named('report')->environments('production');
+$scheduler->define('command', 'app:debug')->named('debug')->environments(['development', 'testing']);
 ```
 
 The runner compares the active `ENVIRONMENT` constant against this list and skips the job when it
@@ -128,36 +187,63 @@ does not match.
 
 ## Dependencies and execution order
 
-`dependsOn()` declares the **names** of jobs that must run first. The scheduler sorts all
-definitions topologically by their dependencies before evaluation, so a dependency always precedes
-its dependents within a single cron run.
+`dependsOn()` declares the **names** of jobs that must come first. Before evaluating any schedule,
+the scheduler sorts all definitions topologically (`Scheduler::getExecutionOrder()`), so a dependency
+is always evaluated before its dependents within a single cron run. Names default from the handler +
+a hash of the payload when `named()` is not set; declare `named()` explicitly to reference a job in
+`dependsOn()`.
 
 ```php
-$scheduler->define('command', 'app:extract')->named('extract')->dailyAt('01:00')->queue('etl');
-$scheduler->define('command', 'app:transform')->named('transform')->dailyAt('01:00')
-    ->queue('etl')->dependsOn('extract');
-$scheduler->define('command', 'app:load')->named('load')->dailyAt('01:00')
-    ->queue('etl')->dependsOn('transform');
+$scheduler->define('command', 'app:extract')
+    ->named('extract')->dailyAt('01:00')->queue('etl');
+
+$scheduler->define('command', 'app:transform')
+    ->named('transform')->dailyAt('01:00')->queue('etl')->dependsOn('extract');
+
+$scheduler->define('command', 'app:load')
+    ->named('load')->dailyAt('01:00')->queue('etl')->dependsOn('transform');
 ```
 
-Notes:
+Notes and caveats:
 
-- The order only affects the sequence in which due definitions are evaluated within one
-  `jobs:cronjob:run` invocation. Jobs that declare a `queue()` are still enqueued (a worker runs
-  them asynchronously); dependencies do not block on a queued job's actual completion.
-- Referencing an unknown dependency name, or introducing a cycle, throws a `RuntimeException`.
+- The order only affects the **sequence in which due definitions are evaluated** within one
+  `jobs:cronjob:run` invocation. It is **not** a workflow engine: a job that declares a `queue()` is
+  still merely enqueued (a worker runs it later), so dependents do **not** wait for a queued
+  dependency's actual completion.
+- Referencing an unknown dependency name, or introducing a cycle, throws a `RuntimeException` when
+  the order is computed.
 
 ## Single instance
 
-`singleInstance()` marks a definition as non-overlapping. The package ships a
-`Daycry\Jobs\Execution\SingleInstanceLock` (cache-backed, ownership-token based) to back this flag.
-See [Advanced](advanced.md#single-instance) for the lock semantics and best-effort caveats.
+`singleInstance()` marks a definition as non-overlapping. The package backs this flag with
+`Daycry\Jobs\Execution\SingleInstanceLock` (cache-backed, ownership-token based), wired into
+`JobRuntime`: if the same named job is already running, the new attempt fails fast with
+`"single-instance job '<name>' is already running"`. See
+[Single instance](advanced.md#single-instance) for the lock semantics and best-effort caveats.
 
-## Inline vs enqueued — quick reference
+```php
+$scheduler->define('command', 'app:long-import')
+    ->named('long-import')
+    ->everyMinute()
+    ->singleInstance(); // a second overlapping run is rejected instead of running concurrently
+```
 
-| Definition declares | Behaviour in `jobs:cronjob:run` |
-|---------------------|---------------------------------|
-| `->queue('name')` | Enqueued onto the configured backend; a worker (`jobs:queue:work`) runs it |
-| no queue | Executed inline by the cron runner via `JobRuntime` (one attempt) |
+## Missed runs
 
-See [Queues & Backends](QUEUES.md) for the worker, lease semantics and backend configuration.
+Scheduling is **best-effort per tick**. `jobs:cronjob:run` evaluates whether each expression is due
+for the *current* minute and acts on it; it does **not** keep a history of past runs or back-fill
+ticks that were missed.
+
+> **Warning:** If the OS cron does not fire (the machine was down, cron was paused, or a previous
+> inline run overran the minute window), the missed occurrences are **not replayed**. For jobs where
+> a missed window is unacceptable, prefer a queued definition (so the work is durable once enqueued)
+> and keep inline cron jobs short. Do not run two `jobs:cronjob:run` processes for the same schedule
+> concurrently, or due jobs may be dispatched twice within the same minute.
+
+## See also
+
+- [Queues & Backends](QUEUES.md) — the worker, lease semantics and backend configuration for queued
+  cron jobs.
+- [CLI Commands](COMMANDS.md#jobscronjobrun) — the full `jobs:cronjob:run` reference.
+- [Configuration](CONFIGURATION.md#scheduled-jobs-init) — registering jobs via `init()`.
+- [Operations](operations.md) — running the worker that consumes queued cron jobs in production.

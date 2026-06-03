@@ -1,7 +1,20 @@
-# Advanced
+# Advanced Topics
 
-This page covers custom handlers, the execution model, idempotency, envelope signing and the
-single-instance lock.
+This page covers the topics that don't belong on the [Jobs](jobs.md) or [Handlers](handlers.md)
+pages: the v3 model for callbacks/middleware (and how to model workflows without serialisable
+callbacks), idempotency in depth, envelope signing, the single-instance lock, and extensibility —
+writing advanced custom handlers and your own `QueueBackend`.
+
+- [Custom handlers](#custom-handlers)
+- [Execution model and callbacks](#execution-model-and-callbacks)
+- [Callbacks and middleware: the v3 model](#callbacks-and-middleware-the-v3-model)
+- [Timeout](#timeout)
+- [Idempotency in depth](#idempotency-in-depth)
+- [Envelope signing](#envelope-signing)
+- [Per-queue handler allowlist](#per-queue-handler-allowlist)
+- [Single instance](#single-instance)
+- [Extensibility: custom QueueBackend](#extensibility-custom-queuebackend)
+- [Metrics](#metrics)
 
 ## Custom handlers
 
@@ -138,13 +151,29 @@ Jobs::define('process-import', ['source' => 's3://bucket/file.csv', 'batchSize' 
 
 Each fetched message runs through `JobRuntime` **exactly once**. The runtime resolves the handler
 (applying the per-queue allowlist), runs `beforeRun` -> `handle` -> `afterRun`, captures output, and
-applies a real timeout. It never loops or sleeps for retries — the worker owns the retry decision and
-requeues with backoff via `QueueBackend::nack($lease, $delay)`.
+applies a real timeout. It never loops or sleeps for retries — the worker (`QueueWorker`) owns the
+retry decision and requeues with backoff via `QueueBackend::nack($lease, $delay)`.
 
-> **No serializable callbacks/middleware in v3.** There is no `then()`/`catch()`/`finally()` chaining
-> or `setCallbackJob()` API. A closure cannot survive serialisation to a remote backend, so the only
-> closure-capable path is the `sync` backend. To model a workflow, dispatch the next job from inside
-> your handler:
+The worker's per-message pipeline is:
+
+```text
+fetch -> verify signature -> idempotency guard -> run ONE attempt -> ack / nack(backoff) / abandon
+```
+
+A job therefore runs **at most `maxRetries + 1` times**. On a failed attempt with retries remaining
+the worker `nack`s with a computed backoff delay; once retries are exhausted it `abandon`s the lease
+(dead-letter). See [Retries](RETRIES.md) and [Architecture](ARCHITECTURE.md) for the full flow.
+
+## Callbacks and middleware: the v3 model
+
+> **There are no serialisable callbacks or middleware in v3.** There is no `then()` / `catch()` /
+> `finally()` chaining and no `setCallbackJob()` API. This is deliberate: a closure or anonymous
+> callback cannot survive serialisation to a remote backend (Redis, Database, Beanstalk, Service
+> Bus), so a "callback" model would only ever work on the `sync` backend and would silently break the
+> moment you moved to a persistent queue.
+
+The v3 pattern is **explicit chaining**: dispatch the next job from inside your handler. This keeps
+every step independently enqueued, retryable, and observable.
 
 ```php
 final class ProcessPaymentHandler extends AbstractJobHandler
@@ -161,8 +190,52 @@ final class ProcessPaymentHandler extends AbstractJobHandler
 }
 ```
 
+### Modelling success / failure / finally
+
+- **"then" (on success)** — enqueue the next job at the *end* of `handle()`. Because it is only
+  reached when `handle()` returns normally, it runs only on success.
+- **"catch" (on failure)** — enqueue a compensating job from a `try/catch` inside `handle()`, then
+  re-throw so the attempt is still recorded as failed (and retried/dead-lettered per `maxRetries`).
+- **"finally" (always)** — use the `afterRun($ctx, $result)` hook, which runs after every attempt
+  regardless of outcome. Inspect `$result->success` to branch. Remember that exceptions thrown from
+  `afterRun()` are swallowed and never change the recorded outcome.
+
+```php
+final class GenerateReportHandler extends AbstractJobHandler
+{
+    public function handle(JobContext $ctx): mixed
+    {
+        try {
+            $path = $this->buildReport($ctx->payload);
+        } catch (\Throwable $e) {
+            // "catch": enqueue a compensating/alerting job, then re-throw to fail the attempt.
+            Jobs::define('command', 'app:alert-ops --report=failed')->queue('ops')->dispatch();
+
+            throw $e;
+        }
+
+        // "then": only reached on success.
+        Jobs::define('command', "app:publish-report --path={$path}")->queue('reports')->dispatch();
+
+        return ['report' => $path];
+    }
+
+    public function afterRun(JobContext $ctx, ExecutionResult $result): void
+    {
+        // "finally": always runs, regardless of success. Exceptions here are swallowed.
+        log_message('info', "report attempt {$ctx->attempt} success={$result->success}");
+    }
+}
+```
+
+> **Note:** Dispatching from inside a handler enqueues the next job through the configured backend
+> like any other dispatch — it is not a special "continuation". If you need the chained job to run
+> only after a delay, use `scheduledAt()` on it.
+
 The `closure` handler exists for inline/`sync` use (and inline cron jobs); enqueuing a closure to a
-persistent backend is rejected because it cannot be serialised.
+persistent backend fails at enqueue time because a `Closure` cannot be JSON-encoded — it surfaces as a
+JSON encoding exception from `EnvelopeFactory::toWire()` (there is no dedicated validation path that
+rejects it earlier). So `closure` is only usable on the `sync` backend / inline cron.
 
 ## Timeout
 
@@ -174,10 +247,11 @@ available the timeout raises and interrupts the job; otherwise a documented soft
 Jobs::define('command', 'app:report')->timeout(120)->queue('reports')->dispatch();
 ```
 
-## Idempotency
+## Idempotency in depth
 
-Delivery is **at-least-once**, so the same message may be delivered more than once (e.g. after a
-crashed-worker reap). Opt in to deduplication with `idempotencyKey()`:
+Delivery is **at-least-once** on every persistent backend, so the same message may be delivered more
+than once — for example after a crashed-worker reap (`jobs:queue:reap`), a redelivered Service Bus
+lock, or a retry. The builder exposes `idempotencyKey()` to opt in to deduplication:
 
 ```php
 Jobs::define('command', 'app:report')
@@ -186,13 +260,60 @@ Jobs::define('command', 'app:report')
     ->dispatch();
 ```
 
-Before running, the worker consults `IdempotencyGuard`: if the key was already processed it
-acknowledges the message **without re-executing** the handler. Keys are stored in the cache with a TTL
-of `Config\Jobs::$idempotencyTtl` (default 86400s).
+> **Caveat (current limitation):** `idempotencyKey()` is accepted by the builder and stored on the
+> `JobDefinition`, but it is **not yet serialised onto the envelope** — `EnvelopeFactory::toWire()`
+> does not emit an `idempotencyKey` field. The worker reads `$wire->idempotencyKey`
+> (`QueueWorker::processOnce()`), which is therefore always `null` for builder-dispatched jobs, so the
+> guard described below **does not currently trigger** end-to-end for jobs enqueued through the
+> builder. Treat the guard as a documented API and a building block you can drive directly (see
+> [How the guard works](#how-the-guard-works)); until the key is carried on the wire (and included in
+> the signed canonical fields), keep your handlers idempotent on their own. The remainder of this
+> section describes the guard's intended behaviour.
 
-Caveat: the check-then-set is best-effort and only strictly atomic on caches with native `SET NX`
-(e.g. Redis). Two workers racing on the same key could both observe a miss, so keep your handlers
-idempotent regardless.
+### How the guard works
+
+When an idempotency key is present on the wire, the worker consults
+`Daycry\Jobs\Execution\IdempotencyGuard` before running (see the caveat above on why builder-dispatched
+jobs do not yet carry the key):
+
+```php
+final readonly class IdempotencyGuard
+{
+    public function firstRun(string $key, ?int $ttl = null): bool; // true on FIRST sighting; false if already seen
+    public function forget(string $key): void;                     // clear a key so a controlled retry may run again
+}
+```
+
+- The guard prefixes every key with `jobs_idem_` and stores it in the CodeIgniter **cache**.
+- `firstRun()` returns `true` the first time it sees a key (registering it), and `false` thereafter.
+- When the worker gets `false` (for a message that does carry a key), it **acks the message without
+  executing the handler** and reports a `skipped-idempotent` result.
+
+Keys live in the cache for `Config\Jobs::$idempotencyTtl` seconds (default `86400` = 24h). After the
+TTL elapses the same key would run again — choose a TTL longer than the window in which a duplicate
+could plausibly arrive.
+
+### Choosing keys
+
+A good key uniquely identifies the *logical* unit of work, independent of how many times it is
+enqueued. For example `report-2026-06-03` (one report per day) or `invoice-{id}-emailed`. Avoid keys
+derived from volatile data (timestamps, random ids) — they defeat deduplication.
+
+### Forcing a re-run
+
+`forget()` removes the mark so a controlled retry may run again:
+
+```php
+use Daycry\Jobs\Execution\IdempotencyGuard;
+
+(new IdempotencyGuard())->forget('report-2026-06-03');
+// The next message with that key will run instead of being skipped.
+```
+
+> **Warning:** The check-then-set is **best-effort** and only strictly atomic on caches with native
+> `SET key value NX EX ttl` semantics (e.g. Redis). On a cache-agnostic driver two workers racing on
+> the same key could both observe a miss and both run. Keep your handlers idempotent regardless — the
+> guard is a strong optimisation, not a hard exactly-once guarantee.
 
 ## Envelope signing
 
@@ -266,8 +387,91 @@ if ($lock->acquire('nightly-report', $owner, ttl: 3600)) {
 frees a lock held by the matching owner, so a reassigned lock is never freed by a stale holder. The
 lock is best-effort: it is strictly atomic only on caches with native `SET NX`.
 
+## Extensibility: custom QueueBackend
+
+Every backend implements the single `Daycry\Jobs\Queues\QueueBackend` contract, so you can add your
+own (e.g. SQS, RabbitMQ) without touching the worker or the runtime. The contract is **stateless with
+respect to the in-flight message**: `fetch()` hands the worker a `JobLease`, and the worker passes
+that same lease back to `ack()` / `nack()` / `abandon()`.
+
+```php
+namespace Daycry\Jobs\Queues;
+
+use Daycry\Jobs\Definition\JobDefinition;
+
+interface QueueBackend
+{
+    public function enqueue(JobDefinition $definition): string;            // -> backend-assigned id
+    public function fetch(string $queue): ?JobLease;                       // null when empty
+    public function ack(JobLease $lease): bool;                            // processed OK -> remove
+    public function nack(JobLease $lease, ?int $delaySeconds = null): bool; // failed -> redeliver (after delay)
+    public function abandon(JobLease $lease): bool;                        // unprocessable -> DLQ / drop
+    public function reapExpired(string $queue, int $visibilityTimeout): int; // reclaim crashed-worker leases
+}
+```
+
+### Contract obligations
+
+| Method | What a correct implementation must do |
+|--------|---------------------------------------|
+| `enqueue` | Serialise the definition with `EnvelopeFactory::toWire()` so the stored shape (including `_sig`) matches every other backend. Return a unique id. |
+| `fetch` | Lease **one** ready message and return a `JobLease` carrying a fresh `ownerToken` and a visibility `expiresAt`. Return `null` when nothing is ready (after any blocking timeout). |
+| `ack` | Permanently remove the leased message. Verify the lease's `ownerToken` so a reaped-then-reassigned message cannot be acked by a stale owner. |
+| `nack` | Make the message eligible for redelivery, optionally after `$delaySeconds` (backoff). Persistent backends requeue in place and increment `attempts`. |
+| `abandon` | Stop holding the lease without retrying. Route to a native dead-letter facility if available; otherwise equivalent to `ack`. |
+| `reapExpired` | Reclaim messages whose lease expired (crashed/stalled worker) so they become eligible again. Return the count recovered. Backends with native lease recovery (Beanstalk, Service Bus) may make this a no-op. |
+
+The `JobLease` you return carries the decoded `JobEnvelope` (whose `payload` is the wire `stdClass`),
+an opaque `token` you need to ack/nack later, the `ownerToken`, an `expiresAt` deadline, and the
+backend name. Use `JobLease::withRelativeExpiry($envelope, $token, $owner, $seconds, $backend)` to
+compute the deadline as "now + N seconds".
+
+### Registering the backend
+
+Add your class to `Config\Jobs::$backends` under a key, then select it by name:
+
+```php
+// app/Config/Jobs.php
+public array $backends = [
+    'sync'       => \Daycry\Jobs\Queues\Backends\SyncBackend::class,
+    'database'   => \Daycry\Jobs\Queues\Backends\DatabaseBackend::class,
+    'redis'      => \Daycry\Jobs\Queues\Backends\RedisBackend::class,
+    'beanstalk'  => \Daycry\Jobs\Queues\Backends\BeanstalkBackend::class,
+    'serviceBus' => \Daycry\Jobs\Queues\Backends\ServiceBusBackend::class,
+    'sqs'        => \App\Queues\SqsBackend::class, // your backend
+];
+```
+
+```php
+Jobs::define('command', 'app:report')->queue('reports')->dispatch('sqs');
+$backend = Jobs::backend('sqs');
+```
+
+> **Warning:** Because delivery is at-least-once, design `reapExpired()` and your visibility timeout
+> carefully: the timeout **must** exceed the maximum expected job runtime, or the reaper will reclaim
+> a message that is still being processed and cause a duplicate run. See
+> [Queues & Backends](QUEUES.md) for the existing backends' visibility-timeout settings.
+
+### Advanced custom handlers
+
+Beyond the [basic handler](#custom-handlers) and [typed handlers](#typed-handlers), two patterns are
+worth calling out:
+
+- **Stateful setup/teardown** — use `beforeRun()`/`afterRun()` for resource lifecycle (open/commit a
+  DB transaction, acquire/release an external lease). `afterRun()` always runs and receives the
+  `ExecutionResult`, so it is the right place for cleanup that must happen on both success and
+  failure. Remember its exceptions are swallowed.
+- **Output normalisation** — return arrays/objects to have them JSON-encoded into the recorded
+  output, or write to `stdout`; the runtime appends captured output to a string return value. Avoid
+  returning resources or non-serialisable values.
+
+Handlers are constructed with **no constructor arguments**, so resolve dependencies through
+CodeIgniter services inside the handler. See [Handlers](handlers.md) for the full contract.
+
 ## Metrics
 
 Provide a custom collector implementing `Daycry\Jobs\Metrics\MetricsCollectorInterface` and set
-`Config\Jobs::$metricsCollector`. The default in-memory collector is fine for local/dev but not for
-production scraping. See [Metrics & Monitoring](metrics-monitoring.md).
+`Config\Jobs::$metricsCollector`. The default `InMemoryMetricsCollector` is fine for local/dev but not
+for production scraping (set it to `null` to disable collection entirely). The worker emits counters
+such as `jobs_fetched`, `jobs_succeeded`, `jobs_failed`, `jobs_requeued`, `jobs_failed_permanently`,
+`jobs_skipped_idempotent` and `jobs_rejected_signature`, each tagged with the `queue`.

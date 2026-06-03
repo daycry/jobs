@@ -47,7 +47,8 @@ public array $allowedEvents = ['user.registered', 'cache.warm'];
 
 `ShellHandler` executes through `proc_open()` with an argv array — never `/bin/sh -c` — so shell
 metacharacters carry no attack surface. `UrlHandler` is SSRF-hardened (http/https only, private/
-reserved IPs rejected, SSL verification forced on, redirects disabled).
+reserved IPs rejected, SSL verification forced on, redirects disabled). See [Security](security.md)
+for the full handler-security model.
 
 ## Envelope Signing
 
@@ -58,8 +59,8 @@ reserved IPs rejected, SSL verification forced on, redirects disabled).
 
 The signature is computed over the **immutable identity fields** only (`job`, `payload`, `queue`,
 `priority`, `maxRetries`, `name`, `identifier`); the mutable `attempts`/`schedule` are excluded so
-the signature survives a requeue. See [Architecture](ARCHITECTURE.md) and the security section of
-the README.
+the signature survives a requeue. See [Security](security.md) for the key-resolution chain,
+verification path, and threat model.
 
 ## Idempotency
 
@@ -82,11 +83,14 @@ public array $queueRateLimits = [
 ];
 ```
 
+See [Concurrency & Resilience](concurrency.md) for the rate limiter, circuit breaker and
+single-instance locking in detail.
+
 ## Dead Letter Queue
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `$deadLetterQueue` | `?string` | `null` | Queue name where jobs are routed after retries are exhausted. `null` disables DLQ routing; the worker still abandons the message so it does not loop forever, logging a `critical` entry. |
+| `$deadLetterQueue` | `?string` | `null` | Queue name used by the **opt-in** `DeadLetterQueue::store()` helper (a manual, app-level facility). The worker itself does **not** consult this value — on exhausted retries it calls `backend->abandon()`, which settles natively (Beanstalk **bury**, database row marked `failed`, Redis **drop**) and logs a `critical` entry. To actually route a failed job to this queue you must call `DeadLetterQueue::store()` yourself. |
 
 ## Timeouts
 
@@ -103,9 +107,9 @@ degrades to a soft post-hoc check that cannot abort a runaway job.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `$pollInterval` | `int` | `5` | Seconds to sleep between polling cycles when no job is available. Skipped when `$blockingFetch` is enabled and the active backend supports blocking reads. |
-| `$blockingFetch` | `bool` | `false` | Opt in to blocking reads on backends that support them (Redis `BRPOPLPUSH`, Beanstalk `reserve_with_timeout`). |
-| `$blockingFetchTimeout` | `int` | `5` | Seconds to wait per blocking fetch (also the upper bound for graceful shutdown latency). |
+| `$pollInterval` | `int` | `5` | Seconds the worker sleeps after an empty/rate-limited/circuit-open/error cycle before polling again. |
+| `$blockingFetch` | `bool` | `false` | **Reserved** — not yet wired into the shipped worker; has no effect. The worker always fetches non-blocking (Beanstalk uses a hardcoded `reserveWithTimeout(5)`; Redis uses non-blocking `rpoplpush`). |
+| `$blockingFetchTimeout` | `int` | `5` | **Reserved** — not yet wired into the shipped worker; has no effect. (Beanstalk's reserve timeout is hardcoded to 5s, not driven by this value.) |
 | `$circuitBreakerThreshold` | `int` | `5` | Consecutive backend failures before the circuit opens. |
 | `$circuitBreakerCooldown` | `int` | `60` | Seconds the circuit stays open before the worker retries the backend. |
 
