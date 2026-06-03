@@ -28,8 +28,10 @@ use Daycry\Jobs\Jobs\UrlJob;
 use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
 use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
 use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Queues\Backends\BeanstalkBackend;
 use Daycry\Jobs\Queues\Backends\DatabaseBackend;
 use Daycry\Jobs\Queues\Backends\RedisBackend;
+use Daycry\Jobs\Queues\Backends\ServiceBusBackend;
 use Daycry\Jobs\Queues\Backends\SyncBackend;
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use Daycry\Jobs\Queues\DatabaseQueue;
@@ -335,9 +337,11 @@ class Jobs extends BaseConfig
      * @var array<string, class-string>
      */
     public array $backends = [
-        'sync'     => SyncBackend::class,
-        'database' => DatabaseBackend::class,
-        'redis'    => RedisBackend::class,
+        'sync'       => SyncBackend::class,
+        'database'   => DatabaseBackend::class,
+        'redis'      => RedisBackend::class,
+        'beanstalk'  => BeanstalkBackend::class,
+        'serviceBus' => ServiceBusBackend::class,
     ];
 
     public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
