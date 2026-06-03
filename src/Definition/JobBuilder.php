@@ -34,29 +34,26 @@ use RuntimeException;
  */
 final class JobBuilder
 {
-    private ?string $name = null;
-
-    private ?string $queue = null;
-
-    private int $priority = 5;
-
-    private ?int $maxRetries = 0;
-
-    private ?int $timeout = null;
-
+    private ?string $name                   = null;
+    private ?string $queue                  = null;
+    private int $priority                   = 5;
+    private ?int $maxRetries                = 0;
+    private ?int $timeout                   = null;
     private ?DateTimeImmutable $scheduledAt = null;
+    private bool $singleInstance            = false;
 
-    private bool $singleInstance = false;
-
-    /** @var list<string> */
+    /**
+     * @var list<string>
+     */
     private array $environments = [];
 
-    /** @var list<string> */
+    /**
+     * @var list<string>
+     */
     private array $dependsOn = [];
 
     private ?string $idempotencyKey = null;
-
-    private bool $enabled = true;
+    private bool $enabled           = true;
 
     /**
      * The five standard cron fields: minute, hour, day-of-month, month, day-of-week.

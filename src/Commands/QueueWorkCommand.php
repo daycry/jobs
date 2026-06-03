@@ -92,7 +92,7 @@ final class QueueWorkCommand extends BaseJobsCommand
     private function processCycle(QueueWorker $worker, string $queue): string
     {
         $limit = $this->config->queueRateLimits[$queue] ?? 0;
-        if (is_int($limit) && $limit > 0 && ! (new RateLimiter())->allow($queue, $limit)) {
+        if ($limit > 0 && ! (new RateLimiter())->allow($queue, $limit)) {
             CLI::write("[Rate Limited] '{$queue}' reached {$limit} jobs/min.", 'yellow');
 
             return 'rate-limited';
@@ -143,7 +143,7 @@ final class QueueWorkCommand extends BaseJobsCommand
         if (is_array($queues)) {
             $first = $queues[0] ?? 'default';
 
-            return is_string($first) && $first !== '' ? $first : 'default';
+            return $first !== '' ? $first : 'default';
         }
 
         $parts = explode(',', $queues);

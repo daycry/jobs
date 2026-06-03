@@ -24,7 +24,7 @@ class JobsTables extends Migration
 
     public function __construct(?Forge $forge = null)
     {
-        $this->config = config('Jobs');
+        $this->config = config(Jobs::class);
 
         if ($this->config->databaseGroup !== null) {
             $this->DBGroup = $this->config->databaseGroup;

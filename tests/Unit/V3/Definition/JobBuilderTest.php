@@ -16,6 +16,7 @@ namespace Tests\Unit\V3\Definition;
 use CodeIgniter\Test\CIUnitTestCase;
 use DateTimeImmutable;
 use Daycry\Jobs\Definition\JobBuilder;
+use RuntimeException;
 
 /**
  * @internal
@@ -62,7 +63,7 @@ final class JobBuilderTest extends CIUnitTestCase
 
     public function testInvalidCronThrows(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         (new JobBuilder('command'))->cron('not a cron');
     }
 

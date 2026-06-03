@@ -35,7 +35,7 @@ abstract class BaseJobsCommand extends BaseCommand
 
     protected function getConfig(): void
     {
-        $this->config = config('Jobs');
+        $this->config = config(Jobs::class);
     }
 
     /**

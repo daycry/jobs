@@ -14,27 +14,17 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Definition;
 
 use DateTimeImmutable;
-use DateTimeInterface;
-use Daycry\Jobs\Job;
-use ReflectionException;
-use ReflectionProperty;
 
 /**
  * Immutable description of a job at definition time.
  *
- * Compared to the v1 mutable {@see \Daycry\Jobs\Job} builder, JobDefinition is a value
- * object: every withXxx() helper returns a new instance, so the same definition can be
- * shared across enqueue sites without spooky action at a distance.
+ * JobDefinition is a value object: every withXxx() helper returns a new instance, so the same
+ * definition can be shared across enqueue sites without spooky action at a distance.
  *
- * The v2 design splits the responsibilities that previously lived on Job into three
- * objects:
+ * The v3 design splits the responsibilities into focused objects:
  *  - JobDefinition: what the job IS (handler key, payload, scheduling, retry policy).
- *  - JobEnvelope (existing v1 class, reused): how the definition travels through queues.
- *  - JobRuntime (future): the in-flight, mutable state during execution (attempts, output).
- *
- * Adoption is gradual: callers can keep using the v1 Job builder; v2 components accept
- * either input via {@see fromLegacyJob()} until the legacy API is removed in a future
- * major release.
+ *  - JobEnvelope: how the definition travels through queues.
+ *  - JobRuntime: the in-flight execution of a single attempt.
  */
 final readonly class JobDefinition
 {
@@ -146,52 +136,6 @@ final readonly class JobDefinition
     public function withIdempotencyKey(?string $idempotencyKey): self
     {
         return $this->copy(['idempotencyKey' => $idempotencyKey]);
-    }
-
-    /**
-     * Bridge from the v1 mutable Job builder. Reads only public/declared state — does
-     * NOT carry callbacks or middleware (those remain v1-only until full v2 migration).
-     */
-    public static function fromLegacyJob(Job $job): self
-    {
-        $schedule = null;
-
-        try {
-            $reflected = new ReflectionProperty($job, 'schedule');
-
-            /** @var DateTimeInterface|null $raw */
-            $raw = $reflected->isInitialized($job) ? $reflected->getValue($job) : null;
-            if ($raw instanceof DateTimeInterface) {
-                $schedule = DateTimeImmutable::createFromInterface($raw);
-            }
-        } catch (ReflectionException) {
-            // No schedule on the legacy Job — fine, leave as null.
-        }
-
-        $priority = 5;
-        if (method_exists($job, 'getPriority')) {
-            $rawPriority = $job->getPriority();
-            $priority    = is_int($rawPriority) ? $rawPriority : 5;
-        }
-
-        // EnvironmentTrait::getEnvironments() returns the array carried by Job; the trait
-        // is mixed into Job in src/Job.php so the method is always present here.
-        $environments = array_values($job->getEnvironments());
-
-        return new self(
-            handler: $job->getJob(),
-            payload: $job->getPayload(),
-            name: $job->getName(),
-            queue: $job->getQueue(),
-            priority: $priority,
-            maxRetries: $job->getMaxRetries(),
-            timeout: $job->getTimeout(),
-            scheduledAt: $schedule,
-            singleInstance: $job->isSingleInstance(),
-            environments: $environments,
-            dependsOn: array_values($job->getDependsOn() ?? []),
-            cronExpression: $job->getExpression(),
-        );
     }
 
     /**

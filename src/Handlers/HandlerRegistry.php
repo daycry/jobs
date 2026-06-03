@@ -18,8 +18,8 @@ use Daycry\Jobs\Exceptions\JobException;
 
 /**
  * Resolves a handler key (e.g. 'command') to a {@see JobHandlerInterface} instance using
- * Config\Jobs::$handlers (falling back to the legacy $jobs map while the v1 facade exists),
- * and enforces the per-queue handler allowlist (Config\Jobs::$queueHandlers).
+ * Config\Jobs::$handlers, and enforces the per-queue handler allowlist
+ * (Config\Jobs::$queueHandlers).
  */
 final class HandlerRegistry
 {
@@ -35,8 +35,7 @@ final class HandlerRegistry
 
     public function __construct(Jobs $config)
     {
-        // Prefer the v3 $handlers map; fall back to legacy $jobs while the v1 facade exists.
-        $this->map           = $config->handlers !== [] ? $config->handlers : $config->jobs;
+        $this->map           = $config->handlers;
         $this->queueHandlers = $config->queueHandlers;
     }
 

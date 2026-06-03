@@ -15,9 +15,18 @@ namespace Daycry\Jobs\Metrics;
 
 interface MetricsCollectorInterface
 {
+    /**
+     * @param array<string, scalar> $labels
+     */
     public function increment(string $counter, int $value = 1, array $labels = []): void;
 
+    /**
+     * @param array<string, scalar> $labels
+     */
     public function observe(string $metric, float $value, array $labels = []): void;
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getSnapshot(): array;
 }

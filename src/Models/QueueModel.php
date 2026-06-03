@@ -46,6 +46,9 @@ class QueueModel extends Model
     protected $deletedField                  = 'deleted_at';
     private static ?bool $supportsSkipLocked = null;
 
+    /**
+     * @param ConnectionInterface<mixed, mixed>|null $db
+     */
     public function __construct(?ConnectionInterface &$db = null, ?ValidationInterface $validation = null)
     {
         if (! $db instanceof ConnectionInterface) {
@@ -119,7 +122,7 @@ class QueueModel extends Model
             $query = $this->db->query($sql, [$queue, $now, $now]);
             $row   = $query->getRow();
 
-            if (! $row) {
+            if ($row === null) {
                 $this->db->transComplete();
                 self::$supportsSkipLocked = true;
 
@@ -135,8 +138,7 @@ class QueueModel extends Model
 
             self::$supportsSkipLocked = true;
 
-            /** @var Queue|null */
-            return $this->find($row->id);
+            return $this->findQueue((int) $row->id);
         } catch (Throwable) {
             try {
                 $this->db->transRollback();
@@ -171,7 +173,7 @@ class QueueModel extends Model
             $query = $this->db->query($sql, [$queue, $now, $now]);
             $row   = $query->getRow();
 
-            if (! $row) {
+            if ($row === null) {
                 // Queue empty for this worker; no point retrying.
                 return null;
             }
@@ -183,8 +185,7 @@ class QueueModel extends Model
             $this->db->query($updateSql, [$now, $ownerToken, $now, $row->id]);
 
             if ($this->db->affectedRows() > 0) {
-                /** @var Queue|null */
-                return $this->find($row->id);
+                return $this->findQueue((int) $row->id);
             }
 
             // Lost the race: exponential backoff with ±20% jitter, capped.
@@ -194,6 +195,18 @@ class QueueModel extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Fetch a row by primary key and narrow it to a {@see Queue} entity. The model's
+     * $returnType is Queue::class so a hit always materialises as a Queue; this helper makes
+     * that contract explicit for static analysis (find() is typed object|array|null upstream).
+     */
+    private function findQueue(int $id): ?Queue
+    {
+        $row = $this->find($id);
+
+        return $row instanceof Queue ? $row : null;
     }
 
     /**
