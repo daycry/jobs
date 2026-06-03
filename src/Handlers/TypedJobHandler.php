@@ -11,24 +11,23 @@ declare(strict_types=1);
  * the LICENSE file that was distributed with this source code.
  */
 
-namespace Daycry\Jobs\V2\Handlers;
+namespace Daycry\Jobs\Handlers;
 
 use Daycry\Jobs\Exceptions\JobException;
-use Daycry\Jobs\Interfaces\JobInterface;
-use Daycry\Jobs\Job;
+use Daycry\Jobs\Execution\JobContext;
 use ReflectionClass;
 use ReflectionException;
 use Throwable;
 
 /**
  * Base class for handlers that want to receive a *typed* payload object instead of
- * the loosely-typed `mixed` value the v1 JobInterface accepts.
+ * the loosely-typed `mixed` value carried by {@see JobContext}.
  *
  * Subclasses declare the payload class via {@see payloadType()} and implement
  * {@see run()} which is called with an instance of that class. If the queue carried
- * a serialised representation (associative array or stdClass with public properties),
- * TypedJobHandler will rehydrate it via the public constructor or by setting matching
- * public properties — whichever the target class supports.
+ * a serialised representation (associative array, stdClass with public properties, or a
+ * JSON string), TypedJobHandler will rehydrate it via the public constructor or by setting
+ * matching public properties — whichever the target class supports.
  *
  * Example:
  * ```
@@ -39,7 +38,7 @@ use Throwable;
  * }
  * ```
  */
-abstract class TypedJobHandler extends Job implements JobInterface
+abstract class TypedJobHandler extends AbstractJobHandler
 {
     /**
      * @return class-string FQCN of the DTO that {@see run()} expects to receive.
@@ -47,31 +46,21 @@ abstract class TypedJobHandler extends Job implements JobInterface
     abstract public function payloadType(): string;
 
     /**
-     * Process the rehydrated payload. Return value semantics are the same as v1:
-     * the value is recorded as the job's output.
+     * Process the rehydrated payload. The return value is recorded as the job's output.
      */
     abstract protected function run(object $payload): mixed;
 
-    public function handle(mixed $payload): mixed
+    public function handle(JobContext $ctx): mixed
     {
         $expected = $this->payloadType();
         if (! class_exists($expected)) {
             throw JobException::validationError("TypedJobHandler::payloadType() must return an existing class, got '{$expected}'.");
         }
 
+        $payload  = $ctx->payload;
         $instance = $payload instanceof $expected ? $payload : $this->hydrate($payload, $expected);
 
         return $this->run($instance);
-    }
-
-    public function beforeRun(Job $job): Job
-    {
-        return $job;
-    }
-
-    public function afterRun(Job $job): Job
-    {
-        return $job;
     }
 
     /**
@@ -89,7 +78,6 @@ abstract class TypedJobHandler extends Job implements JobInterface
             $ctor       = $reflection->getConstructor();
 
             if ($ctor === null) {
-                /** @var object $instance */
                 $instance = $reflection->newInstance();
             } else {
                 $args = [];
@@ -107,7 +95,6 @@ abstract class TypedJobHandler extends Job implements JobInterface
                     }
                 }
 
-                /** @var object $instance */
                 $instance = $reflection->newInstanceArgs($args);
             }
         } catch (ReflectionException $e) {
@@ -118,15 +105,19 @@ abstract class TypedJobHandler extends Job implements JobInterface
         // class has matching public properties, set them so optional fields survive the
         // round-trip without forcing every DTO to take every value through the constructor.
         foreach ($data as $key => $value) {
-            if (! property_exists($instance, $key)) {
+            if (! $reflection->hasProperty($key)) {
+                continue;
+            }
+
+            $property = $reflection->getProperty($key);
+            if (! $property->isPublic() || $property->isReadOnly()) {
                 continue;
             }
 
             try {
-                /** @phpstan-ignore property.dynamicName (intentional dynamic hydration) */
-                $instance->{$key} = $value;
+                $property->setValue($instance, $value);
             } catch (Throwable) {
-                // Ignore protected/typed mismatches — constructor-only fields stay untouched.
+                // Ignore typed-property mismatches — constructor-only fields stay untouched.
             }
         }
 

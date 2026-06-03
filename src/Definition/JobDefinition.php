@@ -52,6 +52,8 @@ final readonly class JobDefinition
      * @param list<string>           $dependsOn      Job names that must succeed first within the same scheduler run.
      * @param string                 $cronExpression Cron schedule used by Scheduler; defaults to every minute.
      * @param array<string, mixed>   $meta           Free-form metadata propagated to the envelope.
+     * @param bool                   $enabled        Whether the definition is active; disabled jobs are skipped.
+     * @param string|null            $idempotencyKey Optional caller-supplied key to deduplicate enqueues.
      */
     public function __construct(
         public string $handler,
@@ -67,6 +69,8 @@ final readonly class JobDefinition
         public array $dependsOn = [],
         public string $cronExpression = '* * * * *',
         public array $meta = [],
+        public bool $enabled = true,
+        public ?string $idempotencyKey = null,
     ) {
     }
 
@@ -134,6 +138,16 @@ final readonly class JobDefinition
         return $this->copy(['meta' => $meta]);
     }
 
+    public function withEnabled(bool $enabled = true): self
+    {
+        return $this->copy(['enabled' => $enabled]);
+    }
+
+    public function withIdempotencyKey(?string $idempotencyKey): self
+    {
+        return $this->copy(['idempotencyKey' => $idempotencyKey]);
+    }
+
     /**
      * Bridge from the v1 mutable Job builder. Reads only public/declared state — does
      * NOT carry callbacks or middleware (those remain v1-only until full v2 migration).
@@ -199,6 +213,8 @@ final readonly class JobDefinition
             dependsOn: $changes['dependsOn'] ?? $this->dependsOn,
             cronExpression: $changes['cronExpression'] ?? $this->cronExpression,
             meta: $changes['meta'] ?? $this->meta,
+            enabled: $changes['enabled'] ?? $this->enabled,
+            idempotencyKey: array_key_exists('idempotencyKey', $changes) ? $changes['idempotencyKey'] : $this->idempotencyKey,
         );
     }
 }
