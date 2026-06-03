@@ -14,9 +14,11 @@ declare(strict_types=1);
 namespace Tests\Unit\V3\Execution;
 
 use CodeIgniter\Test\CIUnitTestCase;
+use CodeIgniter\Test\Mock\MockCache;
 use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Execution\JobContext;
 use Daycry\Jobs\Execution\JobRuntime;
+use Daycry\Jobs\Execution\SingleInstanceLock;
 use RuntimeException;
 
 /**
@@ -108,5 +110,40 @@ final class JobRuntimeTest extends CIUnitTestCase
 
         $this->assertFalse($result->success);
         $this->assertStringContainsString("not allowed on queue 'reports'", (string) $result->error);
+    }
+
+    public function testSingleInstanceRunsWhenLockFree(): void
+    {
+        $cache = new MockCache();
+        $cache->initialize();
+        $runtime = new JobRuntime(lock: new SingleInstanceLock($cache));
+
+        $result = $runtime->run(
+            (new JobDefinition(handler: 'closure', payload: null, name: 'si-job'))->withSingleInstance(),
+            JobContext::fromPayload(static fn (): string => 'ok'),
+        );
+
+        $this->assertTrue($result->success);
+        $this->assertSame('ok', $result->output);
+    }
+
+    public function testSingleInstanceFailsWhenLockHeldByAnother(): void
+    {
+        $cache = new MockCache();
+        $cache->initialize();
+        $lock = new SingleInstanceLock($cache);
+        // Another worker already holds the lock for this job name.
+        $this->assertTrue($lock->acquire('si-job', 'other-owner', 120));
+
+        $ran     = false;
+        $runtime = new JobRuntime(lock: $lock);
+        $result  = $runtime->run(
+            (new JobDefinition(handler: 'closure', payload: null, name: 'si-job'))->withSingleInstance(),
+            JobContext::fromPayload(static function () use (&$ran) { $ran = true; return 'ok'; }),
+        );
+
+        $this->assertFalse($ran, 'a single-instance job must not run while the lock is held');
+        $this->assertFalse($result->success);
+        $this->assertStringContainsString('already running', (string) $result->error);
     }
 }

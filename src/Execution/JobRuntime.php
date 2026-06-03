@@ -35,12 +35,18 @@ final class JobRuntime
     private readonly Jobs $config;
     private readonly Timeout $timeout;
     private readonly HandlerRegistry $registry;
+    private readonly SingleInstanceLock $lock;
 
-    public function __construct(?Timeout $timeout = null, ?HandlerRegistry $registry = null, ?Jobs $config = null)
-    {
+    public function __construct(
+        ?Timeout $timeout = null,
+        ?HandlerRegistry $registry = null,
+        ?Jobs $config = null,
+        ?SingleInstanceLock $lock = null,
+    ) {
         $this->config   = $config ?? config('Jobs');
         $this->timeout  = $timeout ?? new Timeout();
         $this->registry = $registry ?? new HandlerRegistry($this->config);
+        $this->lock     = $lock ?? new SingleInstanceLock();
     }
 
     public function run(JobDefinition $definition, JobContext $context): ExecutionResult
@@ -56,6 +62,20 @@ final class JobRuntime
         $timeoutSeconds = $this->resolveTimeout($definition);
         $handlerClass   = $handler::class;
         $bufferActive   = false;
+
+        // Single-instance guard: prevent concurrent runs of the same named job. The lock
+        // carries an ownership token (only this run releases it). Contention surfaces as a
+        // failed result, so the worker requeues it to run once the holder finishes.
+        $lockName  = $context->name ?? $definition->name ?? $definition->handler;
+        $lockOwner = '';
+        $locked    = false;
+        if ($definition->singleInstance) {
+            $lockOwner = bin2hex(random_bytes(16));
+            if (! $this->lock->acquire($lockName, $lockOwner, max(120, $timeoutSeconds + 60))) {
+                return new ExecutionResult(false, null, "single-instance job '{$lockName}' is already running", $start, microtime(true), $handlerClass);
+            }
+            $locked = true;
+        }
 
         try {
             $handler->beforeRun($context);
@@ -93,6 +113,10 @@ final class JobRuntime
             $this->safeAfterRun($handler, $context, $result);
 
             return $result;
+        } finally {
+            if ($locked) {
+                $this->lock->release($lockName, $lockOwner);
+            }
         }
     }
 
