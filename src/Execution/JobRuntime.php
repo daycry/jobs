@@ -14,9 +14,9 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Execution;
 
 use Daycry\Jobs\Config\Jobs;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Handlers\HandlerRegistry;
 use Daycry\Jobs\Handlers\JobHandlerInterface;
-use Daycry\Jobs\V2\JobDefinition;
 use Throwable;
 
 /**

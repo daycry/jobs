@@ -2,12 +2,21 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Tests\Unit\V3\Execution;
 
 use CodeIgniter\Test\CIUnitTestCase;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Execution\JobContext;
 use Daycry\Jobs\Execution\JobRuntime;
-use Daycry\Jobs\V2\JobDefinition;
 use RuntimeException;
 
 /**

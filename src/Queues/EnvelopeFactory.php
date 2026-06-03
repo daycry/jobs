@@ -14,8 +14,8 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues;
 
 use DateTimeImmutable;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Queues\Signing\EnvelopeSigner;
-use Daycry\Jobs\V2\JobDefinition;
 use stdClass;
 
 /**

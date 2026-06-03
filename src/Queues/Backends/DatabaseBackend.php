@@ -16,13 +16,13 @@ namespace Daycry\Jobs\Queues\Backends;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Entities\Queue as QueueEntity;
 use Daycry\Jobs\Models\QueueModel;
 use Daycry\Jobs\Queues\EnvelopeFactory;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\JobLease;
 use Daycry\Jobs\Queues\QueueBackend;
-use Daycry\Jobs\V2\JobDefinition;
 use stdClass;
 
 /**

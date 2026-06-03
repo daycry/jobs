@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues;
 
-use Daycry\Jobs\V2\JobDefinition;
+use Daycry\Jobs\Definition\JobDefinition;
 
 /**
  * Unified v3 queue backend contract with lease semantics.

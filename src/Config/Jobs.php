@@ -15,6 +15,11 @@ namespace Daycry\Jobs\Config;
 
 use CodeIgniter\Config\BaseConfig;
 use Daycry\Jobs\Cronjob\Scheduler;
+use Daycry\Jobs\Handlers\ClosureHandler;
+use Daycry\Jobs\Handlers\CommandHandler;
+use Daycry\Jobs\Handlers\EventHandler;
+use Daycry\Jobs\Handlers\ShellHandler;
+use Daycry\Jobs\Handlers\UrlHandler;
 use Daycry\Jobs\Jobs\ClosureJob;
 use Daycry\Jobs\Jobs\CommandJob;
 use Daycry\Jobs\Jobs\EventJob;
@@ -23,6 +28,9 @@ use Daycry\Jobs\Jobs\UrlJob;
 use Daycry\Jobs\Loggers\DatabaseHandler as DatabaseLoggerHandler;
 use Daycry\Jobs\Loggers\FileHandler as FileLoggerHandler;
 use Daycry\Jobs\Metrics\InMemoryMetricsCollector;
+use Daycry\Jobs\Queues\Backends\DatabaseBackend;
+use Daycry\Jobs\Queues\Backends\RedisBackend;
+use Daycry\Jobs\Queues\Backends\SyncBackend;
 use Daycry\Jobs\Queues\BeanstalkQueue;
 use Daycry\Jobs\Queues\DatabaseQueue;
 use Daycry\Jobs\Queues\RedisQueue;
@@ -56,11 +64,11 @@ class Jobs extends BaseConfig
      * @var array<string, class-string>
      */
     public array $handlers = [
-        'command' => \Daycry\Jobs\Handlers\CommandHandler::class,
-        'shell'   => \Daycry\Jobs\Handlers\ShellHandler::class,
-        'closure' => \Daycry\Jobs\Handlers\ClosureHandler::class,
-        'event'   => \Daycry\Jobs\Handlers\EventHandler::class,
-        'url'     => \Daycry\Jobs\Handlers\UrlHandler::class,
+        'command' => CommandHandler::class,
+        'shell'   => ShellHandler::class,
+        'closure' => ClosureHandler::class,
+        'event'   => EventHandler::class,
+        'url'     => UrlHandler::class,
     ];
 
     /**
@@ -106,6 +114,7 @@ class Jobs extends BaseConfig
      * Default TTL (seconds) for idempotency keys stored by IdempotencyGuard.
      */
     public int $idempotencyTtl = 86400;
+
     public bool $logPerformance = true;
     public int $maxLogsPerJob   = 3;
 
@@ -326,10 +335,11 @@ class Jobs extends BaseConfig
      * @var array<string, class-string>
      */
     public array $backends = [
-        'sync'     => \Daycry\Jobs\Queues\Backends\SyncBackend::class,
-        'database' => \Daycry\Jobs\Queues\Backends\DatabaseBackend::class,
-        'redis'    => \Daycry\Jobs\Queues\Backends\RedisBackend::class,
+        'sync'     => SyncBackend::class,
+        'database' => DatabaseBackend::class,
+        'redis'    => RedisBackend::class,
     ];
+
     public string $emailNotificationView = 'Daycry\Jobs\Views\email_notification';
     public string $from                  = 'your@example.com';
     public string $fromName              = 'CronJob';

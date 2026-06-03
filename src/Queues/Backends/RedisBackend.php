@@ -14,12 +14,12 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Queues\Backends;
 
 use Config\Cache;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Libraries\RedisHandler as JobsRedisHandler;
 use Daycry\Jobs\Queues\EnvelopeFactory;
 use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\JobLease;
 use Daycry\Jobs\Queues\QueueBackend;
-use Daycry\Jobs\V2\JobDefinition;
 use Redis;
 use RuntimeException;
 use stdClass;
@@ -46,7 +46,8 @@ use Throwable;
 final class RedisBackend implements QueueBackend
 {
     private const BACKEND = 'redis';
-    private ?Redis $redis = null;
+
+    private ?Redis $redis  = null;
     private string $prefix = 'jobs:';
 
     public function __construct()

@@ -32,7 +32,9 @@ final class SingleInstanceLock
      */
     private const KEY_PREFIX = 'jobs_lock_';
 
-    public function __construct(private readonly ?CacheInterface $cache = null) {}
+    public function __construct(private readonly ?CacheInterface $cache = null)
+    {
+    }
 
     /**
      * Attempts to take the lock for the given job $name on behalf of $owner.

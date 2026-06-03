@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Execution;
 
 use Daycry\Jobs\Exceptions\JobException;
-use Throwable;
 
 /**
  * Runs a callable under a wall-clock timeout.

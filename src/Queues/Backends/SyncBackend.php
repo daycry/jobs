@@ -13,11 +13,11 @@ declare(strict_types=1);
 
 namespace Daycry\Jobs\Queues\Backends;
 
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Execution\JobContext;
 use Daycry\Jobs\Execution\JobRuntime;
 use Daycry\Jobs\Queues\JobLease;
 use Daycry\Jobs\Queues\QueueBackend;
-use Daycry\Jobs\V2\JobDefinition;
 use Exception;
 
 /**

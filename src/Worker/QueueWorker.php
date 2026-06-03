@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Daycry\Jobs\Worker;
 
 use Daycry\Jobs\Config\Jobs;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Execution\IdempotencyGuard;
 use Daycry\Jobs\Execution\JobContext;
 use Daycry\Jobs\Execution\JobRuntime;
@@ -24,7 +25,6 @@ use Daycry\Jobs\Metrics\MetricsCollectorInterface;
 use Daycry\Jobs\Queues\EnvelopeFactory;
 use Daycry\Jobs\Queues\QueueBackend;
 use Daycry\Jobs\Queues\Signing\EnvelopeSigner;
-use Daycry\Jobs\V2\JobDefinition;
 use stdClass;
 
 /**

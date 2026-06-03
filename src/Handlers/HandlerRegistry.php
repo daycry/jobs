@@ -23,10 +23,14 @@ use Daycry\Jobs\Exceptions\JobException;
  */
 final class HandlerRegistry
 {
-    /** @var array<string, class-string> */
+    /**
+     * @var array<string, class-string>
+     */
     private array $map;
 
-    /** @var array<string, list<string>> */
+    /**
+     * @var array<string, list<string>>
+     */
     private array $queueHandlers;
 
     public function __construct(Jobs $config)

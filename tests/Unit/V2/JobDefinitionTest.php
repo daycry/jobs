@@ -14,8 +14,8 @@ declare(strict_types=1);
 namespace Tests\Unit\V2;
 
 use DateTimeImmutable;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Job;
-use Daycry\Jobs\V2\JobDefinition;
 use Tests\Support\TestCase;
 
 /**

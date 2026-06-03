@@ -2,11 +2,21 @@
 
 declare(strict_types=1);
 
+/**
+ * This file is part of Daycry Queues.
+ *
+ * (c) Daycry <daycry9@proton.me>
+ *
+ * For the full copyright and license information, please view
+ * the LICENSE file that was distributed with this source code.
+ */
+
 namespace Tests\Unit\V3\Worker;
 
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\Mock\MockCache;
 use DateTimeImmutable;
+use Daycry\Jobs\Definition\JobDefinition;
 use Daycry\Jobs\Execution\IdempotencyGuard;
 use Daycry\Jobs\Execution\RetryPolicyFixed;
 use Daycry\Jobs\Queues\EnvelopeFactory;
@@ -14,8 +24,8 @@ use Daycry\Jobs\Queues\JobEnvelope;
 use Daycry\Jobs\Queues\JobLease;
 use Daycry\Jobs\Queues\QueueBackend;
 use Daycry\Jobs\Queues\Signing\EnvelopeSigner;
-use Daycry\Jobs\V2\JobDefinition;
 use Daycry\Jobs\Worker\QueueWorker;
+use RuntimeException;
 use stdClass;
 
 /**
@@ -86,6 +96,7 @@ final class QueueWorkerTest extends CIUnitTestCase
     private function lease(array $fields, int $attempts): JobLease
     {
         $wire = new stdClass();
+
         foreach ($fields as $k => $v) {
             $wire->{$k} = $v;
         }
@@ -112,8 +123,12 @@ final class QueueWorkerTest extends CIUnitTestCase
     {
         $ran     = false;
         $backend = new _FakeBackend($this->lease([
-            'job'        => 'closure',
-            'payload'    => static function () use (&$ran) { $ran = true; return 'ok'; },
+            'job'     => 'closure',
+            'payload' => static function () use (&$ran) {
+                $ran = true;
+
+                return 'ok';
+            },
             'queue'      => 'q',
             'maxRetries' => 2,
         ], 0));
@@ -129,7 +144,7 @@ final class QueueWorkerTest extends CIUnitTestCase
     {
         $backend = new _FakeBackend($this->lease([
             'job'        => 'closure',
-            'payload'    => static function (): void { throw new \RuntimeException('boom'); },
+            'payload'    => static function (): void { throw new RuntimeException('boom'); },
             'queue'      => 'q',
             'maxRetries' => 2,
         ], 0));
@@ -146,7 +161,7 @@ final class QueueWorkerTest extends CIUnitTestCase
     {
         $backend = new _FakeBackend($this->lease([
             'job'        => 'closure',
-            'payload'    => static function (): void { throw new \RuntimeException('boom'); },
+            'payload'    => static function (): void { throw new RuntimeException('boom'); },
             'queue'      => 'q',
             'maxRetries' => 2,
         ], 2)); // already ran 3 times total (attempts 0,1,2)
@@ -161,8 +176,12 @@ final class QueueWorkerTest extends CIUnitTestCase
     {
         $ran     = false;
         $backend = new _FakeBackend($this->lease([
-            'job'        => 'closure',
-            'payload'    => static function () use (&$ran) { $ran = true; return 'ok'; },
+            'job'     => 'closure',
+            'payload' => static function () use (&$ran) {
+                $ran = true;
+
+                return 'ok';
+            },
             'queue'      => 'q',
             'maxRetries' => 0,
             '_sig'       => 'tampered',
@@ -181,9 +200,9 @@ final class QueueWorkerTest extends CIUnitTestCase
     {
         $signer = new EnvelopeSigner('secret-key');
         // Build a properly signed wire (command handler, JSON-serialisable payload).
-        $wire   = EnvelopeFactory::toWire(new JobDefinition(handler: 'command', payload: 'jobs:test', queue: 'q'), 'id-1', $signer);
-        $env    = new JobEnvelope(id: 'id-1', queue: 'q', payload: $wire, attempts: 0, meta: []);
-        $lease  = new JobLease($env, 'tok', 'owner', new DateTimeImmutable('+300 seconds'), 'fake');
+        $wire  = EnvelopeFactory::toWire(new JobDefinition(handler: 'command', payload: 'jobs:test', queue: 'q'), 'id-1', $signer);
+        $env   = new JobEnvelope(id: 'id-1', queue: 'q', payload: $wire, attempts: 0, meta: []);
+        $lease = new JobLease($env, 'tok', 'owner', new DateTimeImmutable('+300 seconds'), 'fake');
 
         $backend = new _FakeBackend($lease);
         $result  = (new QueueWorker($backend, signer: $signer))->processOnce('q');
@@ -202,8 +221,12 @@ final class QueueWorkerTest extends CIUnitTestCase
 
         $ran     = false;
         $backend = new _FakeBackend($this->lease([
-            'job'            => 'closure',
-            'payload'        => static function () use (&$ran) { $ran = true; return 'ok'; },
+            'job'     => 'closure',
+            'payload' => static function () use (&$ran) {
+                $ran = true;
+
+                return 'ok';
+            },
             'queue'          => 'q',
             'maxRetries'     => 0,
             'idempotencyKey' => 'dup-key',

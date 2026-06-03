@@ -39,7 +39,6 @@ final class QueueWorkCommand extends BaseJobsCommand
         '--max'     => 'Process at most N cycles then exit (0 = unlimited).',
         '--backend' => 'Override the configured backend name.',
     ];
-
     private bool $shouldStop = false;
 
     /**
