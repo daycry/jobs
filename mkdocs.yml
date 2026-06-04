@@ -1,40 +1,152 @@
-site_name: CodeIgniter Job Scheduler
-site_description: Advanced job scheduler & queue package for CodeIgniter 4
+site_name: CodeIgniter Jobs
+site_description: Job scheduling & queue processing for CodeIgniter 4 — fluent definitions, five interchangeable backends, signed envelopes, retries, idempotency and a resilient worker.
+site_author: Daycry
+site_url: https://daycry.github.io/jobs/
+copyright: Copyright &copy; 2025 Daycry
+
 repo_url: https://github.com/daycry/jobs
 repo_name: daycry/jobs
-nav:
-  - Home: docs/index.md
-  - Getting Started:
-      - Installation: docs/installation.md
-      - Quick Start: docs/quickstart.md
-  - Core Concepts:
-      - Architecture: docs/ARCHITECTURE.md
-      - Jobs & Builder: docs/jobs.md
-      - Handlers: docs/handlers.md
-      - Queues & Workers: docs/QUEUES.md
-  - Guides:
-      - Scheduling: docs/scheduling.md
-      - Retries: docs/RETRIES.md
-      - Security: docs/security.md
-      - Concurrency: docs/concurrency.md
-      - Advanced: docs/advanced.md
-  - Operations & CLI:
-      - Operations: docs/operations.md
-      - CLI Commands: docs/COMMANDS.md
-  - Reference:
-      - Configuration: docs/CONFIGURATION.md
-      - Attempts: docs/ATTEMPTS.md
-      - Dependencies: docs/dependencies.md
-      - Exceptions: docs/EXCEPTIONS.md
-  - Migration to v3: docs/MIGRATION-v1-to-v3.md
-  - Changelog: CHANGELOG.md
-  - License: LICENSE
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: en
+  logo: images/logo.svg
+  favicon: images/logo.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+    - navigation.footer
+    - navigation.path
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+
 markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
   - toc:
       permalink: true
-  - tables
-  - admonition
-  - codehilite
-  - footnotes
-  - def_list
-  - attr_list
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+      # Many PHP snippets in these docs omit the opening `<?php` tag, so Pygments'
+      # PHP lexer would treat them as plain HTML. Re-define the `php` fence to run
+      # the lexer in inline mode so bare PHP highlights correctly.
+      extend_pygments_lang:
+        - name: php
+          lang: php
+          options:
+            startinline: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# Validate internal links AND anchors so `mkdocs build --strict` fails on any
+# broken reference (the build-time link oracle).
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+# Internal planning docs, the legacy landing and the GitHub folder README are not
+# part of the published site.
+exclude_docs: |
+  superpowers/
+  README.md
+  home.md
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/daycry/jobs
+    - icon: fontawesome/brands/php
+      link: https://packagist.org/packages/daycry/jobs
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+  - Core Concepts:
+      - Architecture: ARCHITECTURE.md
+      - Jobs & Builder: jobs.md
+      - Handlers: handlers.md
+      - Queues & Workers: QUEUES.md
+  - Guides:
+      - Scheduling: scheduling.md
+      - Retries: RETRIES.md
+      - Security: security.md
+      - Concurrency: concurrency.md
+      - Advanced: advanced.md
+  - Operations & CLI:
+      - Operations: operations.md
+      - CLI Commands: COMMANDS.md
+  - Reference:
+      - Configuration: CONFIGURATION.md
+      - Attempts: ATTEMPTS.md
+      - Dependencies: dependencies.md
+      - Exceptions: EXCEPTIONS.md
+  - Migration to v3: MIGRATION-v1-to-v3.md

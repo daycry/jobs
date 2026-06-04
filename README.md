@@ -2,13 +2,13 @@
 
 ---
 
-🚀 **[VIEW ONLINE DOCUMENTATION](https://codeigniter-4-jobs.readthedocs.io/)** 🚀
+🚀 **[VIEW ONLINE DOCUMENTATION](https://daycry.github.io/jobs/)** 🚀
 
 ---
 
 # Codeigniter Jobs
 
-[![Documentation Status](https://readthedocs.org/projects/codeigniter-4-jobs/badge/?version=latest)](https://codeigniter-4-jobs.readthedocs.io/en/latest/)
+[![Docs](https://github.com/daycry/jobs/actions/workflows/docs.yml/badge.svg)](https://daycry.github.io/jobs/)
 [![Tests](https://github.com/daycry/jobs/actions/workflows/php.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/php.yml)
 [![Static Analysis](https://github.com/daycry/jobs/actions/workflows/analyze.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/analyze.yml)
 [![Code Style](https://github.com/daycry/jobs/actions/workflows/cs.yml/badge.svg?branch=master)](https://github.com/daycry/jobs/actions/workflows/cs.yml)

@@ -1,37 +1,86 @@
-# Codeigniter Jobs
-
-**daycry/jobs** is a job scheduling and queue processing library for CodeIgniter 4. You describe work with a fluent, immutable builder, dispatch it to one of five interchangeable queue backends, and process it with a resilient worker that provides real (interrupting) timeouts, retries with backoff, HMAC-signed envelopes, opt-in idempotency, single-instance locking and per-queue handler allowlists.
-
-This page is the entry point: it explains what the package is, lists the key features, walks through a minimal quick start (define and dispatch a job, run a worker, schedule a cron job), and links to every documentation section.
-
-> **Note:** v3.0 is a single, clean architecture. The legacy mutable `Job` builder, the V1 `Scheduler`, the performance loggers, the `NotificationService`/email integration, the `QueueManager` and the `JobsLogModel` were all removed. Upgrading from v1? See [Migration v1 → v3](MIGRATION-v1-to-v3.md).
-
+---
+hide:
+  - toc
 ---
 
-## What it does
+<div class="hero" markdown>
 
-- **Define** a job once with a fluent builder (`Jobs::define()`), producing an immutable value object (`JobDefinition`).
-- **Dispatch** it to a backend (`sync`, `database`, `redis`, `beanstalk` or `serviceBus`) that all share a single `QueueBackend` contract.
-- **Process** it with `jobs:queue:work`, which runs exactly one attempt per delivery and lets the backend handle redelivery/backoff.
-- **Schedule** recurring work with cron frequency helpers and the v3 `Scheduler`, driven by `jobs:cronjob:run` from your system cron.
+# CodeIgniter Jobs
 
----
+Job scheduling and queue processing for **CodeIgniter 4**. Describe work with a fluent, immutable
+builder, dispatch it to one of five interchangeable queue backends, and process it with a resilient
+worker — real timeouts, retries with backoff, HMAC-signed envelopes, idempotency and per-queue
+handler allowlists.
 
-## Key features
+[Get started](quickstart.md){ .md-button .md-button--primary }
+[View on GitHub](https://github.com/daycry/jobs){ .md-button }
 
-- **Fluent, immutable definitions** — `JobBuilder` is a throwaway accumulator; `JobDefinition` is a `readonly` value object. No mutable god-object.
-- **Five queue backends, one contract** — `sync`, `database`, `redis`, `beanstalk`, `serviceBus`, all implementing `enqueue` / `fetch` / `ack` / `nack` / `abandon` / `reapExpired`.
-- **At-least-once delivery** — persistent backends use lease semantics with owner tokens; a reaper reclaims leases abandoned by crashed workers.
-- **Real timeouts** — `pcntl` SIGALRM interrupts even CPU-bound code at the deadline, with a documented soft fallback when `pcntl` is unavailable.
-- **Retries with backoff** — `none` / `fixed` / `exponential` strategies with optional jitter; total runs = `maxRetries + 1`.
-- **Signed envelopes** — HMAC-SHA256 over the immutable identity fields; the worker rejects tampered or forged messages.
-- **Idempotency** — opt-in deduplication by key with a configurable TTL.
-- **Single-instance locking** — token-owned locks prevent concurrent runs of the same named job.
-- **Defense in depth** — per-queue handler allowlist, deny-by-default `shell`, event allowlist, anti-SSRF `url` handler.
-- **Operational guards** — circuit breaker, per-queue rate limits, graceful shutdown, and an **opt-in** dead-letter helper (`DeadLetterQueue::store()`, gated by `Config\Jobs::$deadLetterQueue`). The worker itself calls `abandon()` when retries are exhausted; it does **not** auto-route to the DLQ.
-- **Cron scheduling** — frequency helpers (`dailyAt`, `everyMinute`, `hourly`, …), topological ordering by `dependsOn()`, environment gating.
+</div>
 
----
+!!! note "v3.0 is a single, clean architecture"
+    The legacy mutable `Job` builder, the V1 `Scheduler`, the performance loggers, the
+    `NotificationService`/email integration, the `QueueManager` and the `JobsLogModel` were all
+    removed. Upgrading from v1? See [Migration v1 → v3](MIGRATION-v1-to-v3.md).
+
+## Features
+
+<div class="grid cards" markdown>
+
+-   :material-format-list-checks:{ .lg .middle } **Fluent, immutable definitions**
+
+    ---
+
+    `Jobs::define()` opens a throwaway `JobBuilder`; the result is a `readonly` `JobDefinition`
+    value object. No mutable god-object.
+
+    [:octicons-arrow-right-24: Jobs & Builder](jobs.md)
+
+-   :material-swap-horizontal:{ .lg .middle } **Five backends, one contract**
+
+    ---
+
+    `sync`, `database`, `redis`, `beanstalk` and `serviceBus` all implement the same lease-based
+    `QueueBackend` — at-least-once delivery on every persistent backend.
+
+    [:octicons-arrow-right-24: Queues & Workers](QUEUES.md)
+
+-   :material-shield-check:{ .lg .middle } **Secure by default**
+
+    ---
+
+    HMAC-signed envelopes, a per-queue handler allowlist, deny-by-default `shell`, an event
+    allowlist and an anti-SSRF `url` handler.
+
+    [:octicons-arrow-right-24: Security](security.md)
+
+-   :material-timer-outline:{ .lg .middle } **Real timeouts & retries**
+
+    ---
+
+    `pcntl` interrupts even CPU-bound code at the deadline; retries with `none` / `fixed` /
+    `exponential` backoff and a configurable budget.
+
+    [:octicons-arrow-right-24: Retries](RETRIES.md)
+
+-   :material-calendar-clock:{ .lg .middle } **Cron scheduling**
+
+    ---
+
+    Frequency helpers (`dailyAt`, `everyMinute`, `hourly`, …), topological `dependsOn()` ordering
+    and environment gating.
+
+    [:octicons-arrow-right-24: Scheduling](scheduling.md)
+
+-   :material-cog-sync:{ .lg .middle } **Production-ready operations**
+
+    ---
+
+    Circuit breaker, per-queue rate limits, graceful shutdown, a lease reaper, metrics and an
+    opt-in dead-letter helper.
+
+    [:octicons-arrow-right-24: Operations](operations.md)
+
+</div>
 
 ## Quick start
 
@@ -52,9 +101,10 @@ $id = Jobs::define('command', 'app:report')
 `toDefinition()` to build a definition without enqueuing, and `Jobs::backend(?string $name)` to
 resolve a backend directly.
 
-> **Note:** With the zero-config default backend (`sync`), `dispatch()` runs the job **inline** and
-> returns a synthetic `sync-...` id. Switch `Config\Jobs::$worker` to `database`, `redis`,
-> `beanstalk` or `serviceBus` to actually enqueue for a separate worker process.
+!!! note
+    With the zero-config default backend (`sync`), `dispatch()` runs the job **inline** and returns
+    a synthetic `sync-...` id. Switch `Config\Jobs::$worker` to `database`, `redis`, `beanstalk` or
+    `serviceBus` to actually enqueue for a separate worker process.
 
 ### 2. Run a worker
 
@@ -64,7 +114,7 @@ php spark jobs:queue:work reports
 
 The worker leases one ready message at a time, verifies its signature, runs a single attempt, then
 `ack`s on success or `nack`s (with backoff) / `abandon`s on failure. Stop it gracefully with
-`Ctrl+C` (SIGINT) or SIGTERM.
+++ctrl+c++ (SIGINT) or SIGTERM.
 
 ### 3. Schedule a recurring job
 
@@ -86,37 +136,9 @@ Then run the cron runner once per minute from your operating system's crontab:
 * * * * * cd /var/www/app && php spark jobs:cronjob:run >> /dev/null 2>&1
 ```
 
-Due definitions with a `queue` are **enqueued**; the rest run **inline**.
-
-See [Quick Start](quickstart.md) for the full end-to-end tutorial, including a custom handler and
+Due definitions with a `queue` are **enqueued**; the rest run **inline**. See
+[Quick Start](quickstart.md) for the full end-to-end tutorial, including a custom handler and
 envelope signing.
-
----
-
-## Documentation map
-
-| Page | Description |
-|------|-------------|
-| [Installation](installation.md) | Requirements, `composer require`, migrations, optional extensions, signing key. |
-| [Quick Start](quickstart.md) | End-to-end tutorial: handler, dispatch, worker, cron, signing. |
-| [Architecture](ARCHITECTURE.md) | Layers, the pipeline, the `QueueBackend` contract, at-least-once semantics. |
-| [Jobs & Builder](jobs.md) | `Jobs` facade, `JobBuilder`, `JobDefinition`, frequency helpers. |
-| [Handlers](handlers.md) | `JobHandlerInterface`, `AbstractJobHandler`, `TypedJobHandler`, built-in handlers. |
-| [Queues & Workers](QUEUES.md) | The five backends, `JobLease`, the worker loop. |
-| [Scheduling](scheduling.md) | The `Scheduler`, cron expressions, dependency ordering. |
-| [Retries](RETRIES.md) | Backoff strategies, `maxRetries`, DLQ. |
-| [Security](security.md) | Signing, handler allowlists, shell/event/URL hardening. |
-| [Concurrency](concurrency.md) | Single-instance locks, circuit breaker, rate limits. |
-| [Advanced](advanced.md) | Callbacks/chaining model, idempotency in depth, custom backends. |
-| [Configuration](CONFIGURATION.md) | Every option in `Config\Jobs`. |
-| [CLI Commands](COMMANDS.md) | `jobs:queue:work`, `jobs:queue:reap`, `jobs:cronjob:run`, `jobs:queue:purge`, `jobs:publish`. |
-| [Operations](operations.md) | Running workers in production, reaping, monitoring, purging. |
-| [Attempts](ATTEMPTS.md) | The attempts counter, its lifecycle, and its relation to backoff. |
-| [Dependencies](dependencies.md) | Ordering scheduled jobs with `dependsOn()` (topological sort). |
-| [Exceptions](EXCEPTIONS.md) | `JobException` and `QueueException`. |
-| [Migration v1 → v3](MIGRATION-v1-to-v3.md) | Upgrading from the removed v1 API. |
-
----
 
 ## Core concepts
 
@@ -131,11 +153,5 @@ envelope signing.
 
 ---
 
-## Contributing
-
-Contributions and feedback are welcome — open an issue or PR on
-[GitHub](https://github.com/daycry/jobs).
-
-## License
-
-MIT License. See the repository for the full text.
+Contributions and feedback are welcome on [GitHub](https://github.com/daycry/jobs). Released under
+the MIT License.
