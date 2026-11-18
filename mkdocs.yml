@@ -112,6 +112,7 @@ validation:
 # part of the published site.
 exclude_docs: |
   superpowers/
+  roadmap/
   README.md
   home.md
 
